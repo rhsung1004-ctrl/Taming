@@ -11,6 +11,7 @@ namespace Necro.Proto
         public static float Scroll;
         public static bool AttackHeld, SpearDown, RaiseDown, RaiseHeld, BlastDown, BuffDown, CommandDown;
         public static bool DashDown, MountDown, JumpDown, JumpHeld, DescendHeld, PauseDown, ClickDown;
+        public static bool CrownDown, DescentDown, RosterDown, EscDown, DebugTierDown;
 
         const float MouseSens = 0.12f;    // 픽셀당 도
         const float StickSens = 170f;     // 초당 도
@@ -29,6 +30,7 @@ namespace Necro.Proto
             Scroll = 0f;
             AttackHeld = SpearDown = RaiseDown = RaiseHeld = BlastDown = BuffDown = CommandDown = false;
             DashDown = MountDown = JumpDown = JumpHeld = DescendHeld = PauseDown = ClickDown = false;
+            CrownDown = DescentDown = RosterDown = EscDown = DebugTierDown = false;
 
             var k = Keyboard.current;
             if (k != null)
@@ -50,6 +52,11 @@ namespace Necro.Proto
                 JumpHeld |= k.spaceKey.isPressed;
                 DescendHeld |= k.leftCtrlKey.isPressed || k.cKey.isPressed;
                 PauseDown |= k.escapeKey.wasPressedThisFrame || k.pKey.wasPressedThisFrame;
+                EscDown |= k.escapeKey.wasPressedThisFrame;
+                CrownDown |= k.gKey.wasPressedThisFrame;
+                DescentDown |= k.zKey.wasPressedThisFrame;
+                RosterDown |= k.tabKey.wasPressedThisFrame;
+                DebugTierDown |= k.f1Key.wasPressedThisFrame;
             }
 
             var m = Mouse.current;
@@ -83,6 +90,9 @@ namespace Necro.Proto
                 JumpHeld |= g.buttonSouth.isPressed;
                 DescendHeld |= g.leftTrigger.isPressed;
                 PauseDown |= g.startButton.wasPressedThisFrame;
+                CrownDown |= g.dpad.right.wasPressedThisFrame;
+                DescentDown |= g.dpad.down.wasPressedThisFrame;
+                RosterDown |= g.selectButton.wasPressedThisFrame;
             }
             Move = Vector2.ClampMagnitude(Move, 1f);
         }

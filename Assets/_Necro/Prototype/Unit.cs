@@ -16,18 +16,30 @@ namespace Necro.Proto
         public float wander = 6f;
         public Combatant target;
         public float buffTimer;        // 군단 강화 남은 시간
+        public float frenzyTimer;      // 광란: 공격 속도 폭증, 쓰러져도 한 번은 잠시 더 싸운다
+        public float undyingTimer;     // 불사의 군단: 체력이 1 아래로 내려가지 않는다
+        public int level = 1;          // 소환수도 싸우며 성장한다
+        public float uxp;
+        public float atkMul = 1f;
+        public Record rec;             // 이름과 전적 (지배한 소환수만)
+        public bool temp;              // 망자의 군세로 잠깐 불러낸 해골 (슬롯·전적 없음)
+        public int tempIndex;
 
         Rig rig;
         float atkTimer, aiTimer, specialTimer, windup, wanderTimer, burstTimer;
         int burstLeft;
         Vector3 wanderDest, sep, lastPos, burstPoint;
-        bool hasWander, flyingNow, leashed;
+        bool hasWander, flyingNow, leashed, lastStandUsed;
+        float tempLife, calm = 99f;
+
+        public const int MaxLevel = 10;
+        public float XpNeed { get { return 12f * level; } }
 
         public bool Ally { get { return team == Team.Player; } }
-        public override string DisplayName { get { return def.NameFor(Ally); } }
+        public override string DisplayName { get { return rec != null && rec.name != null ? rec.name : def.NameFor(Ally); } }
         public override Vector3 AimPoint { get { return transform.position + Vector3.up * Body.AimHeight(def.shape) * def.size; } }
         public override float Radius { get { return 0.45f * def.size; } }
-        float Atk { get { return def.atk * (buffTimer > 0f ? 1.3f : 1f); } }
+        float Atk { get { return def.atk * atkMul * (buffTimer > 0f ? 1.3f : 1f); } }
 
         public static Unit Create(UnitDef d, Team team, Vector3 pos)
         {
@@ -51,6 +63,60 @@ namespace Necro.Proto
 
         public void PlayRise() { rig.rise = 0f; }
 
+        public void MakeTemp(float life, int index)
+        {
+            temp = true;
+            tempLife = life;
+            tempIndex = index;
+        }
+
+        // ───────────── 성장과 진화 ─────────────
+        void OnKill(Unit victim)
+        {
+            if (temp || rec == null) return;
+            Bond.OnKill(this, victim);
+            if (level >= MaxLevel) return;
+            uxp += victim.def.xp;
+            while (level < MaxLevel && uxp >= XpNeed)
+            {
+                uxp -= XpNeed;
+                LevelUp();
+            }
+        }
+
+        void LevelUp()
+        {
+            level++;
+            rec.level = level;
+            maxHp *= 1.1f;
+            atkMul += 0.08f;
+            hp = maxHp;
+            if (def.evolvesTo != null && level >= def.evolveLevel) Evolve(Db.Get(def.evolvesTo));
+            else Hud.Popup(AimPoint + Vector3.up * 0.6f, "Lv." + level, new Color(1f, 0.85f, 0.4f));
+        }
+
+        // 일정 레벨에서 상위 유닛으로 진화 (해골 병사 → 해골 기사)
+        void Evolve(UnitDef next)
+        {
+            maxHp *= next.hp / def.hp;
+            hp = maxHp;
+            def = next;
+            gameObject.name = next.name;
+            rec.unitName = next.NameFor(true);
+            if (rig != null && rig.root != null) Destroy(rig.root.gameObject);
+            rig = Body.Build(next, true, transform);
+            rig.rise = 0.55f;
+            Fx.Burst(AimPoint, 2.2f * next.size, new Color(1f, 0.85f, 0.4f), 0.5f);
+            Hud.Popup(AimPoint + Vector3.up * 0.8f, "진화! " + next.name, new Color(1f, 0.85f, 0.4f), true);
+        }
+
+        public void ApplyVeteran()
+        {
+            maxHp *= 1.1f;
+            hp = Mathf.Min(maxHp, hp + maxHp * 0.1f);
+            atkMul += 0.1f;
+        }
+
         protected override void OnEnable() { base.OnEnable(); Units.Add(this); }
         protected override void OnDisable() { base.OnDisable(); Units.Remove(this); }
 
@@ -61,6 +127,33 @@ namespace Necro.Proto
             atkTimer -= dt;
             specialTimer -= dt;
             buffTimer -= dt;
+            frenzyTimer -= dt;
+            undyingTimer -= dt;
+
+            if (temp)
+            {
+                tempLife -= dt;
+                if (tempLife <= 0f)
+                {
+                    Fx.Burst(AimPoint, 1.2f, new Color(0.5f, 0.3f, 0.8f), 0.3f);
+                    Destroy(gameObject);
+                    return;
+                }
+            }
+            else if (rec != null)
+            {
+                // 전투 수: 한동안 조용하다가 다시 싸움에 들어가면 한 번으로 센다
+                if (target == null) calm += dt;
+                else
+                {
+                    if (calm > 8f)
+                    {
+                        rec.battles++;
+                        Bond.CheckVeteran(this);
+                    }
+                    calm = 0f;
+                }
+            }
 
             aiTimer -= dt;
             if (aiTimer <= 0f)
@@ -145,11 +238,12 @@ namespace Necro.Proto
         {
             var game = Game.I;
             var pl = game.player;
-            if (game.army.mode == Army.Retreat) { target = null; return; }
+            int mode = temp ? Army.Charge : game.army.mode;      // 망자의 군세는 언제나 돌격
+            if (mode == Army.Retreat) { target = null; return; }
 
             Vector3 pp = pl.transform.position;
             // 돌격: 주인공이 겨누는 적을 먼저 친다
-            if (game.army.mode == Army.Charge && pl.focus != null && pl.focus.Alive && CanReach(pl.focus) &&
+            if (mode == Army.Charge && pl.focus != null && pl.focus.Alive && CanReach(pl.focus) &&
                 (pl.focus.transform.position - pp).sqrMagnitude < 34f * 34f)
             {
                 target = pl.focus;
@@ -157,7 +251,7 @@ namespace Necro.Proto
             }
             if (target != null && (target.transform.position - pp).sqrMagnitude < 34f * 34f) return;
 
-            float range = game.army.mode == Army.Charge ? 26f : 11f;
+            float range = mode == Army.Charge ? 26f : 11f;
             Unit best = null;
             float bd = float.MaxValue;
             foreach (var u in Units)
@@ -236,7 +330,7 @@ namespace Necro.Proto
             }
             Face(tp - transform.position, dt);
             if (atkTimer > 0f) return;
-            atkTimer = def.cooldown;
+            atkTimer = def.cooldown * (frenzyTimer > 0f ? 0.6f : 1f);
             rig.Attack();
             if (def.ranged) Projectile.Fire(this, t, AimPoint + transform.forward * 0.4f, Atk, Ally ? new Color(0.72f, 0.45f, 1f) : new Color(1f, 0.85f, 0.6f));
             else Combat.Deal(this, t, Atk);
@@ -327,6 +421,23 @@ namespace Necro.Proto
         public override void TakeDamage(float amount, Combatant src)
         {
             if (IsDead) return;
+            if (Ally && amount * damageTakenMul >= hp)
+            {
+                // 불사의 군단 중이거나, 광란 중 첫 치명상이면 쓰러지지 않고 버틴다
+                bool stand = undyingTimer > 0f;
+                if (!stand && frenzyTimer > 0f && !lastStandUsed)
+                {
+                    lastStandUsed = true;
+                    undyingTimer = 3f;
+                    stand = true;
+                }
+                if (stand)
+                {
+                    hp = Mathf.Min(hp, 1f);
+                    lastHurtTime = Time.time;
+                    return;
+                }
+            }
             base.TakeDamage(amount, src);
             if (IsDead) return;
             if (!Ally && target == null && src != null && src.team == Team.Player && src.Alive && CanReach(src)) target = src;
@@ -338,6 +449,8 @@ namespace Necro.Proto
             if (Ally)
             {
                 Fx.Burst(AimPoint, 1.5f * def.size, new Color(0.5f, 0.3f, 0.8f));
+                if (temp) { Destroy(gameObject); return; }
+                Bond.OnFallen(this);
                 if (def.mount)
                 {
                     // 본드래곤은 사라지지 않고 잠시 흩어졌다가 돌아온다
@@ -350,6 +463,8 @@ namespace Necro.Proto
                 return;
             }
             game.OnEnemyKilled(this);
+            var ku = killer as Unit;
+            if (ku != null && ku.Ally && !ku.IsDead) ku.OnKill(this);
             if (spawner != null) spawner.OnRemoved(this);
             Corpse.Create(this);
             Destroy(gameObject);
@@ -358,6 +473,7 @@ namespace Necro.Proto
         public void Revive(PlayerCtl pl)
         {
             hp = maxHp;
+            lastStandUsed = false;
             gameObject.SetActive(true);
             TeleportNear(pl);
         }

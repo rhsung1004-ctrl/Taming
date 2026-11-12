@@ -106,6 +106,7 @@ namespace Necro.Proto
             return (c - 0xAC00) % 28 != 0;
         }
         public static string IGa(string s) { return s + (HasBatchim(s) ? "이" : "가"); }
+        public static string IyaYa(string s) { return s + (HasBatchim(s) ? "이야" : "야"); }
         public static string EulReul(string s) { return s + (HasBatchim(s) ? "을" : "를"); }
 
         public static Texture2D Circle(int size, bool ring)

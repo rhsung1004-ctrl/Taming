@@ -68,6 +68,7 @@ namespace Necro.Proto
         public Transform model, legL, legR, armL, armR, hair, staffTip;
         public float seat;      // 탈것에 탔을 때 모델을 올리는 높이
         public float cast;      // 1 → 0 시전 동작
+        public float reach;     // 0 → 1 무릎을 굽히고 손을 내미는 동작 (정예 이상 지배)
 
         public void Animate(float move, bool riding, bool airborne, float dt)
         {
@@ -98,6 +99,13 @@ namespace Necro.Proto
                 bob = Mathf.Abs(Mathf.Sin(t * 10f)) * 0.06f * move;
             }
             if (cast > 0f) armR.localRotation = Quaternion.Euler(-110f * cast, 0f, 8f);
+            if (reach > 0f && !riding)
+            {
+                legL.localRotation = Quaternion.Euler(-70f * reach, 0f, 0f);
+                legR.localRotation = Quaternion.Euler(35f * reach, 0f, 0f);
+                armL.localRotation = Quaternion.Euler(-65f * reach, 0f, 10f);     // 빈 손을 망자에게 내민다
+                bob = -0.42f * reach;
+            }
             hair.localRotation = Quaternion.Euler(Mathf.Sin(t * 5f) * 5f + move * 16f, Mathf.Sin(t * 3f) * 5f, 0f);
             model.localPosition = new Vector3(0f, seat + bob, 0f);
         }

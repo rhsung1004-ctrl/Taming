@@ -203,7 +203,7 @@ namespace Necro.Proto
             l.intensity = intensity;
         }
 
-        static void Grave(Vector3 p, float yaw, int kind)
+        public static void Grave(Vector3 p, float yaw, int kind)
         {
             Color stone = new Color(0.42f, 0.42f, 0.47f);
             var root = new GameObject("Grave").transform;

@@ -10,7 +10,9 @@ namespace Necro.Proto
         public static readonly string[] ModeName = { "돌격", "호위", "후퇴" };
         static readonly string[] ModeDesc = { "돌격: 주변의 적을 먼저 공격해요", "호위: 가까이 온 적만 상대해요", "후퇴: 싸우지 않고 따라와요" };
 
-        public const float RaiseRange = 12f;
+        public float RaiseRange { get { return Spells.RaiseRange[game.player.tier]; } }
+        // 왕관의 부름(금주)은 지배 마나가 절반
+        public float RaiseMana(UnitGrade g) { return Db.RaiseMana(g) * (game.player.tier >= 2 ? 0.5f : 1f); }
         public static readonly Color Soul = new Color(0.72f, 0.45f, 1f);
 
         public readonly List<Unit> units = new List<Unit>();
@@ -60,11 +62,14 @@ namespace Necro.Proto
                 Hud.Toast(ModeDesc[mode], 2.5f);
             }
 
+            // 정예 이상을 지배하는 동안에는 무릎을 굽히고 손을 내민다
+            pl.rig.reach = Mathf.MoveTowards(pl.rig.reach, holdTarget != null ? 1f : 0f, dt * 5f);
+
             if (In.RaiseDown) BeginRaise();
             if (holdTarget != null)
             {
                 bool lost = !In.RaiseHeld ||
-                            Vector3.Distance(holdTarget.transform.position, pl.transform.position) > RaiseRange + 2f;
+                            Vector3.Distance(holdTarget.transform.position, pl.transform.position) > 16f;
                 if (lost) holdTarget = null;
                 else
                 {
@@ -84,6 +89,8 @@ namespace Necro.Proto
             var pl = game.player;
             Vector3 pp = pl.transform.position;
             int raised = 0;
+            int tier = pl.tier;
+            float range = RaiseRange;
             Corpse big = null;
             float bigD = float.MaxValue;
             bool any = false;
@@ -92,13 +99,14 @@ namespace Necro.Proto
             foreach (var c in list)
             {
                 float d = Vector3.Distance(c.transform.position, pp);
-                if (d > RaiseRange) continue;
+                if (d > range) continue;
                 any = true;
-                if (c.def.grade == UnitGrade.Common)
+                // 일반은 즉시. 왕관의 부름(금주)이면 정예도 즉시
+                if (c.def.grade == UnitGrade.Common || (tier >= 2 && c.def.grade == UnitGrade.Elite))
                 {
                     if (TryRaise(c, false)) raised++;
                 }
-                else if (d < bigD) { bigD = d; big = c; }
+                else if (d < bigD && d <= 14f) { bigD = d; big = c; }
             }
             if (big != null)
             {
@@ -107,6 +115,12 @@ namespace Necro.Proto
                 holdNeed = Db.RaiseHold(big.def.grade);
             }
             else if (!any) Warn("근처에 시체가 없어요. 적을 쓰러뜨리면 시체가 남아요.");
+            if (raised >= 4 && tier >= 1)
+            {
+                Fx.Ring(pp, Mathf.Min(range, 30f), Soul, 0.8f);
+                OrbitCam.Shake(tier >= 2 ? 0.6f : 0.3f);
+                if (tier >= 2) Hud.Flash(Soul, 0.5f);
+            }
         }
 
         void Warn(string s)
@@ -121,7 +135,7 @@ namespace Necro.Proto
             var pl = game.player;
             var d = c.def;
             int cost = Db.SlotCost(d.grade);
-            float mana = Db.RaiseMana(d.grade);
+            float mana = RaiseMana(d.grade);
             if (pl.mana < mana) { Warn("마나가 부족해요."); return false; }
             if (Free < cost && makeRoom) MakeRoom(cost);
             if (Free < cost)
@@ -138,6 +152,7 @@ namespace Necro.Proto
             Hud.Popup(u.AimPoint + Vector3.up * 0.6f, d.grade == UnitGrade.Common ? "지배!" : u.DisplayName + " 지배!", Soul, d.grade != UnitGrade.Common);
             c.Consume();
             if (d.mount) dragon = u;
+            Bond.OnRaised(u);
             game.OnRaised(u);
             return true;
         }
@@ -150,6 +165,7 @@ namespace Necro.Proto
             {
                 var u = units[i];
                 if (u.def.grade != UnitGrade.Common) continue;
+                if (u.rec != null && u.rec.name != null) continue;      // 이름 붙은 고참은 내보내지 않는다
                 Fx.Burst(u.AimPoint, 1.2f, new Color(0.5f, 0.3f, 0.8f));
                 units.RemoveAt(i);
                 Object.Destroy(u.gameObject);
@@ -158,22 +174,34 @@ namespace Necro.Proto
             if (freed > 0) Hud.Toast("영혼 슬롯을 비우려고 일반 소환수 " + freed + "마리를 해방했어요.", 3.5f);
         }
 
-        public bool Buff()
+        // 군단 강화(공격력·회복) / 광란(+공격 속도, 쓰러져도 잠시 더 싸움) / 불사의 군단(+일정 시간 죽지 않음)
+        public bool Buff(int tier)
         {
-            if (units.Count == 0) return false;
-            foreach (var u in units)
+            int n = 0;
+            float time = tier == 0 ? 8f : 10f;
+            Color c = tier == 2 ? new Color(1f, 0.85f, 0.4f) : new Color(1f, 0.3f, 0.35f);
+            foreach (var u in Unit.Units)
             {
-                if (u == null || !u.Alive) continue;
-                u.buffTimer = 8f;
+                if (!u.Ally || !u.Alive) continue;
+                u.buffTimer = time;
+                if (tier >= 1) u.frenzyTimer = time;
+                if (tier >= 2) u.undyingTimer = 8f;
                 u.Heal(u.maxHp * 0.3f);
-                Fx.Burst(u.AimPoint, 1.2f * u.def.size, new Color(1f, 0.3f, 0.35f), 0.3f);
+                Fx.Burst(u.AimPoint, 1.2f * u.def.size, c, 0.3f);
+                n++;
             }
-            return true;
+            return n > 0;
         }
 
         // 주인공 뒤에 줄지어 서는 자리
         public Vector3 SlotPosition(Unit u)
         {
+            if (u.temp)
+            {
+                // 망자의 군세는 주인공 앞쪽에 부채꼴로 선다
+                int t = u.tempIndex;
+                return game.player.transform.position + Quaternion.Euler(0f, (t % 14 - 6.5f) * 13f, 0f) * formFwd * (5f + (t / 14) * 3f);
+            }
             int i = units.IndexOf(u);
             if (i < 0) i = 0;
             int row = i / 6, col = i % 6;
@@ -189,7 +217,7 @@ namespace Necro.Proto
             foreach (var u in units)
             {
                 if (u == null) continue;
-                string n = u.DisplayName;
+                string n = u.def.NameFor(true);
                 int c;
                 counts.TryGetValue(n, out c);
                 counts[n] = c + 1;

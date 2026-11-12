@@ -9,6 +9,10 @@ namespace Necro.Proto
         public float yaw, pitch = 14f;
         float dist = 6.5f, zoom;
         const int Mask = ~(1 << 2);
+        static float shake;
+
+        // 큰 기술의 타격감: 0.2(가벼움) ~ 1(금주·왕관 스킬)
+        public static void Shake(float amount) { shake = Mathf.Max(shake, amount); }
 
         void LateUpdate()
         {
@@ -30,7 +34,8 @@ namespace Necro.Proto
             RaycastHit hit;
             if (Physics.SphereCast(pivot, 0.3f, back, out hit, dist, Mask, QueryTriggerInteraction.Ignore))
                 d2 = Mathf.Max(0.8f, hit.distance - 0.1f);
-            transform.position = pivot + back * d2;
+            shake = Mathf.MoveTowards(shake, 0f, Time.unscaledDeltaTime * 1.8f);
+            transform.position = pivot + back * d2 + (shake > 0.001f ? Random.insideUnitSphere * shake * 0.35f : Vector3.zero);
             transform.rotation = rot;
         }
     }

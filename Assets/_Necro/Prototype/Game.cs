@@ -28,9 +28,10 @@ namespace Necro.Proto
         public bool paused = true;
         public bool started;
         public int quest;
+        public bool rosterOpen;          // 군단 명부 (Tab)
 
         bool keeperKilled, dragonKilled;
-        float dragonRevive;
+        float dragonRevive, slowT, slowScale = 1f, storyT;
 
         void Awake()
         {
@@ -43,6 +44,9 @@ namespace Necro.Proto
             Unit.Units.Clear();
             Corpse.All.Clear();
             Hud.ClearStatic();
+            Bond.Reset();
+            Story.Reset();
+            Strafe.Active = false;
 
             gameObject.AddComponent<In>();
             gameObject.AddComponent<Hud>();
@@ -123,6 +127,12 @@ namespace Necro.Proto
 
         void Update()
         {
+            // 군단 명부가 열려 있으면 Tab/Esc로만 닫는다 (이름을 입력하는 중일 수 있으므로)
+            if (rosterOpen)
+            {
+                if (In.RosterDown || In.EscDown) { rosterOpen = false; SetPaused(false); }
+                return;
+            }
             // 일시정지: 처음 시작할 때, Esc/P를 눌렀을 때. 화면을 클릭하면 계속한다.
             if (paused)
             {
@@ -130,6 +140,22 @@ namespace Necro.Proto
                 return;
             }
             if (In.PauseDown) { SetPaused(true); return; }
+            if (In.RosterDown) { rosterOpen = true; SetPaused(true); return; }
+
+            // 큰 기술을 쓸 때 잠깐 느려지는 시간
+            if (slowT > 0f)
+            {
+                slowT -= Time.unscaledDeltaTime;
+                Time.timeScale = slowT > 0f ? slowScale : 1f;
+            }
+
+            // 테스트용: F1을 누르면 기술 단계를 바로 바꾸고 왕관 스킬도 연다
+            if (In.DebugTierDown)
+            {
+                player.tier = (player.tier + 1) % 3;
+                player.hasCrown = true;
+                Hud.Toast("[테스트] 기술 단계: " + Spells.TierName[player.tier] + " · 왕관 스킬 해금", 3f);
+            }
             if (!In.CursorLocked && In.ClickDown) In.LockCursor(true);    // 에디터에서 Esc로 커서가 풀렸을 때
 
             float dt = Time.deltaTime;
@@ -145,6 +171,44 @@ namespace Necro.Proto
                 }
             }
             UpdateQuest();
+
+            storyT -= dt;
+            if (storyT <= 0f)
+            {
+                storyT = 0.5f;
+                UpdateStory();
+            }
+        }
+
+        public void Slow(float seconds, float scale)
+        {
+            slowT = seconds;
+            slowScale = scale;
+        }
+
+        // 지역에 처음 들어설 때의 대사
+        void UpdateStory()
+        {
+            Vector3 p = player.transform.position;
+            if (!keeperKilled && Near(p, World.CryptXZ, 30f)) Story.Play("r1_hero");
+            if (Near(p, World.RuinsXZ, 45f)) Story.Play("r2_enter");
+            if (!dragonKilled && Near(p, World.RoostXZ, 48f)) Story.Play("dragon_meet");
+        }
+
+        static bool Near(Vector3 p, Vector2 xz, float r)
+        {
+            float dx = p.x - xz.x, dz = p.z - xz.y;
+            return dx * dx + dz * dz < r * r;
+        }
+
+        void UnlockTier(int t)
+        {
+            if (player.tier >= t) return;
+            player.tier = t;
+            Story.Play(t == 1 ? "tier1" : "tier2");
+            Hud.Toast(Spells.TierName[t] + " 마법 해금! " + Spells.BasicName[t] + " · " + Spells.SpearName[t] + " · " + Spells.BlastName[t] + " · " +
+                      Spells.BuffName[t] + " · " + Spells.RaiseName[t], 8f);
+            Hud.Flash(new Color(0.72f, 0.45f, 1f), 0.6f);
         }
 
         void SetPaused(bool on)
@@ -155,7 +219,7 @@ namespace Necro.Proto
             if (!on && !started)
             {
                 started = true;
-                Hud.Toast("…봉인이 풀렸네. 망자들의 목소리는 그대로 들려.", 5f);
+                Story.Play("r1_enter");
                 Hud.Toast("마우스 왼쪽으로 영혼 화살을 쏴 해골 병사를 쓰러뜨리세요.", 6f);
             }
         }
@@ -172,6 +236,7 @@ namespace Necro.Proto
                     keeperKilled = true;
                     Hud.Toast("묘지기를 쓰러뜨렸어요! 영혼 슬롯 +2", 4f);
                     Hud.Toast("영웅의 시체는 E를 길게 눌러 지배할 수 있어요.", 6f);
+                    UnlockTier(1);
                 }
             }
             else if (u.def.grade == UnitGrade.Boss)
@@ -179,6 +244,7 @@ namespace Necro.Proto
                 army.bonusSlots += 6;
                 dragonKilled = true;
                 Hud.Toast("고룡이 쓰러졌어요! 영혼 슬롯 +6", 5f);
+                UnlockTier(2);
             }
         }
 
@@ -186,10 +252,11 @@ namespace Necro.Proto
         {
             if (u.def.mount)
             {
-                Hud.Toast("내 뒤로 오렴. 오늘부터 네가 내 날개야. — 본드래곤 획득!", 6f);
-                Hud.Toast("V를 누르면 본드래곤에 올라탑니다.", 6f);
+                Hud.Toast("본드래곤 획득! V로 올라타고, 내려 있을 때 Z로 강림(일직선 폭격)을 부를 수 있어요.", 8f);
             }
             else if (army.Count == 1) Hud.Toast("첫 소환수! 군단은 알아서 싸우고, F로 명령을 바꿀 수 있어요.", 5f);
+            else if (u.rec != null && u.rec.name != null && army.Count < 12)
+                Hud.Toast(Util.IGa(u.rec.name) + " 군단에 들어왔어요. Tab(군단 명부)에서 이름을 바꿀 수 있어요.", 5f);
         }
 
         public void OnBoneDragonDown()
@@ -219,7 +286,7 @@ namespace Necro.Proto
                     case 3: return "고룡의 시체 앞에서 E를 길게 눌러\n본드래곤을 만드세요";
                     case 4: return "V로 본드래곤에 올라\n남서쪽 하늘의 부유 성채로 날아가세요";
                     case 5: return "부유 성채의 적을 섬멸하세요 (남은 적 " + SkyLeft() + ")\n하늘에서 브레스로, 또는 착륙해 군단으로";
-                    default: return "프로토타입 클리어!\n왕관 조각을 되찾았어요. 자유롭게 돌아다녀 보세요";
+                    default: return "프로토타입 클리어!\n왕관 스킬 [G] 망자의 군세로 필드를 휩쓸어 보세요";
                 }
             }
         }
@@ -247,8 +314,17 @@ namespace Necro.Proto
             if (quest == 2 && dragonKilled) Advance(null);
             if (quest <= 3 && army.dragon != null) { quest = 4; }
             if (quest == 4 && Util.Flat(player.transform.position - World.SkyTop).magnitude < 60f && player.transform.position.y > World.SkyHeight - 15f)
+            {
                 Advance("부유 성채에 도착! 하늘에서 브레스를 퍼붓거나, 착륙해서 군단을 불러내세요.");
-            if (quest == 5 && SkyLeft() == 0) Advance("부유 성채 함락! 프로토타입 클리어!");
+                Story.Play("sky_enter");
+            }
+            if (quest == 5 && SkyLeft() == 0)
+            {
+                Advance("부유 성채 함락! 프로토타입 클리어!");
+                Story.Play("r1_clear");
+                player.hasCrown = true;
+                Hud.Toast("왕관 조각 획득! 왕관 스킬 해금: 망자의 군세 [G]", 8f);
+            }
         }
 
         void Advance(string msg)

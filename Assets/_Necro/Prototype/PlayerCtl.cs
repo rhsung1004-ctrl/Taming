@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace Necro.Proto
@@ -17,9 +16,12 @@ namespace Necro.Proto
         public float Speed;
 
         // HUD가 읽는 재사용 대기 (남은 시간 / 전체)
-        public float spearCd, blastCd, buffCd, dashCd;
-        public const float SpearCdMax = 4f, BlastCdMax = 6f, BuffCdMax = 14f, DashCdMax = 1.4f;
-        public const float SpearMana = 15f, BlastMana = 20f, BuffMana = 25f;
+        public float spearCd, blastCd, buffCd, dashCd, legionCd, descentCd;
+        public const float DashCdMax = 1.4f;
+
+        // 기술 단계: 0 하급, 1 상급, 2 금주. 같은 칸의 기술이 단계에 따라 바뀐다 (Spells.cs)
+        public int tier;
+        public bool hasCrown;            // 왕관 조각을 되찾으면 왕관 스킬(망자의 군세)이 열린다
 
         GameObject mountObj;
         Rig mountRig;
@@ -64,6 +66,7 @@ namespace Necro.Proto
             if (IsDead || Game.I.paused) return;
             float dt = Time.deltaTime;
             boltT -= dt; spearCd -= dt; blastCd -= dt; buffCd -= dt; dashCd -= dt; breathT -= dt; warnT -= dt;
+            legionCd -= dt; descentCd -= dt;
 
             Transform cam = Game.I.cam.transform;
             Vector3 fwd = Util.Flat(cam.forward).normalized;
@@ -189,76 +192,89 @@ namespace Necro.Proto
                 if (Riding) Breath(cam);
                 else if (boltT <= 0f)
                 {
-                    boltT = 0.38f;
                     rig.cast = 1f;
-                    float dmg = 15f + 2f * level;
-                    if (focus != null) Projectile.Fire(this, focus, rig.staffTip.position, dmg, Soul, 32f);
-                    else Projectile.FireAt(this, Team.Enemy, rig.staffTip.position, cam.position + cam.forward * 40f, 0f, Soul, 32f, 0f, 0.3f);
+                    boltT = Spells.Basic(this, cam);
                 }
             }
 
-            if (In.SpearDown && !Riding)
+            if (In.SpearDown && !Riding && spearCd <= 0f)
             {
-                if (spearCd > 0f) { }
-                else if (focus == null) Warn("뼈 창을 던질 적이 없어요.");
-                else if (mana < SpearMana) Warn("마나가 부족해요.");
-                else
+                if (tier == 0 && focus == null) Warn("뼈 창을 던질 적이 없어요.");
+                else if (mana < Spells.SpearMana[tier]) Warn("마나가 부족해요.");
+                else if (Spells.Spear(this, cam))
                 {
-                    mana -= SpearMana;
-                    spearCd = SpearCdMax;
+                    mana -= Spells.SpearMana[tier];
+                    spearCd = Spells.SpearCd[tier];
                     rig.cast = 1f;
-                    Projectile.Fire(this, focus, rig.staffTip.position, 70f + 8f * level, new Color(0.95f, 0.92f, 0.8f), 36f, 3.2f, 0.5f);
                 }
             }
 
             if (In.BlastDown && blastCd <= 0f)
             {
-                if (mana < BlastMana) Warn("마나가 부족해요.");
-                else if (Blast())
+                if (mana < Spells.BlastMana[tier]) Warn("마나가 부족해요.");
+                else if (Spells.Blast(this))
                 {
-                    mana -= BlastMana;
-                    blastCd = BlastCdMax;
+                    mana -= Spells.BlastMana[tier];
+                    blastCd = Spells.BlastCd[tier];
                     rig.cast = 1f;
+                    if (tier == 2) Hud.Say("me", "다들, 한 번만 더 힘을 빌려줘.");
                 }
-                else Warn("폭발시킬 시체가 근처에 없어요.");
+                else Warn(tier == 2 ? "해일을 일으킬 시체나 적이 근처에 없어요." : "폭발시킬 시체가 근처에 없어요.");
             }
 
             if (In.BuffDown && buffCd <= 0f)
             {
-                if (mana < BuffMana) Warn("마나가 부족해요.");
-                else if (game.army.Buff())
+                if (mana < Spells.BuffMana[tier]) Warn("마나가 부족해요.");
+                else if (game.army.Buff(tier))
                 {
-                    mana -= BuffMana;
-                    buffCd = BuffCdMax;
+                    mana -= Spells.BuffMana[tier];
+                    buffCd = Spells.BuffCd[tier];
                     rig.cast = 1f;
-                    Hud.Toast("군단 강화! 8초 동안 공격력 +30%, 체력 회복", 2.5f);
+                    if (tier == 0) Hud.Toast("군단 강화! 8초 동안 공격력 +30%, 체력 회복", 2.5f);
+                    else if (tier == 1) Hud.Toast("광란! 10초 동안 공격 속도 폭증, 쓰러져도 잠시 더 싸워요", 2.5f);
+                    else
+                    {
+                        Hud.Toast("불사의 군단! 8초 동안 군단이 쓰러지지 않아요", 2.5f);
+                        Hud.Say("me", "아무도 쓰러지지 마. 내가 붙잡고 있을게.");
+                        Hud.Flash(new Color(1f, 0.85f, 0.4f), 0.5f);
+                        OrbitCam.Shake(0.5f);
+                    }
                 }
                 else Warn("강화할 군단이 없어요.");
             }
-        }
 
-        // 시체 폭발: 적 가까이 있는 일반·정예 시체를 최대 6구 터뜨린다 (영웅·보스 시체는 지배용으로 남긴다)
-        bool Blast()
-        {
-            Vector3 center = focus != null ? focus.transform.position : transform.position;
-            var list = new List<Corpse>();
-            foreach (var c in Corpse.All)
+            // 왕관 스킬: 망자의 군세
+            if (In.CrownDown)
             {
-                if (c.def.grade == UnitGrade.Hero || c.def.grade == UnitGrade.Boss) continue;
-                if ((c.transform.position - transform.position).sqrMagnitude > 32f * 32f) continue;
-                list.Add(c);
+                if (!hasCrown) Warn("왕관 조각을 되찾아야 쓸 수 있어요.");
+                else if (legionCd > 0f) Warn("망자의 군세: " + Mathf.CeilToInt(legionCd) + "초 뒤에 다시 쓸 수 있어요.");
+                else if (mana < Spells.LegionMana) Warn("마나가 부족해요.");
+                else if (Spells.Legion(this))
+                {
+                    mana -= Spells.LegionMana;
+                    legionCd = Spells.LegionCd;
+                    rig.cast = 1f;
+                    Hud.Say("me", "잠든 아이들아, 잠깐만 깨어 주렴. 다 같이 가자.");
+                }
             }
-            if (list.Count == 0) return false;
-            list.Sort((a, b) => (a.transform.position - center).sqrMagnitude.CompareTo((b.transform.position - center).sqrMagnitude));
-            int n = Mathf.Min(6, list.Count);
-            for (int i = 0; i < n; i++)
+
+            // 왕관 스킬: 강림 (타고 있지 않을 때 본드래곤을 불러 일직선 폭격)
+            if (In.DescentDown)
             {
-                Vector3 p = list[i].transform.position + Vector3.up * 0.5f;
-                Fx.Burst(p, 5.5f, new Color(0.6f, 1f, 0.35f), 0.4f);
-                Combat.Area(this, p, 5.5f, 55f + 6f * level, Team.Enemy);
-                list[i].Consume();
+                var d = game.army.dragon;
+                if (d == null) Warn("아직 본드래곤이 없어요.");
+                else if (Riding) Warn("강림은 본드래곤에서 내려 있을 때 쓸 수 있어요.");
+                else if (!d.gameObject.activeSelf || Strafe.Active) Warn("본드래곤이 지금은 올 수 없어요.");
+                else if (descentCd > 0f) Warn("강림: " + Mathf.CeilToInt(descentCd) + "초 뒤에 다시 쓸 수 있어요.");
+                else if (mana < Spells.DescentMana) Warn("마나가 부족해요.");
+                else if (Spells.Descent(this, cam, d))
+                {
+                    mana -= Spells.DescentMana;
+                    descentCd = Spells.DescentCd;
+                    rig.cast = 1f;
+                    Hud.Say("me", "내려오렴. 저 줄을 전부 쓸어 줘.");
+                }
             }
-            return true;
         }
 
         void Breath(Transform cam)
@@ -284,6 +300,7 @@ namespace Necro.Proto
             if (Riding) { Dismount(); return; }
             var d = Game.I.army.dragon;
             if (d == null) { Warn("아직 본드래곤이 없어요."); return; }
+            if (Strafe.Active) { Warn("본드래곤이 강림 중이에요."); return; }
             if (!d.gameObject.activeSelf) { Warn("본드래곤이 다시 모이는 중이에요."); return; }
             Mount(d);
         }

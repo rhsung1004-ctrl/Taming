@@ -18,6 +18,8 @@ namespace Necro.Proto
         public float aggro = 14f;
         public int xp;
         public bool mount;       // 지배하면 탈것이 된다 (고룡 → 본드래곤)
+        public string evolvesTo; // 소환수로 evolveLevel에 도달하면 이 유닛으로 진화 (2D판 evolves_to)
+        public int evolveLevel = 3;
 
         public string NameFor(bool ally) { return ally && allyName != null ? allyName : name; }
     }
@@ -29,11 +31,18 @@ namespace Necro.Proto
         static Db()
         {
             Add(new UnitDef { id = "skeleton", name = "해골 병사", grade = UnitGrade.Common, shape = Shape.Skeleton,
-                hp = 60, atk = 8, speed = 4.5f, range = 1.8f, cooldown = 1.1f, xp = 6 });
+                hp = 60, atk = 8, speed = 4.5f, range = 1.8f, cooldown = 1.1f, xp = 6, evolvesTo = "skelknight" });
             Add(new UnitDef { id = "archer", name = "해골 궁수", grade = UnitGrade.Common, shape = Shape.Archer,
-                hp = 42, atk = 9, speed = 4.2f, range = 14f, cooldown = 1.7f, ranged = true, aggro = 17f, xp = 7 });
+                hp = 42, atk = 9, speed = 4.2f, range = 14f, cooldown = 1.7f, ranged = true, aggro = 17f, xp = 7, evolvesTo = "sniper" });
             Add(new UnitDef { id = "wolf", name = "늑대", grade = UnitGrade.Common, shape = Shape.Wolf, size = 0.95f,
-                hp = 45, atk = 7, speed = 7.5f, range = 1.7f, cooldown = 0.9f, xp = 5 });
+                hp = 45, atk = 7, speed = 7.5f, range = 1.7f, cooldown = 0.9f, xp = 5, evolvesTo = "shadewolf" });
+            // 진화형 (2D판과 같은 id·이름)
+            Add(new UnitDef { id = "skelknight", name = "해골 기사", grade = UnitGrade.Common, shape = Shape.Skeleton, size = 1.18f,
+                hp = 120, atk = 14, speed = 4.7f, range = 1.9f, cooldown = 1f, xp = 12 });
+            Add(new UnitDef { id = "sniper", name = "뼈 저격수", grade = UnitGrade.Common, shape = Shape.Archer, size = 1.12f,
+                hp = 75, atk = 17, speed = 4.3f, range = 19f, cooldown = 1.6f, ranged = true, aggro = 20f, xp = 12 });
+            Add(new UnitDef { id = "shadewolf", name = "그림자 늑대", grade = UnitGrade.Common, shape = Shape.Wolf, size = 1.2f,
+                hp = 85, atk = 12, speed = 8.3f, range = 1.8f, cooldown = 0.8f, xp = 12 });
             Add(new UnitDef { id = "knight", name = "망령 기사", grade = UnitGrade.Elite, shape = Shape.Knight, size = 1.3f,
                 hp = 260, atk = 20, speed = 4.4f, range = 2.4f, cooldown = 1.4f, xp = 25 });
             Add(new UnitDef { id = "boss", name = "묘지기", grade = UnitGrade.Hero, shape = Shape.Keeper, size = 1.8f,
