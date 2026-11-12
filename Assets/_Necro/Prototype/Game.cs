@@ -186,7 +186,7 @@ namespace Necro.Proto
         {
             if (u.def.mount)
             {
-                Hud.Toast("일어나라. 오늘부터 너는 내 날개다. — 본드래곤 획득!", 6f);
+                Hud.Toast("내 뒤로 오렴. 오늘부터 네가 내 날개야. — 본드래곤 획득!", 6f);
                 Hud.Toast("V를 누르면 본드래곤에 올라탑니다.", 6f);
             }
             else if (army.Count == 1) Hud.Toast("첫 소환수! 군단은 알아서 싸우고, F로 명령을 바꿀 수 있어요.", 5f);
