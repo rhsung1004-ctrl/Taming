@@ -7,12 +7,12 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-namespace Taming.EditorTools
+namespace Necro.EditorTools
 {
     // 애니메이션 FBX 가져오기 자동 설정: Humanoid + 반복 클립 지정
-    public class TamingAnimationPostprocessor : AssetPostprocessor
+    public class NecroAnimationPostprocessor : AssetPostprocessor
     {
-        public const string AnimRoot = "Assets/_Taming/Art/Animations/";
+        public const string AnimRoot = "Assets/_Necro/Art/Animations/";
 
         void OnPreprocessModel()
         {
@@ -44,11 +44,11 @@ namespace Taming.EditorTools
         }
     }
 
-    public static class TamingSetupTools
+    public static class NecroSetupTools
     {
-        const string SettingsFolder = "Assets/_Taming/Settings";
-        const string PlayerAnimFolder = "Assets/_Taming/Art/Animations/Player";
-        const string PlayerControllerPath = "Assets/_Taming/Settings/PlayerAnimator.controller";
+        const string SettingsFolder = "Assets/_Necro/Settings";
+        const string PlayerAnimFolder = "Assets/_Necro/Art/Animations/Player";
+        const string PlayerControllerPath = "Assets/_Necro/Settings/PlayerAnimator.controller";
 
         static void EnsureFolder(string path)
         {
@@ -58,28 +58,28 @@ namespace Taming.EditorTools
             AssetDatabase.CreateFolder(parent, Path.GetFileName(path));
         }
 
-        [MenuItem("Tools/Taming/0. 폴더 구조 만들기", priority = 0)]
+        [MenuItem("Tools/Necro/0. 폴더 구조 만들기", priority = 0)]
         public static void MakeFolders()
         {
             string[] folders =
             {
-                "Assets/_Taming/Art/Characters/Player",
-                "Assets/_Taming/Art/Animations/Player",
-                "Assets/_Taming/Art/Monsters",
-                "Assets/_Taming/Art/Environment",
-                "Assets/_Taming/Art/VFX",
-                "Assets/_Taming/Data/Monsters",
-                "Assets/_Taming/Prefabs",
-                "Assets/_Taming/Scenes",
+                "Assets/_Necro/Art/Characters/Player",
+                "Assets/_Necro/Art/Animations/Player",
+                "Assets/_Necro/Art/Units",
+                "Assets/_Necro/Art/Environment",
+                "Assets/_Necro/Art/VFX",
+                "Assets/_Necro/Data/Units",
+                "Assets/_Necro/Prefabs",
+                "Assets/_Necro/Scenes",
                 SettingsFolder
             };
             foreach (var f in folders) EnsureFolder(f);
             AssetDatabase.Refresh();
-            Debug.Log("[Taming] 폴더 구조를 만들었어요.");
+            Debug.Log("[Necro] 폴더 구조를 만들었어요.");
         }
 
         // ───────────── 룩 (조명·후처리) ─────────────
-        [MenuItem("Tools/Taming/1. 룩 기본 세팅 (조명·후처리)", priority = 10)]
+        [MenuItem("Tools/Necro/1. 룩 기본 세팅 (조명·후처리)", priority = 10)]
         public static void SetupLook()
         {
             EnsureFolder(SettingsFolder);
@@ -118,10 +118,10 @@ namespace Taming.EditorTools
                 AssetDatabase.SaveAssets();
             }
 
-            var volGo = GameObject.Find("Taming Look Volume");
+            var volGo = GameObject.Find("Necro Look Volume");
             if (volGo == null)
             {
-                volGo = new GameObject("Taming Look Volume");
+                volGo = new GameObject("Necro Look Volume");
                 Undo.RegisterCreatedObjectUndo(volGo, "Look Volume");
             }
             var vol = volGo.GetComponent<Volume>();
@@ -173,11 +173,11 @@ namespace Taming.EditorTools
             RenderSettings.fogEndDistance = 900f;
 
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
-            Debug.Log("[Taming] 룩 기본 세팅 완료: 블룸, 색 보정, 비네트, 따뜻한 햇빛, 하늘색 대기 원근. 값은 Settings/LookProfile에서 조정하세요.");
+            Debug.Log("[Necro] 룩 기본 세팅 완료: 블룸, 색 보정, 비네트, 따뜻한 햇빛, 하늘색 대기 원근. 값은 Settings/LookProfile에서 조정하세요.");
         }
 
         // ───────────── 플레이어 ─────────────
-        [MenuItem("Tools/Taming/2. 선택한 모델로 플레이어 만들기", priority = 20)]
+        [MenuItem("Tools/Necro/2. 선택한 모델로 플레이어 만들기", priority = 20)]
         public static void CreatePlayer()
         {
             var model = Selection.activeGameObject;
@@ -239,7 +239,7 @@ namespace Taming.EditorTools
 
             Selection.activeGameObject = root;
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
-            Debug.Log("[Taming] 플레이어 생성 완료 (키 " + height.ToString("0.00") + "m)." +
+            Debug.Log("[Necro] 플레이어 생성 완료 (키 " + height.ToString("0.00") + "m)." +
                       (animator == null ? " 모델에 Animator가 없어요 — Humanoid 모델인지 확인하세요." : ""));
         }
 
@@ -268,7 +268,7 @@ namespace Taming.EditorTools
             return null;
         }
 
-        [MenuItem("Tools/Taming/3. 플레이어 애니메이터 만들기", priority = 30)]
+        [MenuItem("Tools/Necro/3. 플레이어 애니메이터 만들기", priority = 30)]
         public static void BuildPlayerAnimator()
         {
             EnsureFolder(PlayerAnimFolder);
@@ -367,7 +367,7 @@ namespace Taming.EditorTools
                 an.runtimeAnimatorController = ctrl;
             }
 
-            Debug.Log("[Taming] PlayerAnimator 생성: 대기=" + idle.name + ", 걷기=" + walk.name + ", 달리기=" + run.name +
+            Debug.Log("[Necro] PlayerAnimator 생성: 대기=" + idle.name + ", 걷기=" + walk.name + ", 달리기=" + run.name +
                       (sprint != null ? ", 질주=" + sprint.name : "") + (jumpStart != null ? ", 점프=" + jumpStart.name : "") + ", 공중=" + fall.name);
         }
     }

@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace Taming
+namespace Necro
 {
     // 입력을 한 곳에서 읽는다. 키보드·마우스·게임패드 지원.
     // 모바일 터치는 Input System의 On-Screen Stick/Button이 게임패드 입력을 흉내 내므로 그대로 동작한다.

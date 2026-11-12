@@ -2,20 +2,26 @@
 
 ## 프로젝트
 
-- 원신풍 애니 그래픽의 오픈월드 몬스터 테이밍 RPG (Unity 6 LTS, URP, 안드로이드 가로 모드, 최저 사양 갤럭시 S20)
+- 사령술사 3D (가제): 시체를 지배해 군단을 만드는 PC용 3D 액션 RPG. 스토리 진행 → 엔딩 후 오픈월드. 스팀 출시 목표 (Unity 6 LTS, URP).
+- 모바일 2D 게임 "사령술사 키우기"(저장소 necromancer-rpg, Godot)와 같은 세계관의 별개 제품. 유닛 id·이름·등급·영혼 슬롯 규칙·지역·대본은 2D판과 맞춘다. 환생·방치·다이아 같은 모바일 전용 시스템은 가져오지 않는다.
 - 사용자는 한국어로 소통한다. 문서·주석·커밋 메시지·에디터 메뉴·로그는 한국어.
-- 사용자는 코드를 직접 거의 쓰지 않는다. 에디터 작업은 원클릭 도구(Tools → Taming 메뉴)로 최대한 줄여 준다.
+- 사용자는 코드를 직접 거의 쓰지 않는다. 에디터 작업은 원클릭 도구(Tools → Necro 메뉴)로 최대한 줄여 준다.
 - 현재 단계는 README.md에 적는다. 단계를 건너뛰는 기능을 먼저 만들지 않는다 (docs/ROADMAP.md).
 
-## 코드 규칙
+## 코드 구역
 
-- 모든 런타임 코드는 `Assets/_Taming/Scripts/` 아래, 네임스페이스 `Taming`. 에디터 코드는 `Scripts/Editor/`, 네임스페이스 `Taming.EditorTools`.
-- 게임 데이터(몬스터, 스킬, 아이템, 먹이)는 ScriptableObject. 몬스터 추가에 코드 수정이 필요하면 설계가 잘못된 것.
+- `Assets/_Necro/Prototype/` (네임스페이스 `Necro.Proto`): 재미 검증용. 도형 캐릭터, IMGUI, 코드로 만든 필드. 빠르게 고치는 것이 우선이라 아래 본편 규칙을 느슨하게 적용한다. SampleScene이나 이름이 Proto로 시작하는 씬에서만 자동 실행된다.
+- `Assets/_Necro/Scripts/` (네임스페이스 `Necro`, 에디터 코드는 `Necro.EditorTools`): 본편. 아래 규칙을 지킨다.
+
+## 본편 코드 규칙
+
+- 게임 데이터(유닛, 스킬, 아이템)는 ScriptableObject. 유닛 추가에 코드 수정이 필요하면 설계가 잘못된 것.
 - 입력은 Input System. 구 `Input` 클래스 사용 금지.
 - 튜닝 값은 `[Header]`로 묶어 Inspector에 노출하고 한국어 Tooltip을 단다.
 - Update에서 `Find`, `GetComponent`, LINQ, 할당(new List 등) 금지. 캐시해서 쓴다.
-- 모바일 성능 우선: 물리 쿼리는 NonAlloc, 그림자·후처리 비용 의식.
-- 원신의 디자인·이름·UI를 복제하지 않는다.
+- 군단 100마리 이상이 목표: 유닛 AI는 가볍게(판단은 주기적으로), 물리 쿼리는 NonAlloc, 그리기는 인스턴싱을 염두에 둔다.
+- MonoBehaviour는 클래스 이름과 같은 파일에 하나씩.
+- 다른 게임의 디자인·이름·UI를 복제하지 않는다.
 
 ## 검증
 
@@ -25,4 +31,4 @@
 ## Git
 
 - 큰 바이너리는 .gitattributes의 LFS 규칙을 따른다.
-- `Archive/` 는 참고용 프로토타입. Unity가 읽지 않으며 수정하지 않는다.
+- `Archive/` 는 이전 프로젝트(몬스터 테이밍) 참고 자료. Unity가 읽지 않으며 수정하지 않는다.

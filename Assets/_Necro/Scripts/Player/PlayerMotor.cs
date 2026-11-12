@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Taming
+namespace Necro
 {
     // 주인공 3인칭 이동: 가속/감속, 카메라 기준 방향, 코요테 타임, 점프 버퍼, 빠른 낙하.
     // 조작감이 퀄리티의 큰 부분이라 수치는 전부 Inspector에서 조정 가능하게 열어 둔다.

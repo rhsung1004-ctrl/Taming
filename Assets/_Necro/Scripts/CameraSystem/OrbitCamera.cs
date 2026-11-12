@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Taming
+namespace Necro
 {
     // 3인칭 궤도 카메라: 부드러운 추적, 회전, 줌, 벽 충돌 시 앞으로 당김.
     // 비행·탑승 연출이 들어가는 3단계에서 Cinemachine으로 확장 예정.

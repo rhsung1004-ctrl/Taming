@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Taming
+namespace Necro
 {
     // PlayerMotor 상태를 Animator 파라미터로 넘긴다.
     // 파라미터: Speed(float), Grounded(bool), VerticalSpeed(float), Jump(trigger)
-    // "Tools → Taming → 플레이어 애니메이터 만들기"로 만든 컨트롤러와 짝이 맞는다.
+    // "Tools → Necro → 플레이어 애니메이터 만들기"로 만든 컨트롤러와 짝이 맞는다.
     public class PlayerAnimatorBridge : MonoBehaviour
     {
         public PlayerMotor motor;

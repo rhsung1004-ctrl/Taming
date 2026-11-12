@@ -1,30 +1,41 @@
-# Taming (가제)
+# 사령술사 3D (가제)
 
-원신풍 애니메이션 그래픽의 오픈월드 몬스터 테이밍 RPG. 직접 길들인 드래곤을 타고 하늘을 나는 것이 핵심 경험입니다.
+쓰러뜨린 적의 시체를 일으켜 군단을 만들고, 고룡의 시체로 만든 본드래곤을 타고 싸우는 PC용 3D 액션 RPG.
+스토리를 따라 진행하고, 엔딩 후에는 완성한 군단과 함께 오픈월드를 돌아다닙니다. 스팀 출시가 목표입니다.
+
+모바일 2D 게임 **사령술사 키우기**와 같은 세계관의 별개 제품입니다 (지역·유닛·스토리 설정을 공유).
 
 - 엔진: Unity 6 LTS + URP
-- 플랫폼: 안드로이드 우선 (최저 사양 갤럭시 S20), 가로 모드
-- 현재 단계: **1단계 · 룩 확정** — 애니풍 주인공이 예쁜 들판을 뛰어다니는 30초 화면 만들기
+- 플랫폼: PC (스팀), 키보드·마우스 + 게임패드
+- 현재 단계: **프로토타입** — 시체 지배, 군단 전투, 본드래곤 탑승이 재미있는지 확인
+
+> 저장소 이름은 예전 프로젝트 이름인 `Taming` 그대로입니다. GitHub 설정에서 바꿔도 기존 주소는 자동으로 연결됩니다.
+
+## 바로 해 보기
+
+1. [docs/SETUP.md](docs/SETUP.md) 대로 Unity 프로젝트를 만들고 이 저장소와 연결
+2. 기본 씬(SampleScene)에서 **Play** → 씬에 아무것도 놓지 않아도 프로토타입이 자동으로 만들어집니다
+3. 조작과 진행 순서는 [docs/PROTOTYPE.md](docs/PROTOTYPE.md)
 
 ## 문서
 
 | 문서 | 내용 |
 | --- | --- |
-| [docs/SETUP.md](docs/SETUP.md) | 처음 한 번: Unity 프로젝트를 만들고 이 저장소와 연결하기 |
-| [docs/PHASE1_LOOK.md](docs/PHASE1_LOOK.md) | 1단계 작업 순서: VRoid 주인공 → 룩 세팅 → 움직이기 |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | 전체 로드맵 요약 |
+| [docs/SETUP.md](docs/SETUP.md) | 처음 한 번: Unity 프로젝트 만들고 저장소 연결하기 |
+| [docs/PROTOTYPE.md](docs/PROTOTYPE.md) | 프로토타입 조작, 진행 순서, 확인할 것 |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | 단계별 로드맵 |
 | [CLAUDE.md](CLAUDE.md) | 코드 규칙 (Claude와 함께 작업할 때 기준) |
 
 ## 폴더 구조
 
 ```
-Assets/_Taming/          ← 게임 본편 (모든 작업은 여기 안에서)
-  Scripts/Core/          속성, 몬스터 데이터 등 기반
-  Scripts/Player/        주인공 입력·이동·애니메이션 연결
-  Scripts/CameraSystem/  3인칭 카메라
-  Scripts/Editor/        Tools → Taming 메뉴 (원클릭 세팅 도구)
-  Art/ Data/ Prefabs/ Scenes/ Settings/   ← Tools → Taming → 0. 폴더 구조 만들기
-Archive/Prototype_v0.2/  재미 검증용 프로토타입 (Unity가 읽지 않음, 참고용)
+Assets/_Necro/
+  Prototype/             프로토타입 (도형으로 만든 캐릭터, 코드로 만든 필드). 재미 검증용
+  Scripts/Core/          본편용 유닛 데이터 형식 (ScriptableObject)
+  Scripts/Player/        본편용 주인공 입력·이동·애니메이션 연결
+  Scripts/CameraSystem/  본편용 3인칭 카메라
+  Scripts/Editor/        Tools → Necro 메뉴 (원클릭 세팅 도구)
+Archive/Taming/          이전 프로젝트(몬스터 테이밍) 자료. 참고용, Unity가 읽지 않음
 docs/                    문서
 ```
 
