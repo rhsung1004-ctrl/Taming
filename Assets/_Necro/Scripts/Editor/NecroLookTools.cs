@@ -20,6 +20,9 @@ namespace Necro.EditorTools
         const string SceneFolder = "Assets/_Necro/Scenes";
         const string ScenePath = SceneFolder + "/Look_Graveyard.unity";
         const string ProfilePath = SettingsFolder + "/DarkFantasyProfile.asset";
+        // Blender로 만든 묘지 소품 (모델 .fbx + 색 _albedo.png + 굴곡 _normal.png)
+        const string KitFolder = "Assets/_Necro/Art/Environment/Graveyard";
+        const string PropMatFolder = "Assets/_Necro/Art/Materials/Props";
 
         static readonly Color Horizon = new Color(0.16f, 0.12f, 0.27f);
         static readonly Color Soul = new Color(0.72f, 0.45f, 1f);
@@ -294,7 +297,202 @@ namespace Necro.EditorTools
             ApplyLook();
 
             var rnd = new System.Random(7);
-            var env = new GameObject("Environment (임시 도형)").transform;
+            bool kit = HasKit();
+            var env = new GameObject(kit ? "Environment" : "Environment (임시 도형)").transform;
+            if (kit) BuildKitEnvironment(env, rnd);
+            else BuildPrimitiveEnvironment(env, rnd);
+
+            BuildParticles(env);
+            BuildDummies(env);
+
+            // 걸어 다닐 임시 주인공 (VRoid 모델이 생기면 'Tools → Necro → 2. 선택한 모델로 플레이어 만들기'로 교체)
+            var hero = BuildMannequin(PlaceholderName,
+                Toon("Hero_Robe", new Color(0.24f, 0.16f, 0.4f)),
+                Toon("Hero_Skin", new Color(0.98f, 0.88f, 0.84f), m => m.SetColor("_ShadeColor", new Color(0.78f, 0.6f, 0.72f))),
+                Toon("Hero_Hair", new Color(0.8f, 0.74f, 0.95f), m => { m.SetFloat("_SpecStrength", 0.6f); m.SetFloat("_SpecSize", 0.12f); }));
+            hero.transform.position = new Vector3(0f, 0f, -12f);
+            NecroSetupTools.BuildPlayer(hero);
+
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.SaveAssets();
+            if (!kit)
+                Debug.LogWarning("[Necro] 묘지 소품 모델(" + KitFolder + ")을 찾지 못해 임시 도형으로 만들었어요. git lfs pull 을 실행한 뒤 다시 만들어 보세요.");
+            Debug.Log("[Necro] 묘지 룩 테스트 장면을 만들었어요: " + ScenePath + "\nPlay를 누르고 걸어 다니며 분위기를 확인하세요. 제단 앞의 세 인형은 툰 셰이더 비교용입니다 (적 / 지배된 망자 / 금속 갑옷).");
+        }
+
+        // ───────────── 묘지 소품으로 장면 짓기 ─────────────
+        static bool HasKit()
+        {
+            return AssetDatabase.LoadAssetAtPath<GameObject>(KitFolder + "/grave_slab_a.fbx") != null &&
+                   AssetDatabase.LoadAssetAtPath<Texture2D>(KitFolder + "/grave_slab_a_albedo.png") != null;
+        }
+
+        static Texture2D NormalMap(string path)
+        {
+            var imp = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (imp != null && imp.textureType != TextureImporterType.NormalMap)
+            {
+                imp.textureType = TextureImporterType.NormalMap;
+                imp.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
+        static Material TexturedLit(string name, string texBase, float tiling)
+        {
+            return LoadOrCreate(PropMatFolder, name, "Universal Render Pipeline/Lit", m =>
+            {
+                var albedo = AssetDatabase.LoadAssetAtPath<Texture2D>(texBase + "_albedo.png");
+                var normal = NormalMap(texBase + "_normal.png");
+                if (albedo != null) m.SetTexture("_BaseMap", albedo);
+                if (normal != null)
+                {
+                    m.SetTexture("_BumpMap", normal);
+                    m.EnableKeyword("_NORMALMAP");
+                }
+                m.SetColor("_BaseColor", Color.white);
+                m.SetFloat("_Smoothness", 0.12f);
+                if (tiling != 1f) m.SetTextureScale("_BaseMap", new Vector2(tiling, tiling));
+            });
+        }
+
+        static Material soulGlowCache;
+        static Material SoulGlow()
+        {
+            if (soulGlowCache == null)
+                soulGlowCache = Toon("SoulGlow", Soul, m =>
+                {
+                    m.SetColor("_EmissionColor", new Color(2.6f, 1.4f, 4.6f));
+                    m.SetFloat("_OutlineWidth", 0f);
+                });
+            return soulGlowCache;
+        }
+
+        // 소품 하나 놓기. 좌표는 위에서 본 배치도 기준 (x: 오른쪽, y: 안쪽), rz: 반시계 회전(도).
+        // Blender에서 만든 방향 그대로 놓이도록 180도 돌려서 둔다.
+        static GameObject Place(string name, Transform parent, float x, float y, float rz = 0f, float scale = 1f, float tiltX = 0f, float tiltZ = 0f, float sink = 0f)
+        {
+            var src = AssetDatabase.LoadAssetAtPath<GameObject>(KitFolder + "/" + name + ".fbx");
+            if (src == null) return null;
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(src);
+            go.name = name;
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = new Vector3(x, -sink, y);
+            go.transform.localRotation = Quaternion.Euler(tiltX, 180f - rz, tiltZ);
+            go.transform.localScale = Vector3.one * scale;
+            var main = TexturedLit(name, KitFolder + "/" + name, 1f);
+            foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+            {
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++)
+                    mats[i] = mats[i] != null && mats[i].name.Contains("Glow") ? SoulGlow() : main;
+                r.sharedMaterials = mats;
+                var mf = r.GetComponent<MeshFilter>();
+                if (mf != null && mf.sharedMesh != null && r.GetComponent<Collider>() == null)
+                    r.gameObject.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
+            }
+            return go;
+        }
+
+        static float Rand(System.Random rnd, float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
+
+        static void BuildKitEnvironment(Transform env, System.Random rnd)
+        {
+            // 땅: 이어 붙는 흙바닥 텍스처 (4m마다 반복). 등불 빛이 타일마다 따로 닿도록 20m 타일로 나눈다
+            Material ground = TexturedLit("Ground", KitFolder + "/ground", 5f);
+            var groundRoot = new GameObject("Ground").transform;
+            groundRoot.SetParent(env, false);
+            for (int x = -3; x < 3; x++)
+                for (int z = -3; z < 3; z++)
+                    Prim(PrimitiveType.Plane, "Tile", groundRoot, new Vector3(x * 20f + 10f, 0f, z * 20f + 10f), new Vector3(2f, 1f, 2f), ground);
+
+            // 봉인의 제단과 둘러선 기둥
+            var center = new GameObject("Altar Area").transform;
+            center.SetParent(env, false);
+            Place("altar", center, 0f, 6f);
+            var altarLight = PointLight("Soul Light", center, new Vector3(0f, 2.7f, 6f), Soul, 18f, 30f, true);
+            altarLight.GetComponent<SoulFlicker>().amount = 0.3f;
+            string[] pillars = { "pillar_a", "pillar_b", "pillar_a", "pillar_a", "pillar_b" };
+            for (int i = 0; i < pillars.Length; i++)
+            {
+                float a = i * Mathf.PI * 2f / 5f + 0.3f;
+                Place(pillars[i], center, Mathf.Cos(a) * 4.3f, 6f + Mathf.Sin(a) * 4.3f, (a + 1f) * Mathf.Rad2Deg);
+            }
+
+            // 납골당과 입구의 무너진 아치
+            Place("crypt", env, 0f, 25f);
+            PointLight("Crypt Light", env, new Vector3(0f, 3f, 21.5f), new Color(0.45f, 1f, 0.6f), 14f, 16f, true);
+            Place("arch_ruin", env, 0f, -8.5f);
+
+            // 영혼 등불
+            var lanterns = new GameObject("Soul Lanterns").transform;
+            lanterns.SetParent(env, false);
+            float[,] spots = { { -3.2f, -6f, 11f }, { 3.2f, -1f, 166f }, { -3.4f, 2f, 23f }, { -13f, 10f, 57f }, { 12f, 13f, 206f }, { -9f, -4f, 17f }, { 15f, -2f, 143f } };
+            for (int i = 0; i < spots.GetLength(0); i++)
+            {
+                float x = spots[i, 0], y = spots[i, 1], rz = spots[i, 2];
+                Place("lantern", lanterns, x, y, rz);
+                float r = rz * Mathf.Deg2Rad;
+                PointLight("Lantern Light", lanterns, new Vector3(x + Mathf.Cos(r) * 0.5f, 2.28f, y + Mathf.Sin(r) * 0.5f), Soul, 9f, 9f, true);
+            }
+
+            // 길 양옆의 철 울타리
+            var fences = new GameObject("Fences").transform;
+            fences.SetParent(env, false);
+            for (int sx = -1; sx <= 1; sx += 2)
+            {
+                for (int i = 0; i < 5; i++)
+                    Place("fence", fences, sx * 7.5f, -9f + i * 3.4f, 90f + Rand(rnd, -3f, 3f), 1f, Rand(rnd, -3f, 3f));
+                Place("fence", fences, sx * 4.3f, -9.6f, Rand(rnd, -4f, 4f));
+            }
+
+            // 묘비
+            var graves = new GameObject("Graves").transform;
+            graves.SetParent(env, false);
+            string[] kinds = { "grave_slab_a", "grave_slab_b", "grave_cross", "grave_obelisk" };
+            int placed = 0;
+            for (int guard = 0; guard < 600 && placed < 64; guard++)
+            {
+                float x = Rand(rnd, -32f, 32f), y = Rand(rnd, -9f, 23f);
+                if (Mathf.Abs(x) < 2.6f && y < 2f) continue;                          // 돌길
+                if (x * x + (y - 6f) * (y - 6f) < 36f) continue;                     // 제단
+                if (Mathf.Abs(x) < 8f && y > 17f) continue;                          // 납골당
+                if (Mathf.Abs(Mathf.Abs(x) - 7.5f) < 1.2f && y < 8f) continue;       // 울타리
+                Place(kinds[rnd.Next(kinds.Length)], graves, x, y, rnd.Next(2) * 180f + Rand(rnd, -18f, 18f), Rand(rnd, 0.9f, 1.2f),
+                      Rand(rnd, -7f, 7f), Rand(rnd, -7f, 7f), Rand(rnd, 0f, 0.06f));
+                placed++;
+            }
+
+            // 죽은 나무
+            var trees = new GameObject("Dead Trees").transform;
+            trees.SetParent(env, false);
+            for (int i = 0; i < 16; i++)
+            {
+                float a = Rand(rnd, 0f, Mathf.PI * 2f), d = Rand(rnd, 12f, 34f);
+                float x = Mathf.Cos(a) * d, y = 6f + Mathf.Sin(a) * d;
+                if (Mathf.Abs(x) < 9f && y > 15f) continue;
+                if (Mathf.Abs(x) < 5f && y < 0f) continue;
+                Place(rnd.Next(2) == 0 ? "dead_tree_a" : "dead_tree_b", trees, x, y, Rand(rnd, 0f, 360f), Rand(rnd, 0.9f, 1.5f));
+            }
+            Place("dead_tree_a", trees, -6.2f, -3.5f, 69f, 1.25f);
+            Place("dead_tree_b", trees, 8.5f, 3f, 229f, 1.3f);
+
+            // 바위
+            var rocks = new GameObject("Rocks").transform;
+            rocks.SetParent(env, false);
+            string[] rockKinds = { "rock_a", "rock_b", "rock_c", "rock_c" };
+            for (int i = 0; i < 28; i++)
+            {
+                float x = Rand(rnd, -28f, 28f), y = Rand(rnd, -10f, 24f);
+                if (Mathf.Abs(x) < 2.5f && y < 3f) continue;
+                if (x * x + (y - 6f) * (y - 6f) < 25f) continue;
+                Place(rockKinds[rnd.Next(rockKinds.Length)], rocks, x, y, Rand(rnd, 0f, 360f), Rand(rnd, 0.5f, 1.1f), 0f, 0f, Rand(rnd, 0f, 0.15f));
+            }
+        }
+
+        // 소품 모델이 없을 때 쓰는 임시 도형 장면
+        static void BuildPrimitiveEnvironment(Transform env, System.Random rnd)
+        {
 
             Material ground = Lit("Ground", new Color(0.085f, 0.085f, 0.105f));
             Material stone = Lit("Stone", new Color(0.3f, 0.3f, 0.36f), 0.2f);
@@ -416,20 +614,6 @@ namespace Necro.EditorTools
                 PointLight("Light", l, new Vector3(0f, 2.4f, 0f), Soul, 9f, 9f, true);
             }
 
-            BuildParticles(env);
-            BuildDummies(env);
-
-            // 걸어 다닐 임시 주인공 (VRoid 모델이 생기면 'Tools → Necro → 2. 선택한 모델로 플레이어 만들기'로 교체)
-            var hero = BuildMannequin(PlaceholderName,
-                Toon("Hero_Robe", new Color(0.24f, 0.16f, 0.4f)),
-                Toon("Hero_Skin", new Color(0.98f, 0.88f, 0.84f), m => m.SetColor("_ShadeColor", new Color(0.78f, 0.6f, 0.72f))),
-                Toon("Hero_Hair", new Color(0.8f, 0.74f, 0.95f), m => { m.SetFloat("_SpecStrength", 0.6f); m.SetFloat("_SpecSize", 0.12f); }));
-            hero.transform.position = new Vector3(0f, 0f, -12f);
-            NecroSetupTools.BuildPlayer(hero);
-
-            EditorSceneManager.SaveScene(scene, ScenePath);
-            AssetDatabase.SaveAssets();
-            Debug.Log("[Necro] 묘지 룩 테스트 장면을 만들었어요: " + ScenePath + "\nPlay를 누르고 걸어 다니며 분위기를 확인하세요. 제단 앞의 세 인형은 툰 셰이더 비교용입니다 (적 / 지배된 망자 / 금속 갑옷).");
         }
 
         static void BuildParticles(Transform parent)
@@ -515,7 +699,7 @@ namespace Necro.EditorTools
         {
             var root = new GameObject("Toon Test Dummies").transform;
             root.SetParent(parent, false);
-            root.localPosition = new Vector3(0f, 0f, -1.5f);
+            root.localPosition = new Vector3(0f, 0f, -2f);
 
             Material bone = Toon("Dummy_Bone", new Color(0.86f, 0.82f, 0.72f));
             Material cloth = Toon("Dummy_Cloth", new Color(0.36f, 0.14f, 0.13f));
