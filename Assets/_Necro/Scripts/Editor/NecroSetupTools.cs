@@ -78,104 +78,6 @@ namespace Necro.EditorTools
             Debug.Log("[Necro] 폴더 구조를 만들었어요.");
         }
 
-        // ───────────── 룩 (조명·후처리) ─────────────
-        [MenuItem("Tools/Necro/1. 룩 기본 세팅 (조명·후처리)", priority = 10)]
-        public static void SetupLook()
-        {
-            EnsureFolder(SettingsFolder);
-            string profilePath = SettingsFolder + "/LookProfile.asset";
-            var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(profilePath);
-            if (profile == null)
-            {
-                profile = ScriptableObject.CreateInstance<VolumeProfile>();
-                AssetDatabase.CreateAsset(profile, profilePath);
-
-                var bloom = profile.Add<Bloom>(true);
-                bloom.intensity.Override(0.7f);
-                bloom.threshold.Override(1.05f);
-                bloom.scatter.Override(0.65f);
-                AssetDatabase.AddObjectToAsset(bloom, profile);
-
-                var tone = profile.Add<Tonemapping>(true);
-                tone.mode.Override(TonemappingMode.Neutral);
-                AssetDatabase.AddObjectToAsset(tone, profile);
-
-                var color = profile.Add<ColorAdjustments>(true);
-                color.postExposure.Override(0.2f);
-                color.contrast.Override(6f);
-                color.saturation.Override(16f);
-                AssetDatabase.AddObjectToAsset(color, profile);
-
-                var wb = profile.Add<WhiteBalance>(true);
-                wb.temperature.Override(5f);
-                AssetDatabase.AddObjectToAsset(wb, profile);
-
-                var vig = profile.Add<Vignette>(true);
-                vig.intensity.Override(0.16f);
-                AssetDatabase.AddObjectToAsset(vig, profile);
-
-                EditorUtility.SetDirty(profile);
-                AssetDatabase.SaveAssets();
-            }
-
-            var volGo = GameObject.Find("Necro Look Volume");
-            if (volGo == null)
-            {
-                volGo = new GameObject("Necro Look Volume");
-                Undo.RegisterCreatedObjectUndo(volGo, "Look Volume");
-            }
-            var vol = volGo.GetComponent<Volume>();
-            if (vol == null) vol = Undo.AddComponent<Volume>(volGo);
-            vol.isGlobal = true;
-            vol.priority = 10f;
-            vol.sharedProfile = profile;
-
-            var cam = Camera.main;
-            if (cam != null)
-            {
-                var data = cam.GetComponent<UniversalAdditionalCameraData>();
-                if (data == null) data = Undo.AddComponent<UniversalAdditionalCameraData>(cam.gameObject);
-                data.renderPostProcessing = true;
-                data.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
-                cam.farClipPlane = 1500f;
-            }
-
-            Light sun = null;
-#if UNITY_2023_1_OR_NEWER
-            var lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
-#else
-            var lights = Object.FindObjectsOfType<Light>();
-#endif
-            foreach (var l in lights) if (l.type == LightType.Directional) sun = l;
-            if (sun == null)
-            {
-                var go = new GameObject("Sun");
-                Undo.RegisterCreatedObjectUndo(go, "Sun");
-                sun = go.AddComponent<Light>();
-                sun.type = LightType.Directional;
-            }
-            Undo.RecordObject(sun, "Sun");
-            Undo.RecordObject(sun.transform, "Sun");
-            sun.transform.rotation = Quaternion.Euler(42f, -38f, 0f);
-            sun.color = new Color(1f, 0.95f, 0.86f);
-            sun.intensity = 1.35f;
-            sun.shadows = LightShadows.Soft;
-            RenderSettings.sun = sun;
-
-            RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.66f, 0.76f, 0.95f);
-            RenderSettings.ambientEquatorColor = new Color(0.6f, 0.66f, 0.68f);
-            RenderSettings.ambientGroundColor = new Color(0.38f, 0.36f, 0.32f);
-            RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = new Color(0.74f, 0.85f, 0.97f);
-            RenderSettings.fogStartDistance = 120f;
-            RenderSettings.fogEndDistance = 900f;
-
-            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
-            Debug.Log("[Necro] 룩 기본 세팅 완료: 블룸, 색 보정, 비네트, 따뜻한 햇빛, 하늘색 대기 원근. 값은 Settings/LookProfile에서 조정하세요.");
-        }
-
         // ───────────── 플레이어 ─────────────
         [MenuItem("Tools/Necro/2. 선택한 모델로 플레이어 만들기", priority = 20)]
         public static void CreatePlayer()
@@ -188,6 +90,24 @@ namespace Necro.EditorTools
                 return;
             }
 
+            // 룩 테스트 장면의 임시 주인공이 있으면 그 자리에 새 모델을 세우고 임시 모델은 지운다
+            var old = GameObject.Find("Player");
+            if (old != null && old.transform.Find(NecroLookTools.PlaceholderName) != null)
+            {
+                model.transform.position = old.transform.position;
+                model.transform.rotation = old.transform.rotation;
+                Undo.DestroyObjectImmediate(old);
+            }
+            var root = BuildPlayer(model);
+            Selection.activeGameObject = root;
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            Debug.Log("[Necro] 플레이어 생성 완료." +
+                      (root.GetComponentInChildren<Animator>() == null ? " 모델에 Animator가 없어요 — Humanoid 모델인지 확인하세요." : ""));
+        }
+
+        // 모델을 감싸는 Player 오브젝트를 만들고 이동·입력·카메라를 연결한다
+        public static GameObject BuildPlayer(GameObject model)
+        {
             var root = new GameObject("Player");
             Undo.RegisterCreatedObjectUndo(root, "Create Player");
             root.transform.position = model.transform.position;
@@ -237,10 +157,7 @@ namespace Necro.EditorTools
             orbit.pivotOffset = new Vector3(0f, height * 0.88f, 0f);
             motor.cameraTransform = cam.transform;
 
-            Selection.activeGameObject = root;
-            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
-            Debug.Log("[Necro] 플레이어 생성 완료 (키 " + height.ToString("0.00") + "m)." +
-                      (animator == null ? " 모델에 Animator가 없어요 — Humanoid 모델인지 확인하세요." : ""));
+            return root;
         }
 
         static bool Measure(GameObject g, out Bounds b)
