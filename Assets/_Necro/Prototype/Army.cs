@@ -19,12 +19,14 @@ namespace Necro.Proto
         public int mode;
         public int bonusSlots;
         public Unit dragon;
+        public bool hasPoint;            // 지점 사수: 마우스 가운데 버튼으로 찍은 자리를 지킨다
+        public Vector3 point;
 
         // 정예 이상은 길게 눌러 지배한다
         public Corpse holdTarget;
         public float holdT, holdNeed;
 
-        Vector3 formFwd = Vector3.forward;
+        Vector3 formFwd = Vector3.forward, holdFwd = Vector3.forward;
         float warnT;
 
         Game game;
@@ -58,8 +60,22 @@ namespace Necro.Proto
 
             if (In.CommandDown)
             {
-                mode = (mode + 1) % 3;
-                Hud.Toast(ModeDesc[mode], 2.5f);
+                if (hasPoint) ClearPoint("군단이 다시 따라와요. (" + ModeName[mode] + ")");
+                else
+                {
+                    mode = (mode + 1) % 3;
+                    Hud.Toast(ModeDesc[mode], 2.5f);
+                }
+            }
+            if (In.PointDown && units.Count > 0 && !pl.Riding)
+            {
+                point = Spells.AimGround(pl, game.cam.transform, 70f);
+                hasPoint = true;
+                holdFwd = Util.Flat(point - pl.transform.position);
+                holdFwd = holdFwd.sqrMagnitude > 0.01f ? holdFwd.normalized : pl.transform.forward;
+                Fx.Ring(point, 5f, new Color(0.5f, 0.75f, 1f), 1.2f);
+                Fx.Pillar(point, 5f, 0.12f, new Color(0.5f, 0.75f, 1f), 1.2f, true);
+                Hud.Toast("군단을 그 자리로 보냈어요. 근처의 적만 상대하며 지켜요. F를 누르면 다시 따라와요.", 3.5f);
             }
 
             // 정예 이상을 지배하는 동안에는 무릎을 굽히고 손을 내민다
@@ -128,6 +144,22 @@ namespace Necro.Proto
             if (warnT > 0f) return;
             warnT = 2f;
             Hud.Toast(s, 2.5f);
+        }
+
+        public void ClearPoint(string msg)
+        {
+            hasPoint = false;
+            if (msg != null) Hud.Toast(msg, 2.5f);
+        }
+
+        // 죽음의 영역: 마나 없이, 슬롯이 남아 있으면 바로 군단에 들어온다
+        public bool RaiseFree(Corpse c)
+        {
+            float keep = game.player.mana;
+            game.player.mana = 9999f;
+            bool ok = TryRaise(c, false);
+            game.player.mana = keep;
+            return ok;
         }
 
         bool TryRaise(Corpse c, bool makeRoom)
@@ -206,6 +238,7 @@ namespace Necro.Proto
             if (i < 0) i = 0;
             int row = i / 6, col = i % 6;
             Vector3 right = Vector3.Cross(Vector3.up, formFwd);
+            if (hasPoint) return point - holdFwd * (row * 2.1f - 2f) + Vector3.Cross(Vector3.up, holdFwd) * ((col - 2.5f) * 1.9f);
             return game.player.transform.position - formFwd * (3f + row * 2.1f) + right * ((col - 2.5f) * 1.9f);
         }
 

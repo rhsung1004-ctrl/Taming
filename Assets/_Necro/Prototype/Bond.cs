@@ -89,10 +89,11 @@ namespace Necro.Proto
         {
             var d = u.def;
             u.rec = new Record { unitName = d.NameFor(true), grade = d.grade };
-            if (d.grade == UnitGrade.Elite || d.grade == UnitGrade.Hero) u.rec.name = NewName();
+            if (d.grade == UnitGrade.Elite || d.grade == UnitGrade.Hero || (d.grade == UnitGrade.Boss && !d.mount)) u.rec.name = NewName();
 
             if (d.mount) Story.Play("dragon_raise");
             else if (d.id == "boss") Story.Play("keeper_raise");
+            else if (d.id == "lord") Story.Play("lord_raise");
             else if (d.grade == UnitGrade.Elite)
                 Hud.Say("me", "손을 잡으렴. 오늘부터 네 이름은 " + Util.IyaYa(u.rec.name) + ".");
             else if (!firstRaise) Story.Play("first_raise");
@@ -144,7 +145,8 @@ namespace Necro.Proto
                 Hud.Say("me", "조금만 쉬어. 금방 다시 불러 줄게.");
                 return;
             }
-            if (u.def.id == "boss") Hud.Say("me", "묘지는 내가 지킬게, " + r.name + ". 이제 쉬어도 돼.");
+            if (u.def.id == "lord") Hud.Say("me", "끝까지 명을 지켜 줬구나, " + r.name + ". 이제 쉬어도 돼.");
+            else if (u.def.id == "boss") Hud.Say("me", "묘지는 내가 지킬게, " + r.name + ". 이제 쉬어도 돼.");
             else if (Time.time - lineT > 10f)
             {
                 lineT = Time.time;

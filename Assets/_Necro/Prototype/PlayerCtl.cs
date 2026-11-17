@@ -21,7 +21,8 @@ namespace Necro.Proto
 
         // 기술 단계: 0 하급, 1 상급, 2 금주. 같은 칸의 기술이 단계에 따라 바뀐다 (Spells.cs)
         public int tier;
-        public bool hasCrown;            // 왕관 조각을 되찾으면 왕관 스킬(망자의 군세)이 열린다
+        public bool hasCrown;            // 왕관 조각을 되찾으면 왕관 스킬이 열린다
+        public int crownIdx;             // 고른 왕관 스킬 (Spells.CrownName)
 
         GameObject mountObj;
         Rig mountRig;
@@ -243,18 +244,24 @@ namespace Necro.Proto
                 else Warn("강화할 군단이 없어요.");
             }
 
-            // 왕관 스킬: 망자의 군세
+            // 왕관 스킬: T로 고르고 G로 쓴다 (재사용 대기는 함께 쓴다)
+            if (In.CrownNextDown && hasCrown)
+            {
+                crownIdx = (crownIdx + 1) % Spells.CrownName.Length;
+                Hud.Toast("왕관 스킬: " + Spells.CrownName[crownIdx] + " (" + Spells.CrownSchool[crownIdx] + ")", 2.5f);
+            }
             if (In.CrownDown)
             {
+                string cn = Spells.CrownName[crownIdx];
                 if (!hasCrown) Warn("왕관 조각을 되찾아야 쓸 수 있어요.");
-                else if (legionCd > 0f) Warn("망자의 군세: " + Mathf.CeilToInt(legionCd) + "초 뒤에 다시 쓸 수 있어요.");
+                else if (Riding) Warn("왕관 스킬은 본드래곤에서 내려 있을 때 쓸 수 있어요.");
+                else if (legionCd > 0f) Warn(cn + ": " + Mathf.CeilToInt(legionCd) + "초 뒤에 다시 쓸 수 있어요.");
                 else if (mana < Spells.LegionMana) Warn("마나가 부족해요.");
-                else if (Spells.Legion(this))
+                else if (Spells.Crown(this, cam))
                 {
                     mana -= Spells.LegionMana;
                     legionCd = Spells.LegionCd;
                     rig.cast = 1f;
-                    Hud.Say("me", "잠든 아이들아, 잠깐만 깨어 주렴. 다 같이 가자.");
                 }
             }
 

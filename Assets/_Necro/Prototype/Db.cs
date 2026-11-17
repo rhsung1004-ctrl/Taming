@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Necro.Proto
 {
-    public enum Shape { Skeleton, Archer, Wolf, Knight, Keeper, Dragon }
+    public enum Shape { Skeleton, Archer, Wolf, Knight, Keeper, Dragon, Lord }
 
     // 프로토타입용 유닛 정의. 이름·등급·슬롯 규칙은 2D판(사령술사 키우기)과 같다.
     // 본편에서는 Necro.UnitData(ScriptableObject)로 옮긴다.
@@ -36,6 +36,9 @@ namespace Necro.Proto
                 hp = 42, atk = 9, speed = 4.2f, range = 14f, cooldown = 1.7f, ranged = true, aggro = 17f, xp = 7, evolvesTo = "sniper" });
             Add(new UnitDef { id = "wolf", name = "늑대", grade = UnitGrade.Common, shape = Shape.Wolf, size = 0.95f,
                 hp = 45, atk = 7, speed = 7.5f, range = 1.7f, cooldown = 0.9f, xp = 5, evolvesTo = "shadewolf" });
+            // 1장 보스 (2D판 id: lord). 프로토타입에서는 부유 성채에서 왕관 조각을 지킨다
+            Add(new UnitDef { id = "lord", name = "망자의 군주", grade = UnitGrade.Boss, shape = Shape.Lord, size = 2.1f,
+                hp = 2600, atk = 36, speed = 3.9f, range = 3.4f, cooldown = 1.5f, aggro = 24f, xp = 300 });
             // 진화형 (2D판과 같은 id·이름)
             Add(new UnitDef { id = "skelknight", name = "해골 기사", grade = UnitGrade.Common, shape = Shape.Skeleton, size = 1.18f,
                 hp = 120, atk = 14, speed = 4.7f, range = 1.9f, cooldown = 1f, xp = 12 });

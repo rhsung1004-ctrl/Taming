@@ -217,6 +217,22 @@ namespace Necro.Proto
                     P(Cu, rig.armR, 0f, -0.6f, -0.02f, 0.3f, 0.05f, 0.06f, p.dark);
                     P(Cu, rig.armL, -0.08f, -0.42f, 0.08f, 0.05f, 0.5f, 0.4f, p.metal);
                     break;
+                case Shape.Lord:
+                {
+                    // 갑옷, 긴 망토, 부서진 왕관, 대검, 왼손의 어둠 구슬
+                    Color gold = new Color(0.95f, 0.78f, 0.35f);
+                    P(Cu, root, 0f, 1.2f, 0f, 0.5f, 0.46f, 0.3f, p.metal);
+                    P(Cu, root, 0f, 0.86f, 0f, 0.4f, 0.26f, 0.24f, p.dark);
+                    P(S, root, -0.33f, 1.48f, 0f, 0.3f, 0.24f, 0.3f, p.metal);
+                    P(S, root, 0.33f, 1.48f, 0f, 0.3f, 0.24f, 0.3f, p.metal);
+                    P(Cu, root, 0f, 0.98f, -0.2f, 0.62f, 1.25f, 0.05f, p.cloth, 9f);
+                    P(Cy, root, 0f, 1.8f, 0f, 0.3f, 0.035f, 0.3f, gold);
+                    for (int i = -1; i <= 1; i++) P(Cu, root, i * 0.1f, 1.9f, 0.1f, 0.045f, 0.14f - Mathf.Abs(i) * 0.04f, 0.045f, gold, 0f, 0f, 0f, true);
+                    P(Cu, rig.armR, 0f, -0.6f, 0.75f, 0.13f, 0.05f, 1.7f, p.metal);
+                    P(Cu, rig.armR, 0f, -0.6f, -0.08f, 0.42f, 0.06f, 0.07f, gold);
+                    P(S, rig.armL, 0f, -0.68f, 0.08f, 0.24f, 0.24f, 0.24f, p.eye, 0f, 0f, 0f, true);
+                    break;
+                }
                 case Shape.Keeper:
                     P(Cy, root, 0f, 0.72f, 0f, 0.62f, 0.7f, 0.5f, p.cloth);
                     P(S, root, 0f, 1.3f, -0.12f, 0.6f, 0.5f, 0.5f, p.cloth);

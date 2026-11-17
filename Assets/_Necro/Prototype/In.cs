@@ -11,7 +11,7 @@ namespace Necro.Proto
         public static float Scroll;
         public static bool AttackHeld, SpearDown, RaiseDown, RaiseHeld, BlastDown, BuffDown, CommandDown;
         public static bool DashDown, MountDown, JumpDown, JumpHeld, DescendHeld, PauseDown, ClickDown;
-        public static bool CrownDown, DescentDown, RosterDown, EscDown, DebugTierDown;
+        public static bool CrownDown, DescentDown, RosterDown, EscDown, DebugTierDown, PointDown, CrownNextDown, LookDown;
 
         const float MouseSens = 0.12f;    // 픽셀당 도
         const float StickSens = 170f;     // 초당 도
@@ -30,7 +30,7 @@ namespace Necro.Proto
             Scroll = 0f;
             AttackHeld = SpearDown = RaiseDown = RaiseHeld = BlastDown = BuffDown = CommandDown = false;
             DashDown = MountDown = JumpDown = JumpHeld = DescendHeld = PauseDown = ClickDown = false;
-            CrownDown = DescentDown = RosterDown = EscDown = DebugTierDown = false;
+            CrownDown = DescentDown = RosterDown = EscDown = DebugTierDown = PointDown = CrownNextDown = LookDown = false;
 
             var k = Keyboard.current;
             if (k != null)
@@ -57,6 +57,8 @@ namespace Necro.Proto
                 DescentDown |= k.zKey.wasPressedThisFrame;
                 RosterDown |= k.tabKey.wasPressedThisFrame;
                 DebugTierDown |= k.f1Key.wasPressedThisFrame;
+                LookDown |= k.f2Key.wasPressedThisFrame;
+                CrownNextDown |= k.tKey.wasPressedThisFrame;
             }
 
             var m = Mouse.current;
@@ -68,6 +70,7 @@ namespace Necro.Proto
                     Look += m.delta.ReadValue() * MouseSens;
                     AttackHeld |= m.leftButton.isPressed;
                     SpearDown |= m.rightButton.wasPressedThisFrame;
+                    PointDown |= m.middleButton.wasPressedThisFrame;
                 }
                 Scroll = m.scroll.ReadValue().y / 120f;
             }
@@ -93,6 +96,8 @@ namespace Necro.Proto
                 CrownDown |= g.dpad.right.wasPressedThisFrame;
                 DescentDown |= g.dpad.down.wasPressedThisFrame;
                 RosterDown |= g.selectButton.wasPressedThisFrame;
+                PointDown |= g.leftStickButton.wasPressedThisFrame;
+                CrownNextDown |= g.rightStickButton.wasPressedThisFrame;
             }
             Move = Vector2.ClampMagnitude(Move, 1f);
         }

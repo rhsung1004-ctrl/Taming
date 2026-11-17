@@ -23,6 +23,7 @@
 | 문서 | 내용 |
 | --- | --- |
 | [docs/SETUP.md](docs/SETUP.md) | 처음 한 번: Unity 프로젝트 만들고 저장소 연결하기 |
+| [docs/TESTING.md](docs/TESTING.md) | **테스트 체크리스트** — PC를 켰을 때 순서대로 해 볼 것 |
 | [docs/PROTOTYPE.md](docs/PROTOTYPE.md) | 프로토타입 조작, 진행 순서, 확인할 것 |
 | [docs/LOOK.md](docs/LOOK.md) | 룩 확정: 묘지 테스트 장면, 주인공(VRoid) 가져오기, 툰 셰이더 |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | 단계별 로드맵 |

@@ -9,8 +9,36 @@ namespace Necro.Proto
         static readonly Dictionary<Color, Material> cache = new Dictionary<Color, Material>();
         static readonly Dictionary<Color, Material> glowCache = new Dictionary<Color, Material>();
 
+        static Shader baseShader, toonShader;
+        static bool toon;
+
+        // 애니풍 룩 미리보기: 캐릭터·소품 머티리얼을 본편 툰 셰이더로 바꾸거나 되돌린다 (지형·바다는 그대로)
+        public static void SetToon(bool on)
+        {
+            toon = on;
+            if (toonShader == null) toonShader = Shader.Find("Necro/Toon");
+            if (toonShader == null) return;
+            foreach (var kv in cache) ApplyShader(kv.Value, kv.Key, false);
+            foreach (var kv in glowCache) ApplyShader(kv.Value, kv.Key, true);
+        }
+
+        static void ApplyShader(Material m, Color c, bool glow)
+        {
+            if (m == null) return;
+            if (baseShader == null) baseShader = BaseMat().shader;
+            m.shader = toon ? toonShader : baseShader;
+            m.color = c;
+            if (toon)
+            {
+                m.SetFloat("_OutlineWidth", glow ? 0f : 1.1f);       // 빛나는 부분에는 외곽선을 그리지 않는다
+                m.SetFloat("_RimStrength", 0.25f);
+            }
+            if (glow) m.SetColor("_EmissionColor", c * 2.5f);
+        }
+
         public static void ResetCaches()
         {
+            toon = false;
             baseMat = null;
             cache.Clear();
             glowCache.Clear();
@@ -44,6 +72,7 @@ namespace Necro.Proto
             {
                 m = NewMat(c);
                 cache[c] = m;
+                if (toon) ApplyShader(m, c, false);
             }
             return m;
         }
@@ -58,6 +87,7 @@ namespace Necro.Proto
                 if (m.HasProperty("_EmissionColor")) m.SetColor("_EmissionColor", c * 2.5f);
                 m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 glowCache[c] = m;
+                if (toon) ApplyShader(m, c, true);
             }
             return m;
         }

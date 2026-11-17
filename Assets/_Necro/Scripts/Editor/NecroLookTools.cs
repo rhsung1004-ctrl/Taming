@@ -221,7 +221,50 @@ namespace Necro.EditorTools
             RenderSettings.fogMode = FogMode.ExponentialSquared;
             RenderSettings.fogColor = Horizon;
             RenderSettings.fogDensity = 0.016f;
+
+            // 분위기 프리셋 (플레이 중 F3으로 넘겨 가며 비교)
+            var cycler = volGo.GetComponent<LookPresetCycler>();
+            if (cycler == null) cycler = volGo.AddComponent<LookPresetCycler>();
+            cycler.moon = moon;
+            cycler.volume = vol;
+            if (cycler.presets == null || cycler.presets.Length == 0) cycler.presets = DefaultPresets();
+            EditorUtility.SetDirty(cycler);
             return moon;
+        }
+
+        static LookPreset[] DefaultPresets()
+        {
+            return new[]
+            {
+                new LookPreset { name = "차가운 달빛 (기본)" },
+                new LookPreset
+                {
+                    name = "핏빛 황혼",
+                    moonColor = new Color(1f, 0.5f, 0.42f), moonIntensity = 1.35f, moonAngles = new Vector2(14f, -160f),
+                    ambientSky = new Color(0.3f, 0.14f, 0.22f), ambientEquator = new Color(0.26f, 0.1f, 0.14f), ambientGround = new Color(0.1f, 0.04f, 0.06f),
+                    fogColor = new Color(0.36f, 0.1f, 0.13f), fogDensity = 0.018f, skyTop = new Color(0.07f, 0.02f, 0.08f),
+                    moonDisc = new Color(2.6f, 0.7f, 0.5f), starBrightness = 0.6f,
+                    exposure = 0.2f, saturation = 14f, shadowTint = new Color(0.55f, 0.28f, 0.42f)
+                },
+                new LookPreset
+                {
+                    name = "영혼 안개",
+                    moonColor = new Color(0.5f, 0.85f, 0.85f), moonIntensity = 0.9f, moonAngles = new Vector2(55f, -120f),
+                    ambientSky = new Color(0.14f, 0.3f, 0.32f), ambientEquator = new Color(0.12f, 0.22f, 0.26f), ambientGround = new Color(0.05f, 0.09f, 0.1f),
+                    fogColor = new Color(0.12f, 0.24f, 0.27f), fogDensity = 0.034f, skyTop = new Color(0.01f, 0.05f, 0.07f),
+                    moonDisc = new Color(1.2f, 2.2f, 2.0f), starBrightness = 0.5f,
+                    exposure = 0.35f, saturation = 4f, shadowTint = new Color(0.3f, 0.5f, 0.55f)
+                },
+                new LookPreset
+                {
+                    name = "잿빛 새벽",
+                    moonColor = new Color(0.8f, 0.82f, 0.9f), moonIntensity = 1.6f, moonAngles = new Vector2(24f, -140f),
+                    ambientSky = new Color(0.34f, 0.36f, 0.46f), ambientEquator = new Color(0.28f, 0.28f, 0.36f), ambientGround = new Color(0.12f, 0.11f, 0.14f),
+                    fogColor = new Color(0.34f, 0.35f, 0.45f), fogDensity = 0.022f, skyTop = new Color(0.1f, 0.11f, 0.2f),
+                    moonDisc = new Color(1.3f, 1.3f, 1.5f), starBrightness = 0.25f,
+                    exposure = 0.1f, saturation = -8f, shadowTint = new Color(0.4f, 0.4f, 0.55f)
+                },
+            };
         }
 
         // ───────────── 묘지 룩 테스트 장면 ─────────────

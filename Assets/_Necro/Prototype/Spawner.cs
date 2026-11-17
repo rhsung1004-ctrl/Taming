@@ -11,6 +11,7 @@ namespace Necro.Proto
         public int count;
         public float respawn;
         public string group;
+        public static readonly List<Spawner> All = new List<Spawner>();
         readonly List<Unit> alive = new List<Unit>();
         float timer;
 
@@ -28,6 +29,9 @@ namespace Necro.Proto
             for (int i = 0; i < count; i++) s.SpawnOne();
             return s;
         }
+
+        void OnEnable() { All.Add(this); }
+        void OnDisable() { All.Remove(this); }
 
         void Update()
         {

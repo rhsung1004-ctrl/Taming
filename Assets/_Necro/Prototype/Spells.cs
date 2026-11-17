@@ -18,7 +18,19 @@ namespace Necro.Proto
         public static readonly float[] BlastCd = { 6f, 7f, 14f }, BlastMana = { 20f, 24f, 35f };
         public static readonly float[] BuffCd = { 14f, 18f, 30f }, BuffMana = { 25f, 30f, 40f };
         public static readonly float[] RaiseRange = { 12f, 24f, 60f };
-        public const float LegionCd = 90f, LegionMana = 50f, LegionTime = 30f;
+        public const float LegionCd = 60f, LegionMana = 50f, LegionTime = 30f;      // 왕관 스킬 공통 재사용 대기·마나
+
+        // 왕관 스킬 (궁극기): 학파마다 하나씩. T로 고르고 G로 쓴다. 본편에서는 왕관 조각을 모을수록 열린다.
+        public static readonly string[] CrownName = { "망자의 군세", "칠야의 유성", "죽음의 영역", "피의 해일", "역병의 안개" };
+        public static readonly string[] CrownSchool = { "소환학", "암흑학", "저주학", "혈류학", "맹독학" };
+        static readonly string[] CrownLine =
+        {
+            "잠든 아이들아, 잠깐만 깨어 주렴. 다 같이 가자.",
+            "하늘을 좀 빌릴게. 눈 감고 있으렴.",
+            "이 안에서는 아무도 헛되이 죽지 않아. 전부 내가 거둘게.",
+            "너희 피로 내 아이들을 살릴 거야.",
+            "숨 쉬는 것들은 불편하겠네. 우리는 괜찮지만.",
+        };
         public const float DescentCd = 45f, DescentMana = 40f;
 
         const int AimMask = ~(1 << 2);
@@ -246,6 +258,101 @@ namespace Necro.Proto
             Game.I.Slow(0.5f, 0.3f);
             Hud.Flash(Soul, 0.7f);
             OrbitCam.Shake(1f);
+            return true;
+        }
+
+        public static bool Crown(PlayerCtl p, Transform cam)
+        {
+            int k = p.crownIdx;
+            bool ok;
+            switch (k)
+            {
+                case 1: ok = Meteor(p, cam); break;
+                case 2: ok = Domain(p); break;
+                case 3: ok = BloodTide(p, cam); break;
+                case 4: ok = Plague(p, cam); break;
+                default: ok = Legion(p); break;
+            }
+            if (ok) Hud.Say("me", CrownLine[k]);
+            return ok;
+        }
+
+        // 칠야의 유성 (암흑학): 하늘이 어두워지며 어둠의 창 수십 개가 넓은 지역에 떨어진다
+        static bool Meteor(PlayerCtl p, Transform cam)
+        {
+            int lv = p.level;
+            Vector3 c = AimGround(p, cam, 70f);
+            Color dark = new Color(0.5f, 0.25f, 1f);
+            Fx.Ring(c, 16f, dark, 3.2f);
+            Hud.Flash(new Color(0.02f, 0f, 0.1f), 3.4f);
+            Game.I.Slow(0.5f, 0.3f);
+            OrbitCam.Shake(0.8f);
+            Timed.Run(70, 0.045f, i =>
+            {
+                Vector2 r = Random.insideUnitCircle * 16f;
+                Vector3 at = OnGround(new Vector3(c.x + r.x, c.y, c.z + r.y));
+                Projectile.FireAt(p, Team.Enemy, at + new Vector3(6f, 40f, -4f), at, 60f + 6f * lv, dark, 85f, 3.2f, 0.6f);
+                if (i % 5 == 0) OrbitCam.Shake(0.45f);
+            }, 0.5f);
+            return true;
+        }
+
+        // 죽음의 영역 (저주학): 12초 동안 넓은 영역. 안의 적은 계속 약해지고, 그 안에서 죽으면 즉시 소환수가 된다
+        static bool Domain(PlayerCtl p)
+        {
+            Vector3 c = p.transform.position;
+            CrownField.Domain(p, new Vector3(c.x, World.GroundY(c + Vector3.up), c.z), 15f, 12f);
+            Hud.Flash(new Color(0.2f, 0.9f, 0.45f), 0.6f);
+            Game.I.Slow(0.4f, 0.35f);
+            OrbitCam.Shake(0.7f);
+            return true;
+        }
+
+        // 피의 해일 (혈류학): 붉은 파도가 전방을 휩쓸고, 맞힌 만큼 군단 전체가 회복한다
+        static bool BloodTide(PlayerCtl p, Transform cam)
+        {
+            int lv = p.level;
+            Vector3 dir = Util.Flat(cam.forward);
+            if (dir.sqrMagnitude < 0.01f) dir = p.transform.forward;
+            dir.Normalize();
+            Vector3 right = Vector3.Cross(Vector3.up, dir);
+            Vector3 start = p.transform.position + dir * 3f;
+            Color blood = new Color(1f, 0.12f, 0.18f);
+            Hud.Flash(blood, 0.6f);
+            Game.I.Slow(0.4f, 0.35f);
+            Timed.Run(11, 0.06f, i =>
+            {
+                Vector3 mid = OnGround(start + dir * (i * 3.2f));
+                for (int s = -1; s <= 1; s++)
+                {
+                    Vector3 q = OnGround(mid + right * (s * 5f));
+                    Fx.Burst(q + Vector3.up * 1.2f, 4.2f, blood, 0.35f);
+                    Fx.Pillar(q, 3.5f, 1.6f, blood, 0.45f, true);
+                }
+                int hit = Combat.Area(p, mid, 8f, 105f + 10f * lv, Team.Enemy);
+                if (hit > 0)
+                    foreach (var u in Unit.Units)
+                        if (u.Ally && u.Alive) u.Heal(u.maxHp * 0.035f * hit);
+                if (hit > 0) p.Heal(p.maxHp * 0.02f * hit);
+                OrbitCam.Shake(0.5f);
+            });
+            return true;
+        }
+
+        // 역병의 안개 (맹독학): 독안개에 닿은 적은 계속 피해를 입고, 적끼리 전염되며, 쓰러지면 폭발한다
+        static bool Plague(PlayerCtl p, Transform cam)
+        {
+            Vector3 c = AimGround(p, cam, 60f);
+            CrownField.Plague(p, c, 13f, 12f);
+            Color venom = new Color(0.7f, 1f, 0.25f);
+            for (int i = 0; i < 9; i++)
+            {
+                Vector2 r = Random.insideUnitCircle * 11f;
+                Fx.Burst(OnGround(new Vector3(c.x + r.x, c.y, c.z + r.y)) + Vector3.up * 1.5f, 4.5f, venom, 0.9f);
+            }
+            Hud.Flash(venom, 0.6f);
+            Game.I.Slow(0.4f, 0.35f);
+            OrbitCam.Shake(0.6f);
             return true;
         }
 

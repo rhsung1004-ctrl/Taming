@@ -41,12 +41,15 @@ namespace Necro.Proto
 
             Util.ResetCaches();
             Combatant.All.Clear();
+            Spawner.All.Clear();
+            CrownField.Active = null;
             Unit.Units.Clear();
             Corpse.All.Clear();
             Hud.ClearStatic();
             Bond.Reset();
             Story.Reset();
             Strafe.Active = false;
+            ProtoLook.Reset();
 
             gameObject.AddComponent<In>();
             gameObject.AddComponent<Hud>();
@@ -65,8 +68,8 @@ namespace Necro.Proto
             Spawner.Create("skeleton", World.At(World.StartXZ, 52f, -18f), 12f, 3, 28f);
             // 납골당: 묘지기
             Spawner.Create("boss", World.At(World.CryptXZ, 0f, -2f), 1f, 1, 0f);
-            Spawner.Create("skeleton", World.At(World.CryptXZ, 0f, -8f), 9f, 4, 40f);
-            Spawner.Create("archer", World.At(World.CryptXZ, 0f, -8f), 9f, 2, 40f);
+            Spawner.Create("skeleton", World.At(World.CryptXZ, 0f, -8f), 9f, 4, 40f, "crypt");
+            Spawner.Create("archer", World.At(World.CryptXZ, 0f, -8f), 9f, 2, 40f, "crypt");
             // 잿빛 폐허: 망령 기사
             Spawner.Create("knight", World.At(World.RuinsXZ), 20f, 3, 50f);
             Spawner.Create("archer", World.At(World.RuinsXZ), 24f, 4, 35f);
@@ -77,6 +80,7 @@ namespace Necro.Proto
             Spawner.Create("archer", World.SkyTop, 14f, 5, 0f, "sky");
             Spawner.Create("skeleton", World.SkyTop, 14f, 5, 0f, "sky");
             Spawner.Create("knight", World.SkyTop, 9f, 2, 0f, "sky");
+            Spawner.Create("lord", World.SkyTop + new Vector3(0f, 0f, 3f), 1f, 1, 0f, "sky");      // 왕관 조각을 지키는 망자의 군주
         }
 
         void SetupLightAndCamera()
@@ -112,6 +116,7 @@ namespace Necro.Proto
             moon.intensity = 1.15f;
             moon.color = new Color(0.7f, 0.74f, 1f);
             moon.shadows = LightShadows.Soft;
+            RenderSettings.sun = moon;
 
             RenderSettings.ambientMode = AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = new Color(0.3f, 0.29f, 0.45f);
@@ -148,6 +153,8 @@ namespace Necro.Proto
                 slowT -= Time.unscaledDeltaTime;
                 Time.timeScale = slowT > 0f ? slowScale : 1f;
             }
+
+            if (In.LookDown) ProtoLook.Toggle(cam);
 
             // 테스트용: F1을 누르면 기술 단계를 바로 바꾸고 왕관 스킬도 연다
             if (In.DebugTierDown)
@@ -237,14 +244,25 @@ namespace Necro.Proto
                     Hud.Toast("묘지기를 쓰러뜨렸어요! 영혼 슬롯 +2", 4f);
                     Hud.Toast("영웅의 시체는 E를 길게 눌러 지배할 수 있어요.", 6f);
                     UnlockTier(1);
+                    // 정복의 흔적: 주인을 잃은 납골당에는 더 이상 적이 나오지 않는다
+                    foreach (var s in Spawner.All) if (s.group == "crypt") s.respawn = 0f;
+                    Hud.Toast("납골당이 조용해졌어요. 이곳에는 더 이상 적이 나타나지 않아요.", 5f);
                 }
             }
             else if (u.def.grade == UnitGrade.Boss)
             {
                 army.bonusSlots += 6;
-                dragonKilled = true;
-                Hud.Toast("고룡이 쓰러졌어요! 영혼 슬롯 +6", 5f);
-                UnlockTier(2);
+                if (u.def.mount)
+                {
+                    dragonKilled = true;
+                    Hud.Toast("고룡이 쓰러졌어요! 영혼 슬롯 +6", 5f);
+                    UnlockTier(2);
+                }
+                else
+                {
+                    Hud.Toast(Util.IGa(u.def.name) + " 쓰러졌어요! 영혼 슬롯 +6 — 시체 앞에서 E를 길게 누르면 지배할 수 있어요.", 7f);
+                    OrbitCam.Shake(0.8f);
+                }
             }
         }
 
@@ -285,8 +303,8 @@ namespace Necro.Proto
                     case 2: return "북동쪽 용의 무덤에서 고룡을 쓰러뜨리세요\n동쪽 폐허의 망령 기사를 지배해 가면 좋아요";
                     case 3: return "고룡의 시체 앞에서 E를 길게 눌러\n본드래곤을 만드세요";
                     case 4: return "V로 본드래곤에 올라\n남서쪽 하늘의 부유 성채로 날아가세요";
-                    case 5: return "부유 성채의 적을 섬멸하세요 (남은 적 " + SkyLeft() + ")\n하늘에서 브레스로, 또는 착륙해 군단으로";
-                    default: return "프로토타입 클리어!\n왕관 스킬 [G] 망자의 군세로 필드를 휩쓸어 보세요";
+                    case 5: return "망자의 군주와 부하들을 쓰러뜨리세요 (남은 적 " + SkyLeft() + ")\n하늘에서 브레스로, 또는 착륙해 군단으로";
+                    default: return "프로토타입 클리어!\n왕관 스킬 [G]를 [T]로 바꿔 가며 필드를 휩쓸어 보세요";
                 }
             }
         }
@@ -317,13 +335,14 @@ namespace Necro.Proto
             {
                 Advance("부유 성채에 도착! 하늘에서 브레스를 퍼붓거나, 착륙해서 군단을 불러내세요.");
                 Story.Play("sky_enter");
+                Story.Play("r1_boss");
             }
             if (quest == 5 && SkyLeft() == 0)
             {
                 Advance("부유 성채 함락! 프로토타입 클리어!");
                 Story.Play("r1_clear");
                 player.hasCrown = true;
-                Hud.Toast("왕관 조각 획득! 왕관 스킬 해금: 망자의 군세 [G]", 8f);
+                Hud.Toast("왕관 조각 획득! 왕관 스킬 해금 — [G] 사용, [T] 다른 왕관 스킬로 바꾸기 (5종)", 9f);
             }
         }
 

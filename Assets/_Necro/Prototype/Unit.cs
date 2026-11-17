@@ -29,7 +29,9 @@ namespace Necro.Proto
         float atkTimer, aiTimer, specialTimer, windup, wanderTimer, burstTimer;
         int burstLeft;
         Vector3 wanderDest, sep, lastPos, burstPoint;
-        bool hasWander, flyingNow, leashed, lastStandUsed;
+        bool hasWander, flyingNow, leashed, lastStandUsed, lordSpoke;
+        int specialIdx;
+        float slamR = 6f;
         float tempLife, calm = 99f;
 
         public const int MaxLevel = 10;
@@ -239,9 +241,11 @@ namespace Necro.Proto
             var game = Game.I;
             var pl = game.player;
             int mode = temp ? Army.Charge : game.army.mode;      // 망자의 군세는 언제나 돌격
+            bool hold = game.army.hasPoint && !temp;           // 지점 사수: 찍어 준 자리 주변만 지킨다
+            if (hold) mode = Army.Guard;
             if (mode == Army.Retreat) { target = null; return; }
 
-            Vector3 pp = pl.transform.position;
+            Vector3 pp = hold ? game.army.point : pl.transform.position;
             // 돌격: 주인공이 겨누는 적을 먼저 친다
             if (mode == Army.Charge && pl.focus != null && pl.focus.Alive && CanReach(pl.focus) &&
                 (pl.focus.transform.position - pp).sqrMagnitude < 34f * 34f)
@@ -251,7 +255,7 @@ namespace Necro.Proto
             }
             if (target != null && (target.transform.position - pp).sqrMagnitude < 34f * 34f) return;
 
-            float range = mode == Army.Charge ? 26f : 11f;
+            float range = mode == Army.Charge ? 26f : (hold ? 16f : 11f);
             Unit best = null;
             float bd = float.MaxValue;
             foreach (var u in Units)
@@ -296,8 +300,10 @@ namespace Necro.Proto
             float flat = Util.Flat(transform.position - pp).magnitude;
             float dy = Mathf.Abs(transform.position.y - pp.y);
 
-            // 주인이 멀어졌거나 다른 높이의 땅에 내렸으면 그림자를 타고 따라온다
-            if ((pl.Grounded && (flat > 45f || dy > 9f)) || flat > 75f)
+            // 주인이 멀어졌거나 다른 높이의 땅에 내렸으면 그림자를 타고 따라온다 (지점을 지키는 중에는 남는다)
+            bool hold = game.army.hasPoint && !temp;
+            if (hold && flat > 140f) game.army.ClearPoint("군단이 너무 멀어져서 다시 불러들였어요.");
+            else if (!hold && ((pl.Grounded && (flat > 45f || dy > 9f)) || flat > 75f))
             {
                 if (TeleportNear(pl)) return;
             }
@@ -321,6 +327,11 @@ namespace Necro.Proto
 
             if (def.shape == Shape.Keeper && specialTimer <= 0f && dist < 8f) { StartSlam(); return; }
             if (def.shape == Shape.Dragon && specialTimer <= 0f && dist < 32f) StartBreath(t);
+            if (def.shape == Shape.Lord && specialTimer <= 0f && dist < 26f)
+            {
+                LordSpecial(t);
+                if (windup > 0f) return;
+            }
 
             if (!inRange)
             {
@@ -342,7 +353,7 @@ namespace Necro.Proto
             windup = 1.1f;
             specialTimer = 6.5f;
             rig.Attack();
-            Fx.Ring(transform.position, 6f, Ally ? new Color(0.72f, 0.45f, 1f) : new Color(1f, 0.3f, 0.2f), 1.1f);
+            Fx.Ring(transform.position, slamR, Ally ? new Color(0.72f, 0.45f, 1f) : new Color(1f, 0.3f, 0.2f), 1.1f);
         }
 
         void Windup(float dt)
@@ -350,8 +361,78 @@ namespace Necro.Proto
             windup -= dt;
             if (windup > 0f) return;
             rig.Attack();
-            Fx.Burst(transform.position + Vector3.up * 0.5f, 6f, Ally ? new Color(0.72f, 0.45f, 1f) : new Color(1f, 0.4f, 0.2f));
-            Combat.Area(this, transform.position, 6f, def.atk * 1.6f, Ally ? Team.Enemy : Team.Player);
+            Fx.Burst(transform.position + Vector3.up * 0.5f, slamR, Ally ? new Color(0.72f, 0.45f, 1f) : new Color(1f, 0.4f, 0.2f));
+            Combat.Area(this, transform.position, slamR, def.atk * 1.6f, Ally ? Team.Enemy : Team.Player);
+            if (def.shape == Shape.Lord) OrbitCam.Shake(0.5f);
+        }
+
+        // 망자의 군주: 대검 내려찍기 → 어둠의 창(예고 원이 뜬 자리에 기둥) → 해골 소환을 돌아가며 쓴다.
+        // 체력이 절반 아래로 내려가면 더 자주 쓴다. 지배하면 같은 기술을 적에게 쓴다.
+        void LordSpecial(Combatant t)
+        {
+            bool enraged = hp < maxHp * 0.5f;
+            int kind = specialIdx++ % 3;
+            Team hits = Ally ? Team.Enemy : Team.Player;
+            Color c = Ally ? new Color(0.72f, 0.45f, 1f) : new Color(0.9f, 0.2f, 0.45f);
+            if (kind == 0)
+            {
+                slamR = 8f;
+                StartSlam();
+            }
+            else if (kind == 1)
+            {
+                float dmg = def.atk * 1.3f;
+                Vector3 tp = t.transform.position;
+                for (int i = 0; i < (enraged ? 8 : 5); i++)
+                {
+                    Vector2 r = i == 0 ? Vector2.zero : Random.insideUnitCircle * 8f;
+                    Vector3 at = new Vector3(tp.x + r.x, tp.y + 1f, tp.z + r.y);
+                    at.y = World.GroundY(at);
+                    Fx.Ring(at, 3f, c, 1f);
+                    Unit self = this;
+                    Timed.Run(1, 0f, _ =>
+                    {
+                        Fx.Pillar(at, 6f, 0.5f, c, 0.7f, true);
+                        Fx.Burst(at + Vector3.up, 3f, c, 0.3f);
+                        if (self != null) Combat.Area(self, at, 3f, dmg, hits);
+                    }, 1f);
+                }
+                rig.Attack();
+            }
+            else SummonGuard();
+            specialTimer = enraged ? 4.5f : 7f;
+        }
+
+        void SummonGuard()
+        {
+            if (!Ally)
+            {
+                int near = 0;
+                foreach (var u in Units)
+                    if (u.team == Team.Enemy && u.Alive && u.def.grade == UnitGrade.Common && (u.transform.position - transform.position).sqrMagnitude < 30f * 30f) near++;
+                if (near >= 8) { slamR = 8f; StartSlam(); return; }
+                if (!lordSpoke)
+                {
+                    lordSpoke = true;
+                    Hud.Say("lord", "왕의 군세여, 나를 지켜라!");
+                }
+            }
+            var sk = Db.Get("skeleton");
+            for (int i = 0; i < 4; i++)
+            {
+                float a = i * Mathf.PI * 0.5f + Random.value;
+                Vector3 p = transform.position + new Vector3(Mathf.Cos(a) * 4f, 1f, Mathf.Sin(a) * 4f);
+                bool sky = World.OnSky(p);
+                if (sky != World.OnSky(transform.position + Vector3.up)) continue;
+                p.y = World.GroundY(p);
+                if (p.y < 0.3f && !sky) continue;
+                var u = Create(sk, team, p);
+                u.PlayRise();
+                if (Ally) u.MakeTemp(20f, i);
+                else { u.group = group; u.home = home; u.wander = 8f; }
+                Fx.Burst(p + Vector3.up * 0.5f, 1.4f, Ally ? new Color(0.72f, 0.45f, 1f) : new Color(0.9f, 0.2f, 0.45f), 0.4f);
+            }
+            rig.Attack();
         }
 
         // 고룡: 불덩이 다섯 발 (본드래곤이 되면 영혼 불꽃)

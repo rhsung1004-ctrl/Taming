@@ -251,7 +251,7 @@ namespace Necro.Proto
             Bar(new Rect(24f, 82f, 348f, 6f), pl.xp / pl.XpNeed, Gold);
 
             int used = army.UsedSlots, max = army.MaxSlots;
-            Text(new Rect(24f, 92f, 348f, 22f), "영혼 슬롯 " + used + " / " + max + "     명령: " + Army.ModeName[army.mode] + " [F]", 15,
+            Text(new Rect(24f, 92f, 348f, 22f), "영혼 슬롯 " + used + " / " + max + "     명령: " + (army.hasPoint ? "지점 사수" : Army.ModeName[army.mode]) + " [F]", 15,
                  used >= max ? Gold : Soul, TextAnchor.MiddleLeft);
             Text(new Rect(24f, 114f, 348f, 40f), army.Summary(), 13, new Color(0.85f, 0.82f, 0.95f), TextAnchor.UpperLeft);
         }
@@ -306,14 +306,17 @@ namespace Necro.Proto
             Slot(x + step * 2, y, "Q", Spells.BlastName[t], Mathf.Clamp01(pl.blastCd / Spells.BlastCd[t]), pl.mana >= Spells.BlastMana[t], new Color(0.6f, 1f, 0.35f));
             Slot(x + step * 3, y, "R", Spells.BuffName[t], Mathf.Clamp01(pl.buffCd / Spells.BuffCd[t]), pl.mana >= Spells.BuffMana[t] && army.Count > 0, new Color(1f, 0.35f, 0.4f));
             Slot(x + step * 4, y, "E", Spells.RaiseName[t], 0f, true, Soul);
-            Slot(x + step * 5, y, "F", "명령: " + Army.ModeName[army.mode], 0f, true, new Color(0.6f, 0.8f, 1f));
+            Slot(x + step * 5, y, "F · 휠클릭", army.hasPoint ? "지점 사수" : "명령: " + Army.ModeName[army.mode], 0f, true, new Color(0.6f, 0.8f, 1f));
             Slot(x + step * 6, y, ride ? "Space/Ctrl" : "Shift", ride ? "상승/하강" : "대시", ride ? 0f : Mathf.Clamp01(pl.dashCd / PlayerCtl.DashCdMax), true, Color.white);
             Slot(x + step * 7, y, "V", ride ? "내리기" : "본드래곤", 0f, hasDragon, Gold);
             int k = 8;
             if (hasDragon)
                 Slot(x + step * k++, y, "Z", "강림", Mathf.Clamp01(pl.descentCd / Spells.DescentCd), !ride && pl.mana >= Spells.DescentMana, Gold);
             if (pl.hasCrown)
-                Slot(x + step * k, y, "G", "망자의 군세", Mathf.Clamp01(pl.legionCd / Spells.LegionCd), pl.mana >= Spells.LegionMana, Gold);
+            {
+                Slot(x + step * k, y, "G", Spells.CrownName[pl.crownIdx], Mathf.Clamp01(pl.legionCd / Spells.LegionCd), !ride && pl.mana >= Spells.LegionMana, Gold);
+                Text(new Rect(x + step * k - 20f, y - 20f, W + 40f, 18f), "[T] " + Spells.CrownSchool[pl.crownIdx], 12, Gold, TextAnchor.MiddleCenter);
+            }
         }
 
         // ───────────── 화면 가운데: 조준점, 지배 진행, 안내 ─────────────
@@ -479,22 +482,23 @@ namespace Necro.Proto
             { "E", "시체 지배 → 대량 지배 → 왕관의 부름 (정예 이상은 길게)" },
             { "Q", "시체 폭발 → 연쇄 폭발 → 망자의 해일" },
             { "R", "군단 강화 → 광란 → 불사의 군단" },
-            { "F", "군단 명령 — 돌격 / 호위 / 후퇴" },
+            { "F · 휠 클릭", "군단 명령 (돌격 / 호위 / 후퇴) · 겨눈 지점으로 보내기" },
             { "Shift · Space", "대시 (잠깐 무적) · 점프" },
             { "V · Z", "본드래곤 탑승 (Space 상승, Ctrl 하강) · 강림" },
-            { "G", "왕관 스킬 — 망자의 군세 (왕관 조각을 되찾은 뒤)" },
+            { "G · T", "왕관 스킬 쓰기 · 고르기 (왕관 조각을 되찾은 뒤, 5종)" },
             { "Tab · Esc", "군단 명부 (이름과 전적) · 일시정지" },
+            { "F1 · F2", "테스트: 기술 단계 전환 · 애니풍 룩 미리보기" },
         };
 
         void DrawPause(Game game)
         {
             Fill(new Rect(0f, 0f, vw, VH), new Color(0.03f, 0.02f, 0.07f, game.started ? 0.72f : 0.86f));
             float cx = vw * 0.5f;
-            Text(new Rect(0f, 56f, vw, 50f), "사령술사 3D — 프로토타입 v0.2", 36, Soul, TextAnchor.MiddleCenter);
-            Text(new Rect(0f, 106f, vw, 28f), "묘지기를 쓰러뜨리면 상급 마법, 고룡을 쓰러뜨리면 금주가 열립니다 (F1: 테스트용 단계 전환)", 16,
+            Text(new Rect(0f, 56f, vw, 50f), "사령술사 3D — 프로토타입 v0.3", 36, Soul, TextAnchor.MiddleCenter);
+            Text(new Rect(0f, 100f, vw, 28f), "묘지기를 쓰러뜨리면 상급 마법, 고룡을 쓰러뜨리면 금주, 망자의 군주를 쓰러뜨리면 왕관 스킬이 열립니다", 16,
                  new Color(0.85f, 0.82f, 0.95f), TextAnchor.MiddleCenter);
             int rows = Keys.GetLength(0);
-            float y = 158f;
+            float y = 146f;
             Fill(new Rect(cx - 330f, y - 12f, 660f, rows * 34f + 24f), Panel);
             for (int i = 0; i < rows; i++)
             {
