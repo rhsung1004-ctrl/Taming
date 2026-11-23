@@ -7,7 +7,8 @@
 
 - 엔진: Unity 6 LTS + URP
 - 플랫폼: PC (스팀), 키보드·마우스 + 게임패드
-- 현재 단계: **룩 확정** — 애니풍 다크 판타지. 묘지 한 장면을 목표 품질로 ([docs/LOOK.md](docs/LOOK.md))
+- 현재 단계: **룩 확정 + 1장 오픈월드 틀** — 애니풍 다크 판타지. 묘지 한 장면을 목표 품질로 ([docs/LOOK.md](docs/LOOK.md)),
+  2 km × 2 km 밤의 묘지 들판(13개 장소, 풀·덩굴·늪·안개)을 걸어 다니며 분위기와 규모를 확인 ([docs/WORLD.md](docs/WORLD.md))
 - 프로토타입(시체 지배, 군단 전투, 본드래곤 탑승)의 재미 검증은 플레이 테스트를 병행합니다
 
 > 저장소 이름은 예전 프로젝트 이름인 `Taming` 그대로입니다. GitHub 설정에서 바꿔도 기존 주소는 자동으로 연결됩니다.
@@ -42,6 +43,10 @@ Assets/_Necro/
   Scripts/World/         본편용 오픈월드 컴포넌트 (바람, 주변 효과, 장소 발견·지도, 광원 컬링)
   Scripts/Editor/        Tools → Necro 메뉴 (원클릭 세팅 도구)
   Shaders/               툰 셰이더, 밤하늘(구름·성운·오로라), 풀·덩굴, 늪 물, 영혼 입자
+  Art/Environment/Graveyard/  배경 소품 모델(.fbx)·텍스처·manifest.json (Tools/BlenderKit 가 만든다)
+  Art/World/Ch1/         1장 월드 데이터(높이·지형 층·풀·배치)와 지형 텍스처, 지도 (Tools/WorldGen 이 만든다)
+Tools/BlenderKit/        배경 소품 제작 Blender 스크립트 (Claude 가 실행)
+Tools/WorldGen/          1장 오픈월드 생성기 (Python) + 확인 렌더
 Archive/Taming/          이전 프로젝트(몬스터 테이밍) 자료. 참고용, Unity가 읽지 않음
 docs/                    문서
 ```

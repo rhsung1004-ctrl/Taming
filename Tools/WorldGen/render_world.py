@@ -344,10 +344,11 @@ def sky_and_light():
     rl = ct.nodes.new('CompositorNodeRLayers')
     mr = ct.nodes.new('CompositorNodeMapRange')
     mr.inputs['From Min'].default_value = 0.0; mr.inputs['From Max'].default_value = 1.0
-    mr.inputs['To Min'].default_value = 0.0; mr.inputs['To Max'].default_value = 0.88
+    mr.inputs['To Min'].default_value = 0.0; mr.inputs['To Max'].default_value = 0.85
+    mr.name = "FogAmount"
     ct.links.new(rl.outputs['Mist'], mr.inputs['Value'])
     mix = ct.nodes.new('CompositorNodeMixRGB')
-    mix.inputs[2].default_value = (0.05, 0.042, 0.095, 1)
+    mix.inputs[2].default_value = (0.016, 0.014, 0.034, 1)
     ct.links.new(mr.outputs['Value'], mix.inputs['Fac'])
     ct.links.new(rl.outputs['Image'], mix.inputs[1])
     gl = ct.nodes.new('CompositorNodeGlare')
@@ -395,12 +396,22 @@ VIEW_DEFS = {
 }
 
 
+def fog(start, depth, amount):
+    sc.world.mist_settings.start = start
+    sc.world.mist_settings.depth = depth
+    sc.node_tree.nodes["FogAmount"].inputs['To Max'].default_value = amount
+
+
 def build_view(name):
     cpos, cl, grass_r, prop_r = VIEW_DEFS[name]
     if name == "overview":
+        fog(900, 2600, 0.5)
+    else:
+        fog(30, 520, 0.85)
+    if name == "overview":
         pos = (cpos[0], cpos[2], cpos[1])
         look = (cl[0], 40.0, cl[1])
-        res = (1600, 900)
+        res = (1440, 810)
         fov = 34
     else:
         # 같은 장소 이름의 기준 정보가 bridge 처럼 계산된 자리면 world.json 의 pois 를 쓴다

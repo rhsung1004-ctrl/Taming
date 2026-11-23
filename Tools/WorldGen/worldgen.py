@@ -77,8 +77,8 @@ LAYERS = [  # 이름, 타일 크기(m), 매끈함
     ("grass", 4.0, 0.04), ("moss", 4.5, 0.06), ("dirt", 5.0, 0.05), ("mud", 6.0, 0.32),
     ("rock", 11.0, 0.12), ("path", 4.0, 0.06), ("leaves", 4.0, 0.05), ("ash", 5.0, 0.04)]
 DETAILS = [  # 풀 종류, 칸(1 m²)당 최대 포기 수, 크기
-    ("grass_a", 4, 0.8, 1.3), ("grass_b", 2, 0.8, 1.25), ("grass_dead", 2, 0.8, 1.3),
-    ("fern_a", 1, 0.75, 1.3), ("weeds", 2, 0.8, 1.35), ("reed", 3, 0.85, 1.25)]
+    ("grass_a", 3, 0.85, 1.35), ("grass_b", 2, 0.8, 1.25), ("grass_dead", 2, 0.8, 1.3),
+    ("fern_a", 2, 0.75, 1.3), ("weeds", 2, 0.8, 1.35), ("reed", 3, 0.85, 1.25)]
 
 SOUL = [0.62, 0.35, 1.0]
 SPIRIT = [0.45, 0.95, 0.9]
@@ -1132,7 +1132,7 @@ def details(W, P):
     d["grass_a"] = (lw["grass"] * 1.0 + lw["moss"] * 0.55 + lw["dirt"] * 0.25) * (0.5 + 0.5 * ss(n1, -0.5, 0.4)) * base
     d["grass_b"] = (lw["grass"] * ss(n2, 0.0, 0.45) + lw["mud"] * 0.35) * base * (0.6 + 0.4 * ss(n3, -0.3, 0.4))
     d["grass_dead"] = (lw["dirt"] * 0.55 + lw["ash"] * 0.45 + lw["grass"] * ss(n2, -0.6, -0.2) * 0.5 + lw["leaves"] * 0.2) * base
-    d["fern_a"] = (lw["leaves"] * 0.55 + lw["moss"] * 0.4 + W.forest * 0.3) * ss(n1, -0.1, 0.5) * base
+    d["fern_a"] = (lw["leaves"] * 0.7 + lw["moss"] * 0.45 + W.forest * 0.5) * ss(n1, -0.25, 0.4) * base
     ex = ((X - GRAVE_C[0]) / GRAVE_R[0]) ** 2 + ((Z - GRAVE_C[1]) / GRAVE_R[1]) ** 2
     vil = np.sqrt((X - VILLAGE[0]) ** 2 + (Z - VILLAGE[1]) ** 2)
     d["weeds"] = (ss(-ex, -1.2, -0.6) * 0.6 + ss(-vil, -110, -40) * 0.6 + lw["dirt"] * 0.25) * ss(n3, -0.2, 0.5) * base

@@ -39,5 +39,5 @@ grass, moss, dirt, mud, rock, path, leaves, ash — `groundtex.py` 가 만든 10
 
 ## 풀 (detail 순서)
 
-grass_a (칸당 최대 4), grass_b (2), grass_dead (2), fern_a (1), weeds (2), reed (3). Unity 지형의 풀 거리 110 m 안에서 그린다.
+grass_a (칸당 최대 3), grass_b (2), grass_dead (2), fern_a (2), weeds (2), reed (3). Unity 지형의 풀 거리 110 m 안에서 그린다.
 무거우면 지형의 Detail Density 를 낮춘다 (0.5 = 절반).
