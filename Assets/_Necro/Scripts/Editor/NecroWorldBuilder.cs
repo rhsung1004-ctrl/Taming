@@ -36,7 +36,7 @@ namespace Necro.EditorTools
         // 지형 풀은 LOD 가 없어 먼 풀도 LOD0 메쉬(지금 한 포기 410~650 삼각형)를 그대로 그린다.
         // 실제 데이터로 세어 보면 110m 일 때 시작 위치 화면 안 풀만 약 3,900만 삼각형, 70m 면 약 2,000만 (밀도 1 기준).
         // 70m 에서 Exp2 안개(0.0048)는 약 11% 라 풀이 끝나는 곳이 조금 보일 수 있다 (110m 에서도 약 24% 였다).
-        const float DetailDistance = 70f;
+        const float DetailDistance = NecroProps.TerrainDetailDistance;   // 지형 풀 전용 재질의 거리 축소도 이 값을 쓴다
         // 풀 밀도 배율. 풀 프로토타입이 useDensityScaling = true 라 모든 풀이 고르게 줄어든다
         // (품질 설정의 terrainDetailDensityScale 이 한 번 더 곱해진다). 1 = 생성기 밀도 그대로
         const float DetailDensity = 0.75f;

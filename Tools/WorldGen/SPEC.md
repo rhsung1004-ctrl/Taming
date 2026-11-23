@@ -22,6 +22,8 @@ Assets/_Necro/Art/World/Ch1/
     height.r16                높이: uint16 리틀엔디언, 2049 × 2049, 행 = Z(남→북), 열 = X(서→동). 0~65535 → 0~world.height m
     splat_0.png, splat_1.png  지형 층 무게 RGBA (층 0~3, 4~7). 2048 × 2048. PNG 맨 윗줄 = 북쪽 끝
     detail_0.png, detail_1.png 풀 밀도 RGBA (풀 종류 0~3, 4~7). 2048 × 2048 (1m 칸). 0~255 → 칸당 0~maxPerCell 개
+                              화소 정렬: splat/detail 화소 (열 i, 아래에서 j 번째 줄) = 높이 격자점 (x = i, z = j) 의 값.
+                              Unity 도구는 알파맵을 그 위치에서 읽고, 풀 칸 c([c, c+1) m)는 화소 c, c+1 (가로·세로 넷)의 평균을 쓴다
     trees.json                지형 나무 인스턴스
     objects.json              게임 오브젝트로 놓는 소품, 점광원, 물, 효과
   Terrain/                    지형 층 텍스처 (Unity가 가져온다)

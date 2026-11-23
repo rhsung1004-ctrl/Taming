@@ -352,6 +352,34 @@ namespace Necro.EditorTools
             return m;
         }
 
+        // 지형 풀이 보이는 거리 (m). 월드 빌더의 Terrain.detailObjectDistance 와 지형 풀 전용 재질의 거리 축소가 함께 쓴다
+        public const float TerrainDetailDistance = 70f;
+
+        // 지형 풀(kind = detail) 전용 재질: Foliage 와 같고, 풀이 끊기는 거리 조금 앞에서 포기를 오그라뜨려 경계를 감춘다.
+        // 소품의 덩굴·이끼(Foliage.mat)는 거리 축소를 쓰지 않으므로 재질을 나눈다
+        public static Material FoliageDetailMaterial()
+        {
+            var m = GetOrCreate(MatFolder + "/Foliage_Detail.mat", FoliageShader, x =>
+            {
+                x.SetFloat("_Cutoff", 0.5f);
+                x.enableInstancing = true;
+            });
+            if (m == null) return null;
+            bool dirty = false;
+            var atlas = AssetDatabase.LoadAssetAtPath<Texture2D>(AtlasPath);
+            if (atlas != null && m.GetTexture("_BaseMap") != atlas) { m.SetTexture("_BaseMap", atlas); dirty = true; }
+            if (!m.enableInstancing) { m.enableInstancing = true; dirty = true; }
+            float start = TerrainDetailDistance * 0.7f, end = TerrainDetailDistance * 0.96f;
+            if (m.HasProperty("_FadeStart") && (m.GetFloat("_FadeStart") != start || m.GetFloat("_FadeEnd") != end))
+            {
+                m.SetFloat("_FadeStart", start);
+                m.SetFloat("_FadeEnd", end);
+                dirty = true;
+            }
+            if (dirty) EditorUtility.SetDirty(m);
+            return m;
+        }
+
         // 재질 슬롯 이름으로 고른다. Blender 가 붙인 ".001" 같은 접미사가 있으므로 접두어로 비교
         public static Material PickMaterial(string slotName, Material main, List<string> warnings, string owner)
         {
@@ -541,7 +569,12 @@ namespace Necro.EditorTools
             go.AddComponent<MeshFilter>().sharedMesh = srcFilter.sharedMesh;
             var mr = go.AddComponent<MeshRenderer>();
             var mats = src.sharedMaterials;
-            for (int i = 0; i < mats.Length; i++) mats[i] = PickMaterial(mats[i] != null ? mats[i].name : "", main, warnings, name);
+            var foliage = FoliageMaterial();
+            for (int i = 0; i < mats.Length; i++)
+            {
+                var pm = PickMaterial(mats[i] != null ? mats[i].name : "", main, warnings, name);
+                mats[i] = pm != null && pm == foliage ? FoliageDetailMaterial() : pm;     // 지형 풀은 거리 축소가 켜진 재질
+            }
             mr.sharedMaterials = mats;
             mr.shadowCastingMode = meta.shadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
             mr.receiveShadows = true;
