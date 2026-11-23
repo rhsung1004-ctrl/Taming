@@ -1,0 +1,1912 @@
+{
+ "altar": {
+  "name": "altar",
+  "group": "ruins",
+  "size": [
+   6.971,
+   6.286,
+   3.406
+  ],
+  "tris_lod0": 22872,
+  "meta": {
+   "kind": "landmark",
+   "tags": [
+    "landmark",
+    "ruin",
+    "light"
+   ],
+   "collider": "mesh",
+   "footprint": 4.0,
+   "sink": 0.02,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    1.0,
+    1.0
+   ],
+   "cull": 0.003,
+   "shadows": true,
+   "light": {
+    "offset": [
+     0,
+     0,
+     2.5
+    ],
+    "color": [
+     0.62,
+     0.35,
+     1.0
+    ],
+    "intensity": 30,
+    "range": 18
+   }
+  }
+ },
+ "arch_ruin": {
+  "name": "arch_ruin",
+  "group": "ruins",
+  "size": [
+   4.236,
+   1.644,
+   5.402
+  ],
+  "tris_lod0": 18891,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "ruin"
+   ],
+   "collider": "mesh",
+   "footprint": 2.5,
+   "sink": 0.05,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.95,
+    1.1
+   ],
+   "cull": 0.004,
+   "shadows": true
+  }
+ },
+ "bone_pile": {
+  "name": "bone_pile",
+  "group": "graves",
+  "size": [
+   1.088,
+   1.011,
+   0.465
+  ],
+  "tris_lod0": 6739,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "bone"
+   ],
+   "collider": "mesh",
+   "footprint": 0.65,
+   "sink": 0.03,
+   "tilt": 5,
+   "align": true,
+   "scale": [
+    0.8,
+    1.25
+   ],
+   "cull": 0.012,
+   "shadows": true
+  }
+ },
+ "bone_spike": {
+  "name": "bone_spike",
+  "group": "bones",
+  "size": [
+   1.095,
+   2.0,
+   3.056
+  ],
+  "tris_lod0": 4199,
+  "meta": {
+   "kind": "tree",
+   "tags": [
+    "bone"
+   ],
+   "collider": "capsule",
+   "footprint": 0.9,
+   "sink": 0.15,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.7,
+    1.3
+   ],
+   "cull": 0.008,
+   "shadows": true
+  }
+ },
+ "bones_scatter": {
+  "name": "bones_scatter",
+  "group": "bones",
+  "size": [
+   1.526,
+   1.182,
+   0.427
+  ],
+  "tris_lod0": 3263,
+  "meta": {
+   "kind": "scatter",
+   "tags": [
+    "bone"
+   ],
+   "collider": "none",
+   "footprint": 0.8,
+   "sink": 0.02,
+   "tilt": 4,
+   "align": true,
+   "scale": [
+    0.8,
+    1.3
+   ],
+   "cull": 0.02,
+   "shadows": true
+  }
+ },
+ "bramble": {
+  "name": "bramble",
+  "group": "foliage",
+  "size": [
+   1.835,
+   1.727,
+   0.998
+  ],
+  "tris_lod0": 1481,
+  "meta": {
+   "kind": "tree",
+   "tags": [
+    "foliage",
+    "nature",
+    "grave",
+    "ruin"
+   ],
+   "collider": "none",
+   "footprint": 0.8,
+   "sink": 0.03,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.8,
+    1.3
+   ],
+   "cull": 0.006,
+   "shadows": true
+  }
+ },
+ "bridge_ruin": {
+  "name": "bridge_ruin",
+  "group": "landmarks",
+  "size": [
+   14.047,
+   7.484,
+   5.75
+  ],
+  "tris_lod0": 16502,
+  "meta": {
+   "kind": "landmark",
+   "tags": [
+    "landmark",
+    "ruin",
+    "path"
+   ],
+   "collider": "mesh",
+   "footprint": 7.5,
+   "sink": 0.0,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    1.0,
+    1.0
+   ],
+   "cull": 0.004,
+   "shadows": true
+  }
+ },
+ "bush_dead": {
+  "name": "bush_dead",
+  "group": "foliage",
+  "size": [
+   1.064,
+   0.92,
+   1.104
+  ],
+  "tris_lod0": 1128,
+  "meta": {
+   "kind": "tree",
+   "tags": [
+    "foliage",
+    "nature",
+    "grave"
+   ],
+   "collider": "none",
+   "footprint": 0.6,
+   "sink": 0.03,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.8,
+    1.3
+   ],
+   "cull": 0.006,
+   "shadows": true
+  }
+ },
+ "candles": {
+  "name": "candles",
+  "group": "graves",
+  "size": [
+   0.49,
+   0.371,
+   0.518
+  ],
+  "tris_lod0": 3337,
+  "meta": {
+   "kind": "scatter",
+   "tags": [
+    "light",
+    "grave"
+   ],
+   "collider": "none",
+   "footprint": 0.3,
+   "sink": 0.02,
+   "tilt": 4,
+   "align": true,
+   "scale": [
+    0.85,
+    1.2
+   ],
+   "cull": 0.03,
+   "shadows": true,
+   "light": {
+    "offset": [
+     0.0,
+     0.02,
+     0.42
+    ],
+    "color": [
+     0.62,
+     0.35,
+     1.0
+    ],
+    "intensity": 2.5,
+    "range": 4
+   }
+  }
+ },
+ "cathedral_ruin": {
+  "name": "cathedral_ruin",
+  "group": "landmarks",
+  "size": [
+   25.835,
+   36.876,
+   30.484
+  ],
+  "tris_lod0": 31632,
+  "meta": {
+   "kind": "landmark",
+   "tags": [
+    "landmark",
+    "ruin"
+   ],
+   "collider": "mesh",
+   "footprint": 20.0,
+   "sink": 0.1,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    1.0,
+    1.0
+   ],
+   "cull": 0.002,
+   "shadows": true,
+   "light": {
+    "offset": [
+     0,
+     -15.4,
+     13.3
+    ],
+    "color": [
+     0.62,
+     0.35,
+     1.0
+    ],
+    "intensity": 14,
+    "range": 16
+   }
+  }
+ },
+ "cliff_a": {
+  "name": "cliff_a",
+  "group": "nature",
+  "size": [
+   10.704,
+   6.261,
+   8.615
+  ],
+  "tris_lod0": 24586,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "cliff",
+    "rock",
+    "nature"
+   ],
+   "collider": "mesh",
+   "footprint": 5.5,
+   "sink": 0.4,
+   "tilt": 2,
+   "align": false,
+   "scale": [
+    0.8,
+    1.6
+   ],
+   "cull": 0.003,
+   "shadows": true
+  }
+ },
+ "cliff_b": {
+  "name": "cliff_b",
+  "group": "nature",
+  "size": [
+   6.621,
+   5.542,
+   11.759
+  ],
+  "tris_lod0": 20071,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "cliff",
+    "rock",
+    "nature"
+   ],
+   "collider": "mesh",
+   "footprint": 3.2,
+   "sink": 0.4,
+   "tilt": 3,
+   "align": false,
+   "scale": [
+    0.8,
+    1.5
+   ],
+   "cull": 0.003,
+   "shadows": true
+  }
+ },
+ "cliff_c": {
+  "name": "cliff_c",
+  "group": "nature",
+  "size": [
+   13.685,
+   7.228,
+   5.514
+  ],
+  "tris_lod0": 26659,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "cliff",
+    "rock",
+    "nature"
+   ],
+   "collider": "mesh",
+   "footprint": 7.5,
+   "sink": 0.4,
+   "tilt": 1,
+   "align": false,
+   "scale": [
+    0.8,
+    1.6
+   ],
+   "cull": 0.003,
+   "shadows": true
+  }
+ },
+ "coffin": {
+  "name": "coffin",
+  "group": "graves",
+  "size": [
+   2.5,
+   0.831,
+   0.514
+  ],
+  "tris_lod0": 6600,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "grave"
+   ],
+   "collider": "box",
+   "footprint": 1.1,
+   "sink": 0.02,
+   "tilt": 3,
+   "align": true,
+   "scale": [
+    0.95,
+    1.1
+   ],
+   "cull": 0.012,
+   "shadows": true
+  }
+ },
+ "crypt": {
+  "name": "crypt",
+  "group": "landmarks",
+  "size": [
+   10.196,
+   10.98,
+   9.096
+  ],
+  "tris_lod0": 28947,
+  "meta": {
+   "kind": "landmark",
+   "tags": [
+    "landmark",
+    "grave",
+    "ruin"
+   ],
+   "collider": "mesh",
+   "footprint": 6.5,
+   "sink": 0.06,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.95,
+    1.05
+   ],
+   "cull": 0.004,
+   "shadows": true,
+   "light": {
+    "offset": [
+     0,
+     -4.3,
+     5.8
+    ],
+    "color": [
+     0.62,
+     0.35,
+     1.0
+    ],
+    "intensity": 7,
+    "range": 8
+   }
+  }
+ },
+ "dead_tree_a": {
+  "name": "dead_tree_a",
+  "group": "nature",
+  "size": [
+   4.924,
+   5.68,
+   6.658
+  ],
+  "tris_lod0": 8419,
+  "meta": {
+   "kind": "tree",
+   "tags": [
+    "nature"
+   ],
+   "collider": "capsule",
+   "footprint": 1.6,
+   "sink": 0.05,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.85,
+    1.25
+   ],
+   "cull": 0.006,
+   "shadows": true
+  }
+ },
+ "dead_tree_b": {
+  "name": "dead_tree_b",
+  "group": "nature",
+  "size": [
+   4.665,
+   2.902,
+   5.9
+  ],
+  "tris_lod0": 6757,
+  "meta": {
+   "kind": "tree",
+   "tags": [
+    "nature"
+   ],
+   "collider": "capsule",
+   "footprint": 1.4,
+   "sink": 0.05,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.85,
+    1.3
+   ],
+   "cull": 0.006,
+   "shadows": true
+  }
+ },
+ "dead_tree_c": {
+  "name": "dead_tree_c",
+  "group": "nature",
+  "size": [
+   3.452,
+   2.543,
+   5.405
+  ],
+  "tris_lod0": 9148,
+  "meta": {
+   "kind": "tree",
+   "tags": [
+    "nature"
+   ],
+   "collider": "capsule",
+   "footprint": 1.6,
+   "sink": 0.05,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.9,
+    1.3
+   ],
+   "cull": 0.006,
+   "shadows": true
+  }
+ },
+ "dragon_claw": {
+  "name": "dragon_claw",
+  "group": "bones",
+  "size": [
+   2.362,
+   4.203,
+   5.705
+  ],
+  "tris_lod0": 9589,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "bone"
+   ],
+   "collider": "mesh",
+   "footprint": 2.2,
+   "sink": 0.15,
+   "tilt": 6,
+   "align": false,
+   "scale": [
+    0.85,
+    1.2
+   ],
+   "cull": 0.006,
+   "shadows": true
+  }
+ },
+ "dragon_ribs": {
+  "name": "dragon_ribs",
+  "group": "bones",
+  "size": [
+   13.047,
+   8.3,
+   6.315
+  ],
+  "tris_lod0": 27085,
+  "meta": {
+   "kind": "landmark",
+   "tags": [
+    "bone",
+    "landmark"
+   ],
+   "collider": "mesh",
+   "footprint": 6.8,
+   "sink": 0.2,
+   "tilt": 2,
+   "align": false,
+   "scale": [
+    0.9,
+    1.12
+   ],
+   "cull": 0.003,
+   "shadows": true
+  }
+ },
+ "dragon_skull": {
+  "name": "dragon_skull",
+  "group": "bones",
+  "size": [
+   4.101,
+   6.622,
+   2.584
+  ],
+  "tris_lod0": 25633,
+  "meta": {
+   "kind": "landmark",
+   "tags": [
+    "bone",
+    "landmark",
+    "light"
+   ],
+   "collider": "mesh",
+   "footprint": 4.2,
+   "sink": 0.12,
+   "tilt": 3,
+   "align": true,
+   "scale": [
+    0.9,
+    1.15
+   ],
+   "cull": 0.003,
+   "shadows": true,
+   "light": {
+    "offset": [
+     0.0,
+     -0.4,
+     1.6
+    ],
+    "color": [
+     0.62,
+     0.35,
+     1.0
+    ],
+    "intensity": 2.5,
+    "range": 5
+   }
+  }
+ },
+ "dragon_spine": {
+  "name": "dragon_spine",
+  "group": "bones",
+  "size": [
+   10.503,
+   2.977,
+   2.14
+  ],
+  "tris_lod0": 13279,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "bone",
+    "landmark"
+   ],
+   "collider": "mesh",
+   "footprint": 5.0,
+   "sink": 0.1,
+   "tilt": 3,
+   "align": true,
+   "scale": [
+    0.85,
+    1.2
+   ],
+   "cull": 0.005,
+   "shadows": true
+  }
+ },
+ "fence": {
+  "name": "fence",
+  "group": "ruins",
+  "size": [
+   3.477,
+   0.476,
+   1.866
+  ],
+  "tris_lod0": 2735,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "ruin",
+    "path"
+   ],
+   "collider": "box",
+   "footprint": 1.8,
+   "sink": 0.04,
+   "tilt": 2,
+   "align": false,
+   "scale": [
+    0.95,
+    1.05
+   ],
+   "cull": 0.008,
+   "shadows": true
+  }
+ },
+ "fence_gate": {
+  "name": "fence_gate",
+  "group": "ruins",
+  "size": [
+   4.139,
+   1.343,
+   3.182
+  ],
+  "tris_lod0": 7295,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "ruin",
+    "path"
+   ],
+   "collider": "mesh",
+   "footprint": 2.2,
+   "sink": 0.04,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    1.0,
+    1.0
+   ],
+   "cull": 0.006,
+   "shadows": true
+  }
+ },
+ "fern_a": {
+  "name": "fern_a",
+  "group": "foliage",
+  "size": [
+   1.08,
+   1.139,
+   0.627
+  ],
+  "tris_lod0": 466,
+  "meta": {
+   "kind": "detail",
+   "collider": "none",
+   "sink": 0.0,
+   "tilt": 6,
+   "align": true,
+   "cull": 0.0,
+   "shadows": false,
+   "tags": [
+    "foliage",
+    "nature"
+   ],
+   "footprint": 0.4,
+   "scale": [
+    0.75,
+    1.3
+   ]
+  }
+ },
+ "flower_lily": {
+  "name": "flower_lily",
+  "group": "foliage",
+  "size": [
+   0.631,
+   0.625,
+   0.409
+  ],
+  "tris_lod0": 1292,
+  "meta": {
+   "kind": "scatter",
+   "tags": [
+    "foliage",
+    "nature",
+    "grave"
+   ],
+   "collider": "none",
+   "footprint": 0.3,
+   "sink": 0.01,
+   "tilt": 6,
+   "align": true,
+   "scale": [
+    0.85,
+    1.2
+   ],
+   "cull": 0.02,
+   "shadows": true
+  }
+ },
+ "gate_great": {
+  "name": "gate_great",
+  "group": "landmarks",
+  "size": [
+   18.271,
+   8.204,
+   14.391
+  ],
+  "tris_lod0": 30220,
+  "meta": {
+   "kind": "landmark",
+   "tags": [
+    "landmark",
+    "ruin",
+    "light"
+   ],
+   "collider": "mesh",
+   "footprint": 9.5,
+   "sink": 0.08,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    1.0,
+    1.0
+   ],
+   "cull": 0.003,
+   "shadows": true,
+   "light": {
+    "offset": [
+     0,
+     -1.0,
+     3.9
+    ],
+    "color": [
+     0.45,
+     0.85,
+     1.0
+    ],
+    "intensity": 14,
+    "range": 14
+   }
+  }
+ },
+ "grass_a": {
+  "name": "grass_a",
+  "group": "foliage",
+  "size": [
+   0.515,
+   0.588,
+   0.38
+  ],
+  "tris_lod0": 628,
+  "meta": {
+   "kind": "detail",
+   "collider": "none",
+   "sink": 0.0,
+   "tilt": 6,
+   "align": true,
+   "cull": 0.0,
+   "shadows": false,
+   "tags": [
+    "foliage",
+    "nature"
+   ],
+   "footprint": 0.2,
+   "scale": [
+    0.8,
+    1.3
+   ]
+  }
+ },
+ "grass_b": {
+  "name": "grass_b",
+  "group": "foliage",
+  "size": [
+   0.638,
+   0.7,
+   0.742
+  ],
+  "tris_lod0": 624,
+  "meta": {
+   "kind": "detail",
+   "collider": "none",
+   "sink": 0.0,
+   "tilt": 6,
+   "align": true,
+   "cull": 0.0,
+   "shadows": false,
+   "tags": [
+    "foliage",
+    "nature"
+   ],
+   "footprint": 0.25,
+   "scale": [
+    0.8,
+    1.25
+   ]
+  }
+ },
+ "grass_dead": {
+  "name": "grass_dead",
+  "group": "foliage",
+  "size": [
+   0.696,
+   0.664,
+   0.445
+  ],
+  "tris_lod0": 588,
+  "meta": {
+   "kind": "detail",
+   "collider": "none",
+   "sink": 0.0,
+   "tilt": 6,
+   "align": true,
+   "cull": 0.0,
+   "shadows": false,
+   "tags": [
+    "foliage",
+    "nature",
+    "grave"
+   ],
+   "footprint": 0.22,
+   "scale": [
+    0.8,
+    1.3
+   ]
+  }
+ },
+ "grave_cross": {
+  "name": "grave_cross",
+  "group": "graves",
+  "size": [
+   0.823,
+   0.729,
+   1.745
+  ],
+  "tris_lod0": 5951,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "grave"
+   ],
+   "collider": "box",
+   "footprint": 0.6,
+   "sink": 0.03,
+   "tilt": 5,
+   "align": false,
+   "scale": [
+    0.9,
+    1.15
+   ],
+   "cull": 0.012,
+   "shadows": true
+  }
+ },
+ "grave_obelisk": {
+  "name": "grave_obelisk",
+  "group": "graves",
+  "size": [
+   1.215,
+   1.204,
+   2.24
+  ],
+  "tris_lod0": 7728,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "grave"
+   ],
+   "collider": "box",
+   "footprint": 0.8,
+   "sink": 0.04,
+   "tilt": 3,
+   "align": false,
+   "scale": [
+    0.9,
+    1.2
+   ],
+   "cull": 0.008,
+   "shadows": true
+  }
+ },
+ "grave_slab_a": {
+  "name": "grave_slab_a",
+  "group": "graves",
+  "size": [
+   0.898,
+   0.433,
+   1.152
+  ],
+  "tris_lod0": 4556,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "grave"
+   ],
+   "collider": "box",
+   "footprint": 0.6,
+   "sink": 0.03,
+   "tilt": 8,
+   "align": false,
+   "scale": [
+    0.9,
+    1.2
+   ],
+   "cull": 0.015,
+   "shadows": true
+  }
+ },
+ "grave_slab_b": {
+  "name": "grave_slab_b",
+  "group": "graves",
+  "size": [
+   1.444,
+   0.503,
+   0.969
+  ],
+  "tris_lod0": 3599,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "grave"
+   ],
+   "collider": "box",
+   "footprint": 0.75,
+   "sink": 0.03,
+   "tilt": 6,
+   "align": false,
+   "scale": [
+    0.9,
+    1.15
+   ],
+   "cull": 0.015,
+   "shadows": true
+  }
+ },
+ "grave_slab_c": {
+  "name": "grave_slab_c",
+  "group": "graves",
+  "size": [
+   0.894,
+   0.462,
+   1.558
+  ],
+  "tris_lod0": 3797,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "grave"
+   ],
+   "collider": "box",
+   "footprint": 0.6,
+   "sink": 0.03,
+   "tilt": 6,
+   "align": false,
+   "scale": [
+    0.9,
+    1.15
+   ],
+   "cull": 0.012,
+   "shadows": true
+  }
+ },
+ "grave_sunken": {
+  "name": "grave_sunken",
+  "group": "graves",
+  "size": [
+   0.925,
+   1.97,
+   0.489
+  ],
+  "tris_lod0": 4374,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "grave"
+   ],
+   "collider": "box",
+   "footprint": 0.75,
+   "sink": 0.0,
+   "tilt": 4,
+   "align": true,
+   "scale": [
+    0.85,
+    1.2
+   ],
+   "cull": 0.015,
+   "shadows": true
+  }
+ },
+ "grave_tomb": {
+  "name": "grave_tomb",
+  "group": "graves",
+  "size": [
+   2.57,
+   1.248,
+   1.074
+  ],
+  "tris_lod0": 10970,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "grave",
+    "light"
+   ],
+   "collider": "box",
+   "footprint": 1.3,
+   "sink": 0.04,
+   "tilt": 2,
+   "align": false,
+   "scale": [
+    0.95,
+    1.1
+   ],
+   "cull": 0.008,
+   "shadows": true,
+   "light": {
+    "offset": [
+     -0.72,
+     0.0,
+     0.82
+    ],
+    "color": [
+     0.62,
+     0.35,
+     1.0
+    ],
+    "intensity": 3,
+    "range": 4
+   }
+  }
+ },
+ "lantern": {
+  "name": "lantern",
+  "group": "ruins",
+  "size": [
+   1.02,
+   0.62,
+   2.914
+  ],
+  "tris_lod0": 2075,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "light",
+    "path"
+   ],
+   "collider": "capsule",
+   "footprint": 0.6,
+   "sink": 0.04,
+   "tilt": 2,
+   "align": false,
+   "scale": [
+    0.95,
+    1.05
+   ],
+   "cull": 0.01,
+   "shadows": true,
+   "light": {
+    "offset": [
+     0.58,
+     0,
+     2.03
+    ],
+    "color": [
+     0.62,
+     0.35,
+     1.0
+    ],
+    "intensity": 9,
+    "range": 9
+   }
+  }
+ },
+ "log_fallen": {
+  "name": "log_fallen",
+  "group": "nature",
+  "size": [
+   5.372,
+   1.362,
+   0.744
+  ],
+  "tris_lod0": 7816,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "nature"
+   ],
+   "collider": "mesh",
+   "footprint": 2.7,
+   "sink": 0.06,
+   "tilt": 3,
+   "align": true,
+   "scale": [
+    0.85,
+    1.2
+   ],
+   "cull": 0.008,
+   "shadows": true
+  }
+ },
+ "lotus_glow": {
+  "name": "lotus_glow",
+  "group": "foliage",
+  "size": [
+   0.635,
+   0.545,
+   0.126
+  ],
+  "tris_lod0": 836,
+  "meta": {
+   "kind": "scatter",
+   "tags": [
+    "swamp"
+   ],
+   "collider": "none",
+   "footprint": 0.45,
+   "sink": 0.0,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.8,
+    1.3
+   ],
+   "cull": 0.015,
+   "shadows": false,
+   "light": {
+    "offset": [
+     0.06,
+     0.07,
+     0.06
+    ],
+    "color": [
+     0.62,
+     0.35,
+     1.0
+    ],
+    "intensity": 2.0,
+    "range": 3.0
+   }
+  }
+ },
+ "mushroom_glow": {
+  "name": "mushroom_glow",
+  "group": "foliage",
+  "size": [
+   0.252,
+   0.246,
+   0.186
+  ],
+  "tris_lod0": 1341,
+  "meta": {
+   "kind": "scatter",
+   "tags": [
+    "foliage",
+    "nature",
+    "light"
+   ],
+   "collider": "none",
+   "footprint": 0.25,
+   "sink": 0.01,
+   "tilt": 5,
+   "align": true,
+   "scale": [
+    0.8,
+    1.4
+   ],
+   "cull": 0.02,
+   "shadows": true,
+   "light": {
+    "offset": [
+     0.0,
+     -0.02,
+     0.12
+    ],
+    "color": [
+     0.62,
+     0.35,
+     1.0
+    ],
+    "intensity": 1.2,
+    "range": 2.2
+   }
+  }
+ },
+ "mushroom_toxic": {
+  "name": "mushroom_toxic",
+  "group": "foliage",
+  "size": [
+   0.431,
+   0.411,
+   0.287
+  ],
+  "tris_lod0": 2336,
+  "meta": {
+   "kind": "scatter",
+   "tags": [
+    "foliage",
+    "nature",
+    "swamp"
+   ],
+   "collider": "none",
+   "footprint": 0.4,
+   "sink": 0.03,
+   "tilt": 4,
+   "align": true,
+   "scale": [
+    0.85,
+    1.25
+   ],
+   "cull": 0.015,
+   "shadows": true,
+   "light": {
+    "offset": [
+     -0.03,
+     -0.2,
+     0.12
+    ],
+    "color": [
+     0.45,
+     1.0,
+     0.35
+    ],
+    "intensity": 1.0,
+    "range": 2.0
+   }
+  }
+ },
+ "pillar_a": {
+  "name": "pillar_a",
+  "group": "ruins",
+  "size": [
+   0.933,
+   0.934,
+   3.965
+  ],
+  "tris_lod0": 7592,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "ruin"
+   ],
+   "collider": "capsule",
+   "footprint": 0.6,
+   "sink": 0.04,
+   "tilt": 3,
+   "align": false,
+   "scale": [
+    0.9,
+    1.1
+   ],
+   "cull": 0.008,
+   "shadows": true
+  }
+ },
+ "pillar_b": {
+  "name": "pillar_b",
+  "group": "ruins",
+  "size": [
+   2.447,
+   2.166,
+   1.903
+  ],
+  "tris_lod0": 8151,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "ruin"
+   ],
+   "collider": "mesh",
+   "footprint": 1.4,
+   "sink": 0.04,
+   "tilt": 2,
+   "align": false,
+   "scale": [
+    0.9,
+    1.1
+   ],
+   "cull": 0.01,
+   "shadows": true
+  }
+ },
+ "reed": {
+  "name": "reed",
+  "group": "foliage",
+  "size": [
+   0.801,
+   0.696,
+   1.345
+  ],
+  "tris_lod0": 648,
+  "meta": {
+   "kind": "detail",
+   "collider": "none",
+   "sink": 0.0,
+   "tilt": 4,
+   "align": false,
+   "cull": 0.0,
+   "shadows": false,
+   "tags": [
+    "foliage",
+    "swamp"
+   ],
+   "footprint": 0.3,
+   "scale": [
+    0.85,
+    1.25
+   ]
+  }
+ },
+ "rock_a": {
+  "name": "rock_a",
+  "group": "nature",
+  "size": [
+   1.605,
+   1.599,
+   1.062
+  ],
+  "tris_lod0": 3600,
+  "meta": {
+   "kind": "tree",
+   "tags": [
+    "rock",
+    "nature"
+   ],
+   "collider": "capsule",
+   "footprint": 0.9,
+   "sink": 0.12,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.6,
+    1.5
+   ],
+   "cull": 0.01,
+   "shadows": true
+  }
+ },
+ "rock_b": {
+  "name": "rock_b",
+  "group": "nature",
+  "size": [
+   3.934,
+   2.664,
+   1.874
+  ],
+  "tris_lod0": 8227,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "rock",
+    "nature"
+   ],
+   "collider": "mesh",
+   "footprint": 2.0,
+   "sink": 0.15,
+   "tilt": 6,
+   "align": true,
+   "scale": [
+    0.8,
+    1.3
+   ],
+   "cull": 0.006,
+   "shadows": true
+  }
+ },
+ "rock_c": {
+  "name": "rock_c",
+  "group": "nature",
+  "size": [
+   1.124,
+   0.662,
+   0.449
+  ],
+  "tris_lod0": 2421,
+  "meta": {
+   "kind": "tree",
+   "tags": [
+    "rock",
+    "nature"
+   ],
+   "collider": "none",
+   "footprint": 0.5,
+   "sink": 0.05,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.6,
+    1.6
+   ],
+   "cull": 0.02,
+   "shadows": true
+  }
+ },
+ "rock_flat": {
+  "name": "rock_flat",
+  "group": "nature",
+  "size": [
+   3.477,
+   2.604,
+   0.796
+  ],
+  "tris_lod0": 6235,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "rock",
+    "nature"
+   ],
+   "collider": "mesh",
+   "footprint": 1.8,
+   "sink": 0.12,
+   "tilt": 4,
+   "align": true,
+   "scale": [
+    0.8,
+    1.4
+   ],
+   "cull": 0.008,
+   "shadows": true
+  }
+ },
+ "roots": {
+  "name": "roots",
+  "group": "nature",
+  "size": [
+   2.829,
+   2.761,
+   0.458
+  ],
+  "tris_lod0": 4357,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "nature"
+   ],
+   "collider": "none",
+   "footprint": 1.6,
+   "sink": 0.04,
+   "tilt": 2,
+   "align": true,
+   "scale": [
+    0.8,
+    1.4
+   ],
+   "cull": 0.012,
+   "shadows": true
+  }
+ },
+ "rubble": {
+  "name": "rubble",
+  "group": "ruins",
+  "size": [
+   1.507,
+   1.296,
+   0.541
+  ],
+  "tris_lod0": 3585,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "ruin"
+   ],
+   "collider": "box",
+   "footprint": 0.9,
+   "sink": 0.05,
+   "tilt": 6,
+   "align": true,
+   "scale": [
+    0.7,
+    1.3
+   ],
+   "cull": 0.015,
+   "shadows": true
+  }
+ },
+ "skull": {
+  "name": "skull",
+  "group": "graves",
+  "size": [
+   0.157,
+   0.226,
+   0.232
+  ],
+  "tris_lod0": 1899,
+  "meta": {
+   "kind": "scatter",
+   "tags": [
+    "bone"
+   ],
+   "collider": "none",
+   "footprint": 0.2,
+   "sink": 0.01,
+   "tilt": 15,
+   "align": true,
+   "scale": [
+    0.85,
+    1.15
+   ],
+   "cull": 0.04,
+   "shadows": true
+  }
+ },
+ "stair_ruin": {
+  "name": "stair_ruin",
+  "group": "ruins",
+  "size": [
+   3.581,
+   3.683,
+   2.174
+  ],
+  "tris_lod0": 11209,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "ruin"
+   ],
+   "collider": "mesh",
+   "footprint": 2.0,
+   "sink": 0.05,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.95,
+    1.05
+   ],
+   "cull": 0.006,
+   "shadows": true
+  }
+ },
+ "statue_angel": {
+  "name": "statue_angel",
+  "group": "landmarks",
+  "size": [
+   1.126,
+   1.118,
+   3.179
+  ],
+  "tris_lod0": 9060,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "grave",
+    "landmark"
+   ],
+   "collider": "box",
+   "footprint": 1.2,
+   "sink": 0.05,
+   "tilt": 2,
+   "align": false,
+   "scale": [
+    0.95,
+    1.1
+   ],
+   "cull": 0.008,
+   "shadows": true
+  }
+ },
+ "statue_reaper": {
+  "name": "statue_reaper",
+  "group": "landmarks",
+  "size": [
+   1.167,
+   1.268,
+   3.588
+  ],
+  "tris_lod0": 8655,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "grave",
+    "landmark"
+   ],
+   "collider": "box",
+   "footprint": 1.4,
+   "sink": 0.05,
+   "tilt": 2,
+   "align": false,
+   "scale": [
+    0.95,
+    1.1
+   ],
+   "cull": 0.008,
+   "shadows": true,
+   "light": {
+    "offset": [
+     0,
+     -0.3,
+     2.81
+    ],
+    "color": [
+     0.62,
+     0.35,
+     1.0
+    ],
+    "intensity": 2.5,
+    "range": 3
+   }
+  }
+ },
+ "stump": {
+  "name": "stump",
+  "group": "nature",
+  "size": [
+   1.392,
+   1.456,
+   0.899
+  ],
+  "tris_lod0": 4630,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "nature"
+   ],
+   "collider": "capsule",
+   "footprint": 0.8,
+   "sink": 0.04,
+   "tilt": 3,
+   "align": false,
+   "scale": [
+    0.8,
+    1.3
+   ],
+   "cull": 0.015,
+   "shadows": true
+  }
+ },
+ "tree_giant": {
+  "name": "tree_giant",
+  "group": "nature",
+  "size": [
+   15.494,
+   11.346,
+   18.13
+  ],
+  "tris_lod0": 27974,
+  "meta": {
+   "kind": "landmark",
+   "tags": [
+    "landmark",
+    "nature",
+    "light"
+   ],
+   "collider": "mesh",
+   "footprint": 7.0,
+   "sink": 0.3,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.9,
+    1.15
+   ],
+   "cull": 0.002,
+   "shadows": true,
+   "light": {
+    "offset": [
+     0.0,
+     -0.5,
+     1.8
+    ],
+    "color": [
+     0.45,
+     0.85,
+     1.0
+    ],
+    "intensity": 6,
+    "range": 8
+   }
+  }
+ },
+ "wall_ruin_a": {
+  "name": "wall_ruin_a",
+  "group": "ruins",
+  "size": [
+   4.554,
+   2.343,
+   3.424
+  ],
+  "tris_lod0": 14949,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "ruin"
+   ],
+   "collider": "mesh",
+   "footprint": 2.6,
+   "sink": 0.05,
+   "tilt": 1,
+   "align": false,
+   "scale": [
+    0.9,
+    1.1
+   ],
+   "cull": 0.005,
+   "shadows": true
+  }
+ },
+ "wall_ruin_b": {
+  "name": "wall_ruin_b",
+  "group": "ruins",
+  "size": [
+   3.121,
+   3.023,
+   2.318
+  ],
+  "tris_lod0": 10798,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "ruin"
+   ],
+   "collider": "mesh",
+   "footprint": 2.0,
+   "sink": 0.05,
+   "tilt": 1,
+   "align": false,
+   "scale": [
+    0.9,
+    1.15
+   ],
+   "cull": 0.006,
+   "shadows": true
+  }
+ },
+ "watchtower_ruin": {
+  "name": "watchtower_ruin",
+  "group": "landmarks",
+  "size": [
+   8.218,
+   8.329,
+   12.223
+  ],
+  "tris_lod0": 17779,
+  "meta": {
+   "kind": "landmark",
+   "tags": [
+    "landmark",
+    "ruin"
+   ],
+   "collider": "mesh",
+   "footprint": 4.5,
+   "sink": 0.08,
+   "tilt": 0,
+   "align": false,
+   "scale": [
+    0.95,
+    1.1
+   ],
+   "cull": 0.004,
+   "shadows": true
+  }
+ },
+ "weeds": {
+  "name": "weeds",
+  "group": "foliage",
+  "size": [
+   0.446,
+   0.478,
+   0.309
+  ],
+  "tris_lod0": 412,
+  "meta": {
+   "kind": "detail",
+   "collider": "none",
+   "sink": 0.0,
+   "tilt": 6,
+   "align": true,
+   "cull": 0.0,
+   "shadows": false,
+   "tags": [
+    "foliage",
+    "nature",
+    "ruin",
+    "path"
+   ],
+   "footprint": 0.22,
+   "scale": [
+    0.8,
+    1.35
+   ]
+  }
+ },
+ "well": {
+  "name": "well",
+  "group": "landmarks",
+  "size": [
+   2.46,
+   1.779,
+   2.671
+  ],
+  "tris_lod0": 5874,
+  "meta": {
+   "kind": "prop",
+   "tags": [
+    "ruin",
+    "path"
+   ],
+   "collider": "capsule",
+   "footprint": 1.6,
+   "sink": 0.05,
+   "tilt": 1,
+   "align": false,
+   "scale": [
+    0.95,
+    1.05
+   ],
+   "cull": 0.01,
+   "shadows": true
+  }
+ }
+}
