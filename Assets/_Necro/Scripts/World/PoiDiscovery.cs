@@ -27,6 +27,7 @@ namespace Necro
         public Transform hero;
 
         [Header("장소 (월드 도구가 채운다)")]
+        [Tooltip("이름 있는 장소 목록. 1장 오픈월드 만들기 도구가 world.json 의 pois 로 채운다")]
         public NecroPoi[] places = new NecroPoi[0];
 
         [Header("지도")]

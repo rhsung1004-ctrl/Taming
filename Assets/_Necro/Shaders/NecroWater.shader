@@ -43,11 +43,13 @@ Shader "Necro/Water"
         _LightReflectPower ("등불 반사 날카로움", Range(8, 1000)) = 160
         _LightReflectStrength ("등불 반사 세기", Range(0, 10)) = 2
 
+        // 1장 늪은 아주 얕다 (젖은 곳 수심 중앙값 약 0.37 m). 1.2 m / 0.35 m 이면 주인공 카메라 각도(약 25°)에서도
+        // 늪 절반이 알파 0.64 아래로 옅어지고 물거품이 넓게 깔려, 물가만 옅어지도록 0.6 m / 0.18 m 로 둔다 (호수는 거의 차이 없음)
         [Header(Shore)]
         [ToggleUI] _UseDepth ("깊이 텍스처로 물가 옅게", Float) = 1
-        _ShoreFade ("물가가 옅어지는 깊이 (m)", Float) = 1.2
+        _ShoreFade ("물가가 옅어지는 깊이 (m)", Float) = 0.6
         _DepthColorDistance ("얕은 색 → 깊은 색 깊이 (m)", Float) = 3
-        _FoamWidth ("물거품 폭 (m)", Float) = 0.35
+        _FoamWidth ("물거품 폭 (m)", Float) = 0.18
         [HDR] _FoamColor ("물거품 색", Color) = (0.35, 0.45, 0.6, 1)
     }
 
@@ -282,7 +284,9 @@ Shader "Necro/Water"
                 half alpha = saturate(_Opacity + fresnel * 0.5) * shore;
                 alpha = max(alpha, foam * 0.8);
 
-                color = MixFog(color, InitializeInputDataFog(float4(i.positionWS, 1.0), i.fogFactor));
+                // 안개 값을 half 에 먼저 담는다 (MixFog(half3, float) 은 half·float 오버로드 사이에서 모호한 호출이 될 수 있다)
+                half fogCoord = (half)InitializeInputDataFog(float4(i.positionWS, 1.0), i.fogFactor);
+                color = MixFog(color, fogCoord);
                 return half4(color, alpha);
             }
             ENDHLSL

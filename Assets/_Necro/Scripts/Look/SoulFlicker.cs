@@ -11,6 +11,9 @@ namespace Necro
         [Tooltip("흔들리는 빠르기")] public float speed = 2.2f;
         [Tooltip("위아래로 떠다니는 높이 (m). 0이면 움직이지 않는다")] public float bobHeight = 0f;
 
+        // 세기에 곱하는 값 (0~1). LightCuller 가 멀어질 때 서서히 줄여 끄는 데 쓴다. 저장하지 않는 실행 중 값이다
+        [System.NonSerialized] public float fade = 1f;
+
         Light cached;
         float baseIntensity, seed;
         Vector3 basePos;
@@ -28,7 +31,7 @@ namespace Necro
             float t = Time.time * speed + seed;
             // 두 가지 느린 흔들림을 섞어 규칙적으로 보이지 않게 한다
             float n = Mathf.PerlinNoise(t, seed) * 0.7f + Mathf.PerlinNoise(t * 2.7f, seed + 9f) * 0.3f;
-            cached.intensity = baseIntensity * (1f + (n - 0.5f) * 2f * amount);
+            cached.intensity = baseIntensity * fade * (1f + (n - 0.5f) * 2f * amount);
             if (bobHeight > 0f) transform.localPosition = basePos + Vector3.up * (Mathf.Sin(t * 0.6f) * bobHeight);
         }
     }

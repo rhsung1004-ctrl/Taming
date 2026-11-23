@@ -4,6 +4,7 @@
 //  - 상호작용: 전역 _NecroInteractPos(xyz 주인공 발 위치, w 반지름) 주변의 풀이 밀려난다
 //  - 애니풍 조명: 감싸는 빛 + 그늘은 보랏빛(_ShadeColor), 빛을 등진 잎은 반투과로 비친다
 //  - 멀리서는 정점 법선 대신 위쪽 법선을 섞어 풀밭이 한 덩어리로 부드럽게 보인다
+//  - 거리 축소(_FadeStart ~ _FadeEnd): 포기를 뿌리 쪽으로 오그라뜨려 지형 풀이 끊기는 경계를 감춘다. 기본은 꺼짐 (지형 풀 전용 재질에서 켠다)
 // 주광 그림자 받기·드리우기(알파 컷 + 같은 바람), 추가 광원(Forward+ 포함), 안개, LOD 디더 전환,
 // GPU 인스턴싱(지형 풀), SRP Batcher(모든 패스가 같은 UnityPerMaterial).
 // 전역 값은 NecroWind 컴포넌트가 매 프레임 넣는다. 없으면 바람·상호작용이 꺼진 상태로 그려진다.
@@ -42,6 +43,11 @@ Shader "Necro/Foliage"
         [Header(Wind)]
         _WindStrength ("바람 세기 배율", Range(0, 3)) = 1
         _InteractStrength ("밀려나는 세기", Range(0, 2)) = 1
+
+        // 지형 풀 전용 재질에서만 켠다. Foliage.mat 은 폐허·절벽·고목의 덩굴·이끼도 같이 쓰므로 0 (끔) 으로 둔다
+        [Header(Distance Fade)]
+        _FadeStart ("오그라들기 시작 거리 (m)", Float) = 0
+        _FadeEnd ("다 오그라드는 거리 (m, 0 = 끔)", Float) = 0
     }
 
     SubShader
@@ -76,6 +82,8 @@ Shader "Necro/Foliage"
             float _UpNormalEnd;
             half _WindStrength;
             half _InteractStrength;
+            float _FadeStart;
+            float _FadeEnd;
         CBUFFER_END
 
         // 전역 (NecroWind 가 넣는다)
@@ -83,9 +91,23 @@ Shader "Necro/Foliage"
         float4 _NecroWindParams;    // x: 흔들림 빈도 (Hz), y: 돌풍 세기, z: 돌풍 물결 크기 (1/m), w: 잔떨림
         float4 _NecroInteractPos;   // xyz: 주인공 발 위치, w: 반지름 (0 이면 꺼짐)
 
-        // 바람 + 상호작용으로 움직인 월드 위치. sway: 정점 알파 (0 뿌리 ~ 1 끝)
+        // 보이는 거리 끝에서 포기를 뿌리 쪽으로 오그라뜨리는 비율 (0 그대로 ~ 1 점).
+        // 지형 풀은 지형이 정한 거리(detailObjectDistance)에서 그냥 끊기므로, 그 조금 앞에서 다 오그라들게 해 경계가 안 보이게 한다.
+        // 디더 대신 크기를 줄이므로 과대 그리기가 없고, 다 오그라든 포기는 삼각형이 점이 되어 그려지지 않는다
+        float NecroFoliageFadeT(float3 originWS)
+        {
+            if (_FadeEnd <= 0.0) return 0.0;              // 끔 (재질 값이라 모든 정점이 같은 쪽으로 간다)
+            float dist = distance(GetCameraPositionWS(), originWS);
+            return saturate((dist - _FadeStart) / max(_FadeEnd - _FadeStart, 0.01));
+        }
+
+        // 바람 + 상호작용 + 거리 축소로 움직인 월드 위치. sway: 정점 알파 (0 뿌리 ~ 1 끝)
+        // 본체·그림자·깊이·깊이+법선 패스가 모두 이 함수를 써서 같은 자리에 그려진다
         float3 NecroFoliageDeform(float3 positionWS, float3 originWS, half sway)
         {
+            float fadeT = NecroFoliageFadeT(originWS);
+            [branch] if (fadeT >= 1.0) return originWS;   // 다 오그라든 포기: 바람 계산을 건너뛴다
+
             float amount = sway * (0.45 + 0.55 * sway);      // 끝으로 갈수록 휘는 곡선
             float3 dir = _NecroWind.xyz;
             float strength = _NecroWind.w * _WindStrength;
@@ -110,17 +132,21 @@ Shader "Necro/Foliage"
             {
                 float2 d2 = positionWS.xz - _NecroInteractPos.xz;
                 float dist = length(d2);
-                float fall = saturate(1.0 - dist / _NecroInteractPos.w);
-                fall = fall * fall * (3.0 - 2.0 * fall);
-                fall *= saturate(2.0 - abs(positionWS.y - _NecroInteractPos.y));   // 높이 차가 크면 (절벽 위 등) 무시
-                float push = fall * amount * _InteractStrength;
-                offset.xz += (d2 / max(dist, 0.001)) * (push * _NecroInteractPos.w * 0.55);
-                offset.y -= push * 0.3;
+                // 반지름 밖은 fall = 0 이라 결과가 같다. 화면의 풀 정점 거의 전부가 여기서 나간다
+                [branch] if (dist < _NecroInteractPos.w)
+                {
+                    float fall = saturate(1.0 - dist / _NecroInteractPos.w);
+                    fall = fall * fall * (3.0 - 2.0 * fall);
+                    fall *= saturate(2.0 - abs(positionWS.y - _NecroInteractPos.y));   // 높이 차가 크면 (절벽 위 등) 무시
+                    float push = fall * amount * _InteractStrength;
+                    offset.xz += (d2 / max(dist, 0.001)) * (push * _NecroInteractPos.w * 0.55);
+                    offset.y -= push * 0.3;
+                }
             }
 
             // 옆으로 밀린 만큼 조금 낮춰 길이가 늘어나 보이지 않게
             offset.y -= dot(offset.xz, offset.xz) * 0.35 * sway;
-            return positionWS + offset;
+            return lerp(positionWS + offset, originWS, fadeT);
         }
 
         // Blender 는 정점 색을 sRGB 로 내보낸다 (colors_type='SRGB'). 선형 색으로 바꿔 쓴다
@@ -273,7 +299,10 @@ Shader "Necro/Foliage"
                 #endif
 
                 color *= rootAO;
-                color = MixFog(color, InitializeInputDataFog(float4(i.positionWS, 1.0), i.fogFactor));
+                // 안개 값을 half 에 먼저 담는다: InitializeInputDataFog 는 PC 에서 float 을 돌려주므로 MixFog(half3, float) 이면
+                // half·float 두 오버로드 사이에서 모호한 호출이 될 수 있다 (URP 자신도 half 변수에 담아 부른다)
+                half fogCoord = (half)InitializeInputDataFog(float4(i.positionWS, 1.0), i.fogFactor);
+                color = MixFog(color, fogCoord);
                 return half4(color, 1);
             }
             ENDHLSL
