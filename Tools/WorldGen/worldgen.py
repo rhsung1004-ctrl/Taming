@@ -162,7 +162,7 @@ def build_height(W):
     log("높이: 늪·호수")
     rs, cs, d = disk(h.shape, SWAMP[0], SWAMP[1], SWAMP_R + 20)
     ring = h[rs, cs][(d > SWAMP_R - 10) & (d < SWAMP_R + 10)]
-    W.swamp_level = float(np.percentile(ring, 20)) - 5.0
+    W.swamp_level = float(np.percentile(ring, 6)) - 3.0
     Xs, Zs = X[rs, cs], Z[rs, cs]
     edge = SWAMP_R + 35 * fbm(Xs, Zs, 1 / 140, 3, 610)
     isl = 1.9 * fbm(Xs, Zs, 1 / 55, 4, 620) + 0.7 * fbm(Xs, Zs, 1 / 14, 3, 630)
@@ -173,7 +173,7 @@ def build_height(W):
     # 호수
     rs, cs, d = disk(h.shape, LAKE[0], LAKE[1], LAKE_R + 40)
     ring = h[rs, cs][(d > LAKE_R + 5) & (d < LAKE_R + 25)]
-    W.lake_level = float(np.percentile(ring, 15)) - 2.5
+    W.lake_level = float(np.percentile(ring, 6)) - 2.0
     Xs, Zs = X[rs, cs], Z[rs, cs]
     edge = LAKE_R + 18 * fbm(Xs, Zs, 1 / 70, 3, 640)
     target = W.lake_level - 0.4 - 4.0 * ss(-(d / edge), -0.95, -0.3) + 0.6 * fbm(Xs, Zs, 1 / 20, 3, 650)
@@ -318,6 +318,7 @@ def finish_height(W, pads):
 
 
 def contain(W):
+    """물 평면 상자 안에서 의도하지 않은 낮은 곳(물이 넘쳐 보일 자리)을 둑처럼 부드럽게 올린다"""
     h = W.h
     for (cx, cz), R, lev, box in ((SWAMP, SWAMP_R + 40, W.swamp_level, W.swamp_box), (LAKE, LAKE_R + 30, W.lake_level, W.lake_box)):
         half = R + 2
@@ -325,12 +326,19 @@ def contain(W):
         x0, x1 = int(cx - half), int(cx + half)
         intended = np.zeros(h.shape, bool)
         rs, cs, w = box
-        intended[rs, cs] = w > 0.25
+        intended[rs, cs] = w > 0.15
+        need = np.zeros(h.shape, np.float32)
         sub = h[z0:z1, x0:x1]
-        bad = (~intended[z0:z1, x0:x1]) & (sub < lev + 0.5)
-        sub[bad] = lev + 0.5
-        log("물 상자 밖 낮은 칸 올림", int(bad.sum()))
-    # 개울 물웅덩이 상자는 water_planes() 에서 검사
+        need[z0:z1, x0:x1] = np.clip(lev + 0.6 - sub, 0, None) * (~intended[z0:z1, x0:x1])
+        if need.max() <= 0:
+            continue
+        P0, P1 = max(0, z0 - 60), min(RES, z1 + 60)
+        Q0, Q1 = max(0, x0 - 60), min(RES, x1 + 60)
+        sm = box_blur(need[P0:P1, Q0:Q1], 14) * 2.5
+        raise_ = np.maximum(need[P0:P1, Q0:Q1], np.minimum(sm, need[P0:P1, Q0:Q1].max()))
+        raise_ *= ~intended[P0:P1, Q0:Q1] | (need[P0:P1, Q0:Q1] > 0)
+        h[P0:P1, Q0:Q1] += raise_
+        log("물 상자 밖 낮은 칸 둑으로 올림", int((need > 0).sum()), "최대 %.1f m" % need.max())
 
 
 # ─────────────────────────── 배치 ───────────────────────────
