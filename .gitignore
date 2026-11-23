@@ -35,3 +35,7 @@ Thumbs.db
 
 # 파이썬 캐시
 __pycache__/
+
+# 1장 월드 도구가 데이터에서 다시 만드는 파일 (지형 데이터 타일마다 수십 MB)
+/Assets/_Necro/Art/World/Ch1/Generated/
+/Assets/_Necro/Art/World/Ch1/Generated.meta

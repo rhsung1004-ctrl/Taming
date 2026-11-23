@@ -1,0 +1,282 @@
+{
+ "version": 1,
+ "size": 2048,
+ "height": 320.0,
+ "heightRes": 2049,
+ "tiles": 2,
+ "splatRes": 2048,
+ "detailRes": 2048,
+ "seaLevel": 0,
+ "spawn": {
+  "p": [
+   1000,
+   45.57,
+   492
+  ],
+  "yaw": 0
+ },
+ "layers": [
+  {
+   "name": "grass",
+   "albedo": "ground_grass_albedo.jpg",
+   "normal": "ground_grass_normal.png",
+   "tile": 4.0,
+   "smoothness": 0.04
+  },
+  {
+   "name": "moss",
+   "albedo": "ground_moss_albedo.jpg",
+   "normal": "ground_moss_normal.png",
+   "tile": 4.5,
+   "smoothness": 0.06
+  },
+  {
+   "name": "dirt",
+   "albedo": "ground_dirt_albedo.jpg",
+   "normal": "ground_dirt_normal.png",
+   "tile": 5.0,
+   "smoothness": 0.05
+  },
+  {
+   "name": "mud",
+   "albedo": "ground_mud_albedo.jpg",
+   "normal": "ground_mud_normal.png",
+   "tile": 6.0,
+   "smoothness": 0.32
+  },
+  {
+   "name": "rock",
+   "albedo": "ground_rock_albedo.jpg",
+   "normal": "ground_rock_normal.png",
+   "tile": 11.0,
+   "smoothness": 0.12
+  },
+  {
+   "name": "path",
+   "albedo": "ground_path_albedo.jpg",
+   "normal": "ground_path_normal.png",
+   "tile": 4.0,
+   "smoothness": 0.06
+  },
+  {
+   "name": "leaves",
+   "albedo": "ground_leaves_albedo.jpg",
+   "normal": "ground_leaves_normal.png",
+   "tile": 4.0,
+   "smoothness": 0.05
+  },
+  {
+   "name": "ash",
+   "albedo": "ground_ash_albedo.jpg",
+   "normal": "ground_ash_normal.png",
+   "tile": 5.0,
+   "smoothness": 0.04
+  }
+ ],
+ "details": [
+  {
+   "asset": "grass_a",
+   "maxPerCell": 2,
+   "minScale": 0.85,
+   "maxScale": 1.35
+  },
+  {
+   "asset": "grass_b",
+   "maxPerCell": 2,
+   "minScale": 0.8,
+   "maxScale": 1.25
+  },
+  {
+   "asset": "grass_dead",
+   "maxPerCell": 1.5,
+   "minScale": 0.8,
+   "maxScale": 1.3
+  },
+  {
+   "asset": "fern_a",
+   "maxPerCell": 2,
+   "minScale": 0.75,
+   "maxScale": 1.3
+  },
+  {
+   "asset": "weeds",
+   "maxPerCell": 2,
+   "minScale": 0.8,
+   "maxScale": 1.35
+  },
+  {
+   "asset": "reed",
+   "maxPerCell": 3,
+   "minScale": 0.85,
+   "maxScale": 1.25
+  }
+ ],
+ "pois": [
+  {
+   "id": "altar",
+   "name": "봉인의 제단",
+   "p": [
+    1000,
+    46.14,
+    520
+   ],
+   "r": 40,
+   "map": true
+  },
+  {
+   "id": "graveyard",
+   "name": "잊힌 자들의 묘지",
+   "p": [
+    1000,
+    40.2,
+    880
+   ],
+   "r": 170,
+   "map": true
+  },
+  {
+   "id": "crypt",
+   "name": "이름 없는 납골당",
+   "p": [
+    1000,
+    40.82,
+    1003
+   ],
+   "r": 30,
+   "map": true
+  },
+  {
+   "id": "cathedral",
+   "name": "무너진 대성당",
+   "p": [
+    1010,
+    78.2,
+    1478
+   ],
+   "r": 75,
+   "map": true
+  },
+  {
+   "id": "swamp",
+   "name": "안개 늪",
+   "p": [
+    1545,
+    30.35,
+    935
+   ],
+   "r": 230,
+   "map": true
+  },
+  {
+   "id": "dragon",
+   "name": "용의 무덤",
+   "p": [
+    470,
+    25.85,
+    1060
+   ],
+   "r": 160,
+   "map": true
+  },
+  {
+   "id": "tree",
+   "name": "영혼의 고목",
+   "p": [
+    1470,
+    54.4,
+    1420
+   ],
+   "r": 55,
+   "map": true
+  },
+  {
+   "id": "village",
+   "name": "버려진 마을",
+   "p": [
+    1390,
+    51.23,
+    430
+   ],
+   "r": 85,
+   "map": true
+  },
+  {
+   "id": "tower",
+   "name": "부서진 망루",
+   "p": [
+    640,
+    81.27,
+    1572
+   ],
+   "r": 45,
+   "map": true
+  },
+  {
+   "id": "bridge",
+   "name": "끊어진 개울 다리",
+   "p": [
+    722.54,
+    44.02,
+    1009.89
+   ],
+   "r": 30,
+   "map": true
+  },
+  {
+   "id": "gate",
+   "name": "북쪽 봉인문",
+   "p": [
+    1010,
+    44.85,
+    1822
+   ],
+   "r": 55,
+   "map": true
+  },
+  {
+   "id": "forest",
+   "name": "검은 숲",
+   "p": [
+    430,
+    48.56,
+    640
+   ],
+   "r": 200,
+   "map": true
+  },
+  {
+   "id": "lake",
+   "name": "달그림자 호수",
+   "p": [
+    720,
+    27.2,
+    330
+   ],
+   "r": 95,
+   "map": true
+  }
+ ],
+ "fog": {
+  "color": [
+   0.13,
+   0.11,
+   0.22
+  ],
+  "density": 0.0048
+ },
+ "bounds": {
+  "min": [
+   170,
+   170
+  ],
+  "max": [
+   1878,
+   1878
+  ]
+ },
+ "levels": {
+  "swamp": 30.864,
+  "lake": 28.116,
+  "creekPool": 44.667
+ }
+}
