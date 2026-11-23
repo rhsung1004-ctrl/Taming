@@ -144,10 +144,12 @@ def build_height(W):
     north = Z > 1700
     gap = np.where(north, ss(gdx, 8.5, 13.0), 1.0)                              # 봉인문 폭만큼 홈 (문 충돌이 막는다)
     zb = Z - (GATE[1] + 150) + jit                                               # 홈 안쪽: 문 뒤 150 m 의 막다른 턱 (문 사이로 하늘이 보이게 멀리)
-    slant = 25.0 * calm                                                          # 봉인문 둘레 벼랑은 둑처럼 서지 않게 55 m 에 걸쳐 오른다 (가운데 띠 기울기는 여전히 1.2 넘음)
-    wf = gap * ss(dout + jit, -5, 25 + slant) + (1 - gap) * ss(zb, -5, 25) * north * 0.45
-    crest = gap * ss(dout + jit, 18 + slant, 50 + slant) + (1 - gap) * ss(zb, 18, 50) * north * 0.45   # 벼랑 위는 평평한 대지 대신 들쭉날쭉한 봉우리
-    rug = 45 * ridged(X, Z, 1 / 120, 4, 945)
+    # 봉인문 둘레 벼랑은 낮게 (약 40 m): 오르지 못하게 하는 것은 높이가 아니라 기울기(가운데 띠 1.2 넘음)라서,
+    # 문 위로 하늘과 뒤쪽 산 실루엣이 보이게 한다
+    amp = amp * (1 - 0.4 * calm)
+    wf = gap * ss(dout + jit, -5, 25) + (1 - gap) * ss(zb, -5, 25) * north * 0.45
+    crest = gap * ss(dout + jit, 18, 50) + (1 - gap) * ss(zb, 18, 50) * north * 0.45   # 벼랑 위는 평평한 대지 대신 들쭉날쭉한 봉우리
+    rug = 45 * ridged(X, Z, 1 / 120, 4, 945) * (1 - 0.65 * calm)
     W.wall = ((amp * wf + rug * crest) * fade * (1 - ss(h, 200, 300))).astype(np.float32)
     W.mount = np.maximum(m * (1 - corridor), ss(dout + jit, 0, 25) * np.maximum(gap, ss(zb, 0, 25)))
     del wob, rid, mount, corridor, gdx, zn, dout, calm, jit, amp, fade, north, gap, zb, wf, crest, rug
