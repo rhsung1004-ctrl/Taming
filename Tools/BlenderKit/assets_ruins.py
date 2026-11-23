@@ -22,6 +22,45 @@ if kit.sc is not None:
 
 R = math.radians
 IVY_COL = (0.1, 0.21, 0.16)          # 덩굴 잎: 어둡고 차가운 초록
+
+
+# ───────────────────────── 안전한 파내기 ─────────────────────────
+# kit.cut(EXACT 불리언)은 bm_bevel·bm_chip 이 만든 미세한 자기 교차가 있는 블록에 획 커터(서로 겹침)를 쓰면
+# 닫히지 않은(구멍 난) 메쉬를 돌려줄 때가 있다. 그대로 리메시하면 그 조각이 껍데기만 남거나 통째로 사라진다
+# (제단 선돌 둘이 사라지고 룬 발광만 허공에 떠 있던 원인). 결과가 열려 있으면 원본을 먼저 리메시해 닫은 뒤 다시 판다.
+def open_edges(o):
+    bm = bmesh.new(); bm.from_mesh(o.data)
+    n = sum(1 for e in bm.edges if not e.is_manifold)
+    bm.free()
+    return n
+
+def cut_safe(a, *cutters, voxel=0.008):
+    flat = []
+    for c in cutters:
+        flat += list(c) if isinstance(c, (list, tuple)) else [c]
+    if not flat:
+        return a
+    before = open_edges(a)
+    backup = copy(a)
+    spare = [copy(c) for c in flat]
+    kit.cut(a, flat)
+    bad = open_edges(a)
+    if bad <= before:
+        delete(backup)
+        for c in spare:
+            delete(c)
+        return a
+    print("CUT retry", a.name, "열린 모서리", bad, "→ 리메시 후 다시 판다")
+    old = a.data
+    a.data = backup.data
+    delete(backup)
+    bpy.data.meshes.remove(old)
+    remesh(a, voxel)
+    kit.cut(a, spare)
+    print("CUT retry result", a.name, "열린 모서리", open_edges(a))
+    return a
+
+cut = cut_safe          # 이 묶음 안의 cut(...) 은 모두 안전한 파내기를 쓴다 (kit.chip 안쪽의 kit.cut 은 그대로)
 SOUL = (0.62, 0.35, 1.0)              # 영혼 등불 빛 색
 
 
@@ -1041,7 +1080,7 @@ def altar():
             rr = rng.uniform(r_a, r_b)
             a = rng.uniform(0.1, 0.2)
             cutters.append(spall_cutter(Vector((rr * math.cos(th), rr * math.sin(th), z)), (0, 0, 1), (a * 1.3, a), rng.uniform(0.01, 0.022), rng))
-    cut(tier_obj, cutters)
+    cut(tier_obj, cutters, voxel=0.011)
     glows.append(stroke_glow(gstrokes, (0, 0, 1), 0.012, lift=0.004))
 
     # 심 (블록 사이 줄눈 뒤를 막는다)
@@ -1200,7 +1239,7 @@ def wall_ruin_a():
     blocks = Acc()
     ashlar(blocks, rng, -2.25, 2.25, zs, top, y0, y1, gap=gap, ragged=(0.28, 0.22), plinth=0.045, missing=0.03)
     bo = blocks.obj("wall_blocks")
-    cut(bo, zone_prism(arch_outline(W, h_s, rise, grow=T + gap, z_bottom=sill - 0.16 - gap), y0, y1, Mw))
+    cut(bo, zone_prism(arch_outline(W, h_s, rise, grow=T + gap, z_bottom=sill - 0.16 - gap), y0, y1, Mw), voxel=0.011)
     frame = Acc()
     jamb_stones(frame, rng, W, sill, h_s, T, y0 - 0.01, y1 + 0.01, gap, M=Mw)
     for tag, bm, c in arch_stones(rng, W, h_s, rise, T, 4, y0 - 0.01, y1 + 0.01, gap, chips=(1, 2)):
@@ -1215,7 +1254,7 @@ def wall_ruin_a():
     core = Acc()
     core.add(core_prism(-2.25, 2.25, top, y0, y1, -0.14))
     co = core.obj("wall_core")
-    cut(co, zone_prism(arch_outline(W, h_s, rise, grow=0.012, z_bottom=sill - 0.004), y0, y1, Mw))
+    cut(co, zone_prism(arch_outline(W, h_s, rise, grow=0.012, z_bottom=sill - 0.004), y0, y1, Mw), voxel=0.011)
     # 무너져 내린 블록들 (오른쪽 앞뒤) + 윗면 잔돌
     fallen = Acc()
     for (x, y, sz) in ((1.2, -0.85, (0.62, 0.36, 0.3)), (1.85, -0.75, (0.5, 0.34, 0.3)), (0.6, -0.7, (0.4, 0.32, 0.28)),
@@ -1326,13 +1365,13 @@ def arch_ruin():
     span = Acc()
     ashlar(span, rng, -2.0, 2.0, zs2, top, y0 + 0.03, y1 - 0.03, gap=gap, ragged=(0.0, 0.0), missing=0.02, skin=(0.32, 0.4))
     so = span.obj("arch_span")
-    cut(so, zone_prism(arch_outline(W, h_s, rise, grow=T + gap, z_bottom=-0.5), y0, y1))
+    cut(so, zone_prism(arch_outline(W, h_s, rise, grow=T + gap, z_bottom=-0.5), y0, y1), voxel=0.012)
     core = Acc()
     core.add(core_prism(-2.0, 2.0, top, y0 + 0.03, y1 - 0.03, 2.6))
     core.add(bm_box(0.7, 0.8, 2.5), TR((-1.6, 0, 1.17)))
     core.add(bm_box(0.7, 0.8, 2.5), TR((1.6, 0, 1.17)))
     co = core.obj("arch_core")
-    cut(co, zone_prism(arch_outline(W, h_s, rise, grow=T + gap, z_bottom=-0.5), y0, y1))
+    cut(co, zone_prism(arch_outline(W, h_s, rise, grow=T + gap, z_bottom=-0.5), y0, y1), voxel=0.012)
     # 떨어진 홍예석 (둘로 깨져 아치 아래 땅에), 잔돌
     fallen = Acc()
     fallen_block(fallen, rng, (0.45, -0.4, 0), (0.4, 0.62, 0.34), rot_z=R(70))
@@ -1429,7 +1468,7 @@ def stair_ruin():
                 continue
             p = Vector((x, y_front + i * tread, (i + 1) * rise_ - 0.03))
             sp.append(spall_cutter(p, (0, -1, 0.6), (rng.uniform(0.12, 0.24), 0.08), 0.025, rng))
-    cut(so, sp + crack_list)
+    cut(so, sp + crack_list, voxel=0.01)
     # 양옆 난간벽 (계단 경사를 따라, 오른쪽은 위쪽이 무너졌다)
     side = Acc()
     for sx in (-1, 1):

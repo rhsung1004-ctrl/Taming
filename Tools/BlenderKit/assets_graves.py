@@ -909,6 +909,31 @@ def daisy_strokes(cx, cz, r, y, n=8):
         out += arc_strokes(c[0], c[1], r, th + R(120), th + R(240), y, n)
     return out
 
+def lens_poly(cx, cz, r, alpha, shrink=0.84, n=10):
+    """여섯 꽃잎 문양의 꽃잎 하나 (중심에서 반지름 r 끝까지, 두 원호로 된 렌즈). XZ 다각형"""
+    tip = (r * math.cos(alpha), r * math.sin(alpha))
+
+    def arc(c, p0, p1):
+        a0 = math.atan2(p0[1] - c[1], p0[0] - c[0])
+        a1 = math.atan2(p1[1] - c[1], p1[0] - c[0])
+        da = (a1 - a0 + math.pi) % (2 * math.pi) - math.pi
+        return [(c[0] + r * math.cos(a0 + da * i / n), c[1] + r * math.sin(a0 + da * i / n)) for i in range(n + 1)]
+    c1 = (r * math.cos(alpha + R(60)), r * math.sin(alpha + R(60)))
+    c2 = (r * math.cos(alpha - R(60)), r * math.sin(alpha - R(60)))
+    pts = arc(c1, (0.0, 0.0), tip) + arc(c2, tip, (0.0, 0.0))[1:-1]
+    m = (tip[0] / 2, tip[1] / 2)
+    return [(cx + m[0] + (x - m[0]) * shrink, cz + m[1] + (z - m[1]) * shrink) for x, z in pts]
+
+def rosette_cutter(cx, cz, r, yf, depth=0.009, petals=6, rot=90.0, boss=0.016):
+    """돋을새김 꽃 문양 커터: 원판을 파내되 꽃잎과 가운데 단추는 남긴다 (꽃잎이 도드라져 보인다)"""
+    h = depth + 0.05
+    disc = cyl(r, h, (cx, yf + depth - h / 2, cz), 64, rot=(R(90), 0, 0))
+    keep = [obj_bm(bm_poly(lens_poly(cx, cz, r * 0.98, R(rot + 360.0 / petals * k)), yf - 0.1, yf + 0.1), "petal") for k in range(petals)]
+    if boss > 0:
+        keep.append(cyl(boss, 0.2, (cx, yf, cz), 24, rot=(R(90), 0, 0)))
+    cut(disc, keep)
+    return disc
+
 def place_on_ground(o, sink=0.02):
     """가장 낮은 점이 z = -sink 가 되게 내린다"""
     zmin = min((o.matrix_world @ v.co).z for v in o.data.vertices)
@@ -928,10 +953,10 @@ def grave_slab_b():
     border = [(-0.25, 0.2), (0.25, 0.2), (0.25, 0.96), (0.2, 1.0), (0.07, 1.0), (0.0, 1.05), (-0.07, 1.0), (-0.2, 1.0), (-0.25, 0.96)]
     st = list(zip([Vector((x, yf, z)) for x, z in border], [Vector((x, yf, z)) for x, z in border[1:] + border[:1]]))
     engrave(slab, st, (0, -1, 0), 0.01, 0.008)
-    # 원 문양: 바깥 고리 + 여섯 꽃잎
-    cx, cz, r = 0.0, 0.73, 0.14
-    cut(slab, [obj_bm(annulus_y(cx, cz, r + 0.004, r + 0.017, yf - 0.05, yf + 0.009, 72), "ring")])
-    engrave(slab, daisy_strokes(cx, cz, r, yf, 12), (0, -1, 0), 0.0075, 0.006)
+    # 원 문양: 바깥 고리 홈 + 파낸 원판 위에 도드라진 여섯 꽃잎
+    cx, cz, r = 0.0, 0.73, 0.13
+    cut(slab, [obj_bm(annulus_y(cx, cz, r + 0.018, r + 0.032, yf - 0.05, yf + 0.009, 72), "ring"),
+               rosette_cutter(cx, cz, r, yf, 0.011)])
     st = text_strokes(rng, 0.0, 0.5, 0.38, 0.04, yf, jitter=0.002)
     st += text_strokes(rng, 0.0, 0.42, 0.32, 0.032, yf, jitter=0.002)
     st += text_strokes(rng, 0.0, 0.35, 0.26, 0.03, yf, jitter=0.002)
@@ -1486,7 +1511,9 @@ def bone_pile():
         pitch = rng.uniform(-0.35, 0.35) + (nrm.x * math.cos(yaw) + nrm.y * math.sin(yaw)) * -0.8
         roll = rng.uniform(0, 6.28)
         M = Matrix.Translation((x, y, z)) @ Matrix.Rotation(yaw, 4, 'Z') @ Matrix.Rotation(pitch, 4, 'Y') @ Matrix.Rotation(roll, 4, 'X')
-        for c, r, rot in long_bone(L_, rr, rng):
+        for it in long_bone(L_, rr, rng):
+            c, r = it[0], it[1]
+            rot = it[2] if len(it) > 2 else (0, 0, 0)
             p = M @ Vector(c)
             q = (M.to_3x3() @ Euler(rot).to_matrix()).to_euler()
             items.append((p, r, tuple(q)))
@@ -1495,7 +1522,9 @@ def bone_pile():
         x, y = math.cos(a) * 0.5 * r_, math.sin(a) * 0.42 * r_
         loc, nrm = surf(x, y)
         M = Matrix.Translation((x, y, loc.z + 0.01)) @ Matrix.Rotation(rng.uniform(0, 6.28), 4, 'Z') @ Matrix.Rotation(rng.uniform(-0.5, 0.5), 4, 'X')
-        for c, r, rot in rib(rng, rng.uniform(0.1, 0.15), rng.uniform(90, 130), 0.009):
+        for it in rib(rng, rng.uniform(0.1, 0.15), rng.uniform(90, 130), 0.009):
+            c, r = it[0], it[1]
+            rot = it[2] if len(it) > 2 else (0, 0, 0)
             p = M @ Vector(c)
             q = (M.to_3x3() @ Euler(rot).to_matrix()).to_euler()
             items.append((p, r, tuple(q)))
