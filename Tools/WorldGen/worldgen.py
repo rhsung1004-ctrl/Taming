@@ -143,9 +143,9 @@ def build_height(W):
     fade = ss(-dout, -140, -60)                                                  # 지도 끝 봉우리에는 더하지 않는다 (320 m 잘림 방지)
     north = Z > 1700
     gap = np.where(north, ss(gdx, 8.5, 13.0), 1.0)                              # 봉인문 폭만큼 홈 (문 충돌이 막는다)
-    zb = Z - (GATE[1] + 44) + jit                                                # 홈 안쪽: 문 뒤 44 m 의 막다른 벽
-    wf = gap * ss(dout + jit, -5, 25) + (1 - gap) * ss(zb, -5, 25) * north
-    crest = gap * ss(dout + jit, 18, 50) + (1 - gap) * ss(zb, 18, 50) * north   # 벼랑 위는 평평한 대지 대신 들쭉날쭉한 봉우리
+    zb = Z - (GATE[1] + 150) + jit                                               # 홈 안쪽: 문 뒤 150 m 의 막다른 턱 (문 사이로 하늘이 보이게 멀리)
+    wf = gap * ss(dout + jit, -5, 25) + (1 - gap) * ss(zb, -5, 25) * north * 0.45
+    crest = gap * ss(dout + jit, 18, 50) + (1 - gap) * ss(zb, 18, 50) * north * 0.45   # 벼랑 위는 평평한 대지 대신 들쭉날쭉한 봉우리
     rug = 45 * ridged(X, Z, 1 / 120, 4, 945)
     W.wall = ((amp * wf + rug * crest) * fade * (1 - ss(h, 200, 300))).astype(np.float32)
     W.mount = np.maximum(m * (1 - corridor), ss(dout + jit, 0, 25) * np.maximum(gap, ss(zb, 0, 25)))
@@ -999,7 +999,7 @@ def lay_gate(W, P):
         for (dx, dz, nm, sc) in ((19.0, 6.0, "cliff_a", 1.2), (36.0, 9.0, "cliff_c", 1.2)):
             P.put(nm, cx + side * dx, cz + dz, yaw=180 + side * 4 + rng.normal(0, 4), s=sc, check=False,
                   align=0.5, align_max=25, stamp=("rock", 1.2))
-        for dz in (12.0, 25.0, 37.0):                     # 문 너머 골짜기 양벽 (쇠창살 사이로 보인다). 밑동은 골짜기 바닥 높이
+        for dz in (14.0, 30.0):                           # 문 너머 골짜기 양벽 (쇠창살 사이로 보인다). 밑동은 골짜기 바닥 높이
             P.put("cliff_b", cx + side * 12.5, cz + dz, yaw=-side * 90 + rng.normal(0, 5), s=rng.uniform(1.2, 1.5), check=False,
                   y=P.height(cx, cz + dz) - 0.4, stamp=("rock", 1.0))
 
