@@ -1196,6 +1196,11 @@ def details(W, P):
     (z0, z1), (x0, x1) = W.creek_win
     cr = np.zeros(h.shape, np.float32)
     cr[z0:z1, x0:x1] = ss(-np.abs(W.creek_dist - W.creek_wt * 0.6), -3.0, -0.5)
+    gy = ss(-ex, -1.25, -0.8)                     # 묘지 안: 묘비가 가려지지 않게 키 큰 풀을 줄인다
+    d["grass_b"] *= (1 - gy * 0.9)
+    d["fern_a"] *= (1 - gy * 0.9)
+    d["grass_a"] *= (1 - gy * 0.35)
+    d["weeds"] = np.clip(d["weeds"] + gy * 0.35 * ss(n1, -0.3, 0.5) * base, 0, 1)
     d["reed"] = np.clip(np.maximum.reduce([edge_sw, edge_lk, edge_pool, cr * 0.7]), 0, 1) * flat * road * (0.5 + 0.5 * ss(n1, -0.4, 0.3))
     # 소품 자리는 비운다
     clear = np.ones(h.shape, np.float32)
