@@ -391,6 +391,12 @@ namespace Necro.EditorTools
         {
             var sw = Stopwatch.StartNew();
             var counts = new BuildCounts();
+            // 소품 폴더가 없거나 모델이 하나도 없으면 아무것도 만들지 않는다 (1번 메뉴에서 바로 불려도 예외로 멈추지 않게)
+            if (ModelNames().Count == 0)
+            {
+                warnings.Add(KitFolder + " 폴더에 소품 모델(.fbx)이 없어 프리팹을 만들지 못했어요 (Git Bash 에서 git lfs pull 을 했는지 확인해 주세요)");
+                return counts;
+            }
             NecroEditorUtil.EnsureFolder(PrefabFolder);
             NecroEditorUtil.EnsureFolder(MatFolder);
             try
@@ -571,7 +577,8 @@ namespace Necro.EditorTools
             if (lg == null) lg = root.AddComponent<LODGroup>();
             var bounds = RootBounds(root, groups[0]);
             float size = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z, 0.1f);
-            float[] heights = LodHeights(groups.Count, size, meta.cull);
+            // 광원을 품은 소품(초·버섯)은 몸체 없이 땅만 빛나 보이는 일이 적도록 더 멀리(50 m)까지 둔다
+            float[] heights = LodHeights(groups.Count, size, meta.cull, meta.hasLight && !meta.IsTree ? 50f : 30f);
             var lods = new LOD[groups.Count];
             for (int i = 0; i < lods.Length; i++) lods[i] = new LOD(heights[i], groups[i]);
             lg.SetLODs(lods);
@@ -665,9 +672,12 @@ namespace Necro.EditorTools
         }
 
         // LOD 전환 화면 높이. 거리(m)로 정한 뒤 화면 높이로 바꾼다 (시야각 55도: 화면 높이 ≈ 크기 / (1.04 × 거리))
-        public static float[] LodHeights(int n, float size, float cull)
+        // minCullDistance: META cull 이 커도 이 거리(m, lodBias 1 기준) 안에서는 사라지지 않게 한다.
+        // 해골·버섯처럼 작은 소품이 카메라 거리(5~9 m) 안에서 사라지거나, 광원만 남고 몸체가 먼저 사라지는 것을 막는다
+        public static float[] LodHeights(int n, float size, float cull, float minCullDistance = 30f)
         {
             cull = Mathf.Clamp(cull, 0f, 0.5f);
+            if (minCullDistance > 0f) cull = Mathf.Min(cull, size / (1.04f * minCullDistance));
             var h = new float[n];
             System.Func<float, float> H = d => size / (1.04f * Mathf.Max(d, 1f));
             if (n == 1) { h[0] = cull; return h; }
@@ -721,21 +731,26 @@ namespace Necro.EditorTools
             {
                 var cc = root.AddComponent<CapsuleCollider>();
                 cc.direction = 1;
-                float radius = (meta.HasTag("rock") || meta.HasTag("cliff") || meta.HasTag("ruin"))
-                    ? Mathf.Min(b.size.x, b.size.z) * 0.45f
-                    : TrunkRadius(groups[0], root, b);
+                bool fromBounds = meta.HasTag("rock") || meta.HasTag("cliff") || meta.HasTag("ruin");
+                float radius = fromBounds ? Mathf.Min(b.size.x, b.size.z) * 0.45f : TrunkRadius(groups[0], root, b);
                 cc.radius = Mathf.Max(0.1f, radius);
                 cc.height = Mathf.Max(b.size.y, cc.radius * 2f);
-                cc.center = new Vector3(meta.IsTree ? 0f : b.center.x, b.min.y + cc.height * 0.5f, meta.IsTree ? 0f : b.center.z);
+                // 줄기 반지름(TrunkRadius)은 원점 축에서 쟀으므로 중심도 원점 축에 둔다 (등불 팔처럼 한쪽으로 뻗은 부품에 끌려가지 않게).
+                // 경계 상자로 반지름을 정한 바위·폐허만 경계 상자 중심을 쓴다. 지형 나무는 늘 원점 축
+                bool onAxis = meta.IsTree || !fromBounds;
+                cc.center = new Vector3(onAxis ? 0f : b.center.x, b.min.y + cc.height * 0.5f, onAxis ? 0f : b.center.z);
                 return;
             }
             warnings.Add(meta.name + ": 알 수 없는 collider '" + kind + "' → 충돌 없이 만들었어요");
         }
 
-        // 나무 줄기 반지름: 땅 위 0.4~1.8 m 높이의 정점이 원점 축에서 떨어진 거리 (70번째 백분위)
+        // 나무 줄기 반지름: 땅 위 0.4~1.8 m 높이의 정점이 원점 축에서 떨어진 거리 (70번째 백분위).
+        // 키가 2 m 보다 작은 소품(그루터기 등)은 0.4~1.8 m 띠에 윗면 정점이 섞여 반지름이 작아지므로 높이의 20~60% 띠에서 잰다
         static float TrunkRadius(Renderer[] lod0, GameObject root, Bounds b)
         {
             float fallback = Mathf.Clamp(Mathf.Min(b.size.x, b.size.z) * 0.12f, 0.2f, 1.0f);
+            float bandLo = 0.4f, bandHi = 1.8f;
+            if (b.size.y < 2f) { bandLo = b.size.y * 0.2f; bandHi = b.size.y * 0.6f; }
             var dists = new List<float>();
             foreach (var r in lod0)
             {
@@ -747,7 +762,7 @@ namespace Necro.EditorTools
                 {
                     var p = m.MultiplyPoint3x4(verts[i]);
                     float y = p.y - b.min.y;
-                    if (y < 0.4f || y > 1.8f) continue;
+                    if (y < bandLo || y > bandHi) continue;
                     dists.Add(new Vector2(p.x, p.z).magnitude);
                 }
             }

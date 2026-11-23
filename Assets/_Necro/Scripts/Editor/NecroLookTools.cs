@@ -380,12 +380,21 @@ namespace Necro.EditorTools
             go.transform.localScale = Vector3.one * scale;
             if (prefab != null) return go;
             var main = NecroProps.MainMaterial(name);
-            foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+            var renderers = go.GetComponentsInChildren<Renderer>(true);
+            // 충돌은 LOD 하나에만 단다 (프리팹의 메쉬 충돌과 같게 LOD1, 없으면 LOD0). LOD 이름이 없는 모델만 렌더러마다 단다
+            Renderer colliderOwner = null;
+            foreach (var r in renderers)
+            {
+                if (r.name.EndsWith("_LOD1")) { colliderOwner = r; break; }
+                if (colliderOwner == null && r.name.EndsWith("_LOD0")) colliderOwner = r;
+            }
+            foreach (var r in renderers)
             {
                 var mats = r.sharedMaterials;
                 for (int i = 0; i < mats.Length; i++)
                     mats[i] = NecroProps.PickMaterial(mats[i] != null ? mats[i].name : "", main, null, name);
                 r.sharedMaterials = mats;
+                if (colliderOwner != null && r != colliderOwner) continue;
                 var mf = r.GetComponent<MeshFilter>();
                 if (mf != null && mf.sharedMesh != null && r.GetComponent<Collider>() == null)
                     r.gameObject.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
@@ -424,8 +433,9 @@ namespace Necro.EditorTools
             }
 
             // 납골당과 입구의 무너진 아치
-            Place("crypt", env, 0f, 25f);
-            PointLight("Crypt Light", env, new Vector3(0f, 3f, 21.5f), new Color(0.45f, 1f, 0.6f), 14f, 16f, true);
+            var crypt = Place("crypt", env, 0f, 25f);
+            if (!HasOwnLight(crypt))      // 프리팹에 META 광원이 들어 있으면 입구 광원을 또 놓지 않는다
+                PointLight("Crypt Light", env, new Vector3(0f, 3f, 21.5f), new Color(0.45f, 1f, 0.6f), 14f, 16f, true);
             Place("arch_ruin", env, 0f, -8.5f);
 
             // 영혼 등불
