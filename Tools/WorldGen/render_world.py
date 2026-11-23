@@ -105,6 +105,7 @@ def terrain_mat():
         t = N.new('ShaderNodeTexImage')
         t.image = bpy.data.images.load(os.path.join(DATA, "splat_%d.png" % k))
         t.image.colorspace_settings.name = 'Non-Color'
+        t.image.alpha_mode = 'CHANNEL_PACKED'      # 알파 = 넷째 층 무게 (투명도가 아니다)
         t.extension = 'EXTEND'
         L.new(uvn.outputs['UV'], t.inputs['Vector'])
         sep = N.new('ShaderNodeSeparateColor')
@@ -264,6 +265,8 @@ def grass_np(cam_u, fwd_u, radius=70.0, seed=3):
     imgs = []
     for k in range(2):
         img = bpy.data.images.load(os.path.join(DATA, "detail_%d.png" % k))
+        img.colorspace_settings.name = 'Non-Color'
+        img.alpha_mode = 'CHANNEL_PACKED'
         a = np.array(img.pixels[:], np.float32).reshape(img.size[1], img.size[0], 4)   # Blender: 아래 줄부터 = 남쪽부터
         imgs.append(a)
         bpy.data.images.remove(img)
@@ -389,7 +392,7 @@ VIEW_DEFS = {
     # 이름: (카메라 x, z, 높이(지면 위), 바라볼 x, z, 높이(지면 위), 풀 반지름, 소품 반지름)
     "overview": ((1024, -380, 950), (1024, 1150, 0), 0, None),
     "spawn": ((1000, 474, 3.2), (1000, 560, 2.5), 75, 900),
-    "graveyard": ((986, 820, 2.4), (1000, 1000, 6.0), 70, 900),
+    "graveyard": ((1001, 790, 2.6), (1000, 1003, 5.0), 70, 900),
     "swamp": ((1300, 912, 2.2), (1560, 960, 1.0), 60, 900),
     "cathedral": ((1022, 1300, 2.2), (1010, 1478, 14.0), 60, 900),
     "dragon": ((585, 985, 3.0), (470, 1060, 2.0), 60, 900),

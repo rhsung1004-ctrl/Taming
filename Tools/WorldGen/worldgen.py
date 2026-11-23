@@ -728,50 +728,56 @@ def lay_swamp(W, P):
 
 
 def lay_dragon(W, P):
+    """옆으로 쓰러진 고룡의 뼈: 머리 → 목 → 갈비뼈 → 꼬리가 한 줄로, 양옆에 앞발·뒷발.
+    소품 축: 두개골은 주둥이가 앞(-Y), 갈비뼈·척추는 길이가 로컬 X"""
     rng = P.rng
     cx, cz = DRAGON
-    tail = np.array([cx - 85.0, cz + 70.0])
-    head = np.array([cx + 60.0, cz - 50.0])
-    ax = head - tail
-    L = np.linalg.norm(ax)
-    ax /= L
-    side = np.array([-ax[1], ax[0]])
-    fy = yaw_to(ax[0], ax[1])
-    hx, hz = head
-    P.put("dragon_skull", hx, hz, yaw=fy + 18, check=False, stamp=("ash", 1.5))
-    W.fx.append({"type": "soulfire", "p": [float(hx), P.height(hx, hz) + 1.0, float(hz)], "r": 10})
-    # 목·등뼈: 머리 뒤에서 꼬리까지 휘어지게
-    n = 9
-    for i in range(n):
-        t = (i + 1.3) / (n + 1.3)
-        bend = math.sin(t * math.pi * 1.3) * 9
-        p = head - ax * (L * t) + side * bend
-        P.put("dragon_spine", p[0], p[1], yaw=fy + 90 + math.degrees(math.cos(t * math.pi * 1.3) * 0.25), check=False,
-              stamp=("ash", 1.2))
-    # 갈비뼈: 가슴께에 셋 (서로 조금 비틀림)
-    for k, t in enumerate((0.26, 0.34, 0.42)):
-        p = head - ax * (L * t) + side * (math.sin(t * math.pi * 1.3) * 9)
-        P.put("dragon_ribs", p[0], p[1], yaw=fy + rng.normal(0, 6), check=False, stamp=("ash", 1.3))
-    for t, sd in ((0.3, 1), (0.36, -1), (0.62, 1), (0.66, -1)):
-        p = head - ax * (L * t) + side * sd * 11
-        P.put("dragon_claw", p[0], p[1], yaw=fy + sd * 60 + rng.normal(0, 15), check=False)
+    a = np.array([0.78, -0.62])
+    a /= np.linalg.norm(a)                         # 꼬리 → 머리 방향 (남동쪽을 본다)
+    side = np.array([-a[1], a[0]])
+    head = np.array([cx + 26.0, cz - 20.0])
+    fy = yaw_to(a[0], a[1])
+    along = math.degrees(math.atan2(-a[1], a[0]))   # 로컬 X 를 몸 축에 맞추는 Unity Y 회전
+
+    def at(t, off=0.0):
+        p = head - a * t + side * off
+        return float(p[0]), float(p[1])
+
+    x, z = at(0)
+    P.put("dragon_skull", x, z, yaw=fy + 12, check=False, stamp=("ash", 1.6))
+    W.fx.append({"type": "soulfire", "p": [x, P.height(x, z) + 1.0, z], "r": 10})
+    x, z = at(9.5, 0.8)
+    P.put("dragon_spine", x, z, yaw=along + 8, s=0.7, check=False, stamp=("ash", 1.2))       # 목
+    x, z = at(19.5, -0.5)
+    P.put("dragon_ribs", x, z, yaw=along + 180, s=1.0, check=False, stamp=("ash", 1.4))      # 가슴
+    x, z = at(31.5, 1.5)
+    P.put("dragon_spine", x, z, yaw=along - 6, s=1.0, check=False, stamp=("ash", 1.2))       # 꼬리
+    x, z = at(41.0, -1.5)
+    P.put("dragon_spine", x, z, yaw=along + 15, s=0.75, check=False, stamp=("ash", 1.2))     # 꼬리 끝
+    for t, sd, sc_ in ((15.5, 1, 1.0), (17.0, -1, 0.9), (27.0, 1, 0.85), (28.5, -1, 0.8)):
+        x, z = at(t, sd * 8.5)
+        P.put("dragon_claw", x, z, yaw=fy + sd * 70 + rng.normal(0, 12), s=sc_, check=False, stamp=("ash", 1.3))
     area = in_disk(DRAGON, DRAGON_R - 15)
     P.scatter("bone_spike", 70, area)
-    P.scatter("bones_scatter", 160, area)
+    P.scatter("bones_scatter", 150, area)
+    P.scatter("bone_pile", 25, area)
     P.scatter("skull", 40, area)
     P.scatter("rock_a", 30, area)
     P.scatter("rock_c", 50, area)
     P.scatter("rock_flat", 10, area)
     # 분지 테두리의 절벽 (안쪽을 본다)
     for i in range(22):
-        a = i / 22 * 2 * math.pi + rng.uniform(-0.08, 0.08)
+        ang = i / 22 * 2 * math.pi + rng.uniform(-0.08, 0.08)
         d = DRAGON_R - 20 + rng.uniform(-10, 18)
-        x, z = cx + math.cos(a) * d, cz + math.sin(a) * d
+        x, z = cx + math.cos(ang) * d, cz + math.sin(ang) * d
         nm = ["cliff_a", "cliff_c", "cliff_b"][i % 3]
         P.put(nm, x, z, yaw=yaw_to(cx - x, cz - z) + rng.normal(0, 10), slope=None)
     for i in range(6):
         x, z = area(rng)
         W.lights.append({"p": [round(x, 2), round(P.height(x, z) + 1.5, 2), round(z, 2)], "c": SOUL, "i": 4.0, "r": 9.0, "flicker": True})
+    for t in (0, 19.5, 31.5):
+        x, z = at(t)
+        W.lights.append({"p": [round(x, 2), round(P.height(x, z) + 2.5, 2), round(z, 2)], "c": SOUL, "i": 5.0, "r": 12.0, "flicker": True})
 
 
 def lay_tree(W, P):
