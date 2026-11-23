@@ -6,6 +6,20 @@
 월드 데이터는 월드 생성기(`Tools/WorldGen`)가, 소품 모델은 Blender 도구(`Tools/BlenderKit`)가 만듭니다.
 Unity 에서는 **메뉴 세 번**이면 장면이 만들어집니다. 데이터 규격은 [Tools/WorldGen/SPEC.md](../Tools/WorldGen/SPEC.md) 입니다.
 
+## 미리보기 (Blender 확인 렌더)
+
+> 월드 데이터를 Blender 로 그린 **미리보기**입니다. Unity 화면은 하늘 셰이더(별·성운·오로라·달), 안개, 풀 셰이더(바람·반투과), 후처리가 더해져 다르게 보입니다.
+> 풀은 이 렌더에서 실제보다 어둡게 나옵니다.
+
+| | |
+| --- | --- |
+| ![시작 지점](images/world_spawn.jpg) 봉인의 제단 (시작 지점) | ![묘지](images/world_graveyard.jpg) 잊힌 자들의 묘지 가운데 길 |
+| ![늪](images/world_swamp.jpg) 안개 늪 | ![용의 무덤](images/world_dragon.jpg) 용의 무덤 |
+| ![봉인문](images/world_gate.jpg) 북쪽 봉인문 | ![고목](images/world_tree.jpg) 영혼의 고목 |
+| ![대성당](images/world_cathedral.jpg) 무너진 대성당 (고원 위) | ![전경](images/world_overview.jpg) 남쪽 하늘에서 본 전경 |
+
+소품: [폐허](images/props_ruins.jpg) · [자연(바위·절벽·고목)](images/props_nature.jpg) · [풀·꽃·버섯](images/props_foliage.jpg) · [용의 뼈](images/props_dragon_bones.jpg)
+
 ## 1. 만들기 (처음 10~20분, 대부분 기다리는 시간)
 
 1. `git pull` 후 **Git Bash 에서 `git lfs pull`** (모델·텍스처·높이 데이터가 LFS 에 있습니다). Unity 를 엽니다.
