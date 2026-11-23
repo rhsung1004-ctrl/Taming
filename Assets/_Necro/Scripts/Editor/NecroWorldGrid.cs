@@ -44,7 +44,9 @@ namespace Necro.EditorTools
 
         // 층 무게 [행 = Z, 열 = X, 층]. 지형 알파맵 텍셀 j 는 타일 가장자리에서 j / (res − 1) 위치에 있다
         // (URP TerrainLitPasses.hlsl: splatUV = (uv × (텍셀 수 − 1) + 0.5) / 텍셀 수).
-        // 전체 splat 그림(픽셀 i 중심 = (i + 0.5) × 텍셀 크기)을 그 위치에서 쌍선형으로 읽어 이웃 타일과 가장자리가 정확히 맞게 한다.
+        // 전체 splat 그림을 그 위치에서 쌍선형으로 읽어 이웃 타일과 가장자리가 정확히 맞게 한다.
+        // 화소 정렬: 생성기는 층 무게를 높이와 같은 격자점(x = i, z = j)에서 계산해 그대로 화소 (j, i) 에 넣는다.
+        // 그래서 화소 i = x = i × 텍셀 크기 (화소 중심 i + 0.5 가 아니다). 마지막 줄(x = size)은 그림에 없어 바로 앞 화소를 쓴다.
         public static float[,,] TileAlphamaps(Color32[] splat0, Color32[] splat1, int layers, int splatRes, float size, int tiles, int tx, int tz, int res)
         {
             int W = splatRes;
@@ -55,13 +57,13 @@ namespace Necro.EditorTools
             for (int r = 0; r < res; r++)
             {
                 float worldZ = tz * tileSize + r * tileSize / (res - 1);
-                float fz = Clamp(worldZ / texel - 0.5f, 0f, W - 1);
+                float fz = Clamp(worldZ / texel, 0f, W - 1);
                 int z0 = (int)fz, z1 = Math.Min(z0 + 1, W - 1);
                 float vz = fz - z0;
                 for (int c = 0; c < res; c++)
                 {
                     float worldX = tx * tileSize + c * tileSize / (res - 1);
-                    float fx = Clamp(worldX / texel - 0.5f, 0f, W - 1);
+                    float fx = Clamp(worldX / texel, 0f, W - 1);
                     int x0 = (int)fx, x1 = Math.Min(x0 + 1, W - 1);
                     float vx = fx - x0;
                     int i00 = z0 * W + x0, i10 = z0 * W + x1, i01 = z1 * W + x0, i11 = z1 * W + x1;
@@ -82,7 +84,9 @@ namespace Necro.EditorTools
             return maps;
         }
 
-        // 풀 포기 수 [행 = Z, 열 = X]. 칸 하나 = 전체 detail 그림의 픽셀 하나 (1m).
+        // 풀 포기 수 [행 = Z, 열 = X]. 칸 하나 = 1m, 지형 풀 칸 c 는 [c, c + 1) m 안에 흩어진다 (positionJitter 1).
+        // 생성기 화소 c 는 격자점 x = c 의 값이라 (TileAlphamaps 설명 참고), 칸 가운데 (c + 0.5) 값 =
+        // 화소 (c, c + 1) × (행, 행 + 1) 네 개의 평균으로 읽는다. 그림 끝(마지막 화소)에서는 그 화소를 다시 쓴다.
         // 0~255 → 칸당 0~maxPerCell 개. 소수 부분은 칸마다 다른 해시로 올림/내림해 옅은 곳도 고르게 이어진다
         public static int[,] TileDetails(Color32[] px, int channel, int detailRes, int tiles, int tx, int tz, float maxPerCell, int seed, out long sum)
         {
@@ -92,12 +96,15 @@ namespace Necro.EditorTools
             for (int r = 0; r < res; r++)
             {
                 int gz = tz * res + r;
+                int row0 = gz * detailRes, row1 = Math.Min(gz + 1, detailRes - 1) * detailRes;
                 for (int c = 0; c < res; c++)
                 {
                     int gx = tx * res + c;
-                    int v = Channel(px[gz * detailRes + gx], channel);
-                    if (v == 0) continue;
-                    float expect = v / 255f * maxPerCell;
+                    int gx1 = Math.Min(gx + 1, detailRes - 1);
+                    int v4 = Channel(px[row0 + gx], channel) + Channel(px[row0 + gx1], channel)
+                           + Channel(px[row1 + gx], channel) + Channel(px[row1 + gx1], channel);
+                    if (v4 == 0) continue;
+                    float expect = v4 / (4f * 255f) * maxPerCell;
                     int count = (int)Math.Floor(expect + Hash01(gx, gz, seed));
                     if (count < 0) count = 0;
                     if (count > 255) count = 255;

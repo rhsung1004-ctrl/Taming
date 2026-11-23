@@ -27,6 +27,19 @@ namespace Necro.EditorTools
         const string ParticleShader = "Necro/SoulParticle";
         const int CellSize = 256;                       // 소품을 묶는 칸 (m)
         const float DefaultFogDensity = 0.0055f;        // world.json 에 fog 가 없을 때 (오픈월드용으로 옅게)
+
+        // 카메라 먼 거리 = 월드 한 변 × 이 값 (대각선 √2 ≈ 1.414 보다 조금 길게). 아래 ApplyWorldAtmosphere 설명 참고
+        const float WorldFarClipMargin = 1.42f;
+        const float WorldFarClipMin = 2000f;
+
+        // 지형 풀 (나중에 [Header]·Tooltip 이 붙은 튜닝 값 ScriptableObject 로 옮긴다).
+        // 지형 풀은 LOD 가 없어 먼 풀도 LOD0 메쉬(지금 한 포기 410~650 삼각형)를 그대로 그린다.
+        // 실제 데이터로 세어 보면 110m 일 때 시작 위치 화면 안 풀만 약 3,900만 삼각형, 70m 면 약 2,000만 (밀도 1 기준).
+        // 70m 에서 Exp2 안개(0.0048)는 약 11% 라 풀이 끝나는 곳이 조금 보일 수 있다 (110m 에서도 약 24% 였다).
+        const float DetailDistance = 70f;
+        // 풀 밀도 배율. 풀 프로토타입이 useDensityScaling = true 라 모든 풀이 고르게 줄어든다
+        // (품질 설정의 terrainDetailDensityScale 이 한 번 더 곱해진다). 1 = 생성기 밀도 그대로
+        const float DetailDensity = 0.75f;
         static readonly string[] FxTypes = { "mist", "wisps", "soulfire", "fireflies" };
         static readonly string Title = "1장 오픈월드 만들기";
 
@@ -574,8 +587,12 @@ namespace Necro.EditorTools
             EditorUtility.SetDirty(sky);
             RenderSettings.skybox = sky;
 
-            // 안개가 거의 다 덮는 거리까지만 그린다 (그 너머는 지평선 색 = 하늘과 같다)
-            cam.farClipPlane = Mathf.Clamp(2.6f / density, 800f, 2500f);
+            // 월드 대각선까지 그린다. 안개가 다 덮은 바깥 산줄기도 안개색 윤곽으로 하늘보다 밝게 보여야 한다
+            // (Necro/Sky 는 지평선 높이만 안개색이고 그보다 높은 하늘은 더 어둡다). 안개 거리에서 자르면
+            // 그 방향 지평선이 평평해지고, 잘린 거리에 걸친 산은 단면이 보인다.
+            // reversed-Z 라 near 0.2 / far 약 2,900 도 정밀도 문제가 없고, 먼 지형은 픽셀 오차 4 의 낮은 LOD,
+            // 소품은 LODGroup 컬링(META.cull)이 있어 비용이 거의 늘지 않는다
+            cam.farClipPlane = Mathf.Max(WorldFarClipMin, w.size * WorldFarClipMargin);
             cam.nearClipPlane = 0.2f;
 
             // 분위기 프리셋(F3): 안개 세기를 오픈월드 비율로 줄이고 기본 프리셋 안개 색을 world.json 에 맞춘다
@@ -659,7 +676,11 @@ namespace Necro.EditorTools
                     dryColor = Color.white
                 };
 #if UNITY_2022_2_OR_NEWER
-                dp.alignToGround = 0.5f;        // 비탈에서 반쯤 기울게
+                // META.align (지형 경사에 맞춰 눕힐지) 를 따른다: true 면 비탈에서 반쯤 기울게, false(갈대 등)는 곧게.
+                // manifest 에 없으면 예전처럼 기울인다
+                PropMeta dmeta;
+                bool align = manifest.TryGetValue(d.asset, out dmeta) ? dmeta.align : true;
+                dp.alignToGround = align ? 0.5f : 0f;
                 dp.positionJitter = 1f;         // 칸 안에서 자리를 흩는다 (인스턴스 수 모드)
                 dp.useDensityScaling = true;    // 품질 설정의 풀 밀도 배율을 따른다
 #endif
@@ -793,9 +814,10 @@ namespace Necro.EditorTools
             t.drawInstanced = true;
             t.heightmapPixelError = 4f;          // 먼 산은 성기게
             t.basemapDistance = 400f;            // 이 너머는 미리 합친 저해상도 색
-            t.detailObjectDistance = 110f;       // 풀이 보이는 거리 (안개가 덮기 전까지)
-            t.detailObjectDensity = 1f;
-            t.treeDistance = 1200f;
+            t.detailObjectDistance = DetailDistance;   // 풀이 보이는 거리 (값과 이유는 맨 위 상수)
+            t.detailObjectDensity = DetailDensity;
+            t.treeDistance = 1200f;              // 카메라 먼 거리보다 짧다. 이 너머 나무는 안개에 다 덮여 능선 위의 작은 윤곽으로만 남는다
+                                                 // (더 줄이면 능선 위 나무가 가까운 거리에서 보였다 사라진다)
             t.treeBillboardDistance = 1200f;     // LOD 그룹 나무는 자체 LOD 를 쓴다
             t.treeCrossFadeLength = 0f;
             t.treeMaximumFullLODCount = 400;
