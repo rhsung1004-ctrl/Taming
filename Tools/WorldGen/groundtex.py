@@ -336,7 +336,7 @@ def make_leaves(out):
 
 def make_ash(out):
     r = rng(81)
-    col, h = soil(80, (0.14, 0.13, 0.155), (0.27, 0.25, 0.28))
+    col, h = soil(80, (0.085, 0.08, 0.098), (0.175, 0.16, 0.185))     # 달빛 아래 눈밭처럼 보이지 않게 어둡게
     cinder = ss(fbm(0.9, 83), 0.62, 0.75)
     col = mix(col, lin((0.04, 0.035, 0.045)), cinder * 0.7)
     rip = band(0.0, 84, 20, 50)
@@ -350,7 +350,7 @@ def make_ash(out):
         p1 = (y + math.sin(a) * L, x + math.cos(a) * L)
         w = r.uniform(0.8, 1.8)
         y0, x0, sh, cov, t = seg_stamp((y, x), p1, w, w * r.uniform(0.5, 1.1), 0.7, 0.75)
-        c = lin((0.42, 0.39, 0.35)) * r.uniform(0.7, 1.1)
+        c = lin((0.34, 0.31, 0.28)) * r.uniform(0.7, 1.1)
         sc = c[None, None, :] * (0.85 + 0.2 * np.sin(t * 7))[..., None]
         cv.stamp(y0, x0, sh, sc, cov)
     pebbles(cv, r, 1500, (1, 2.6), [(0.05, 0.045, 0.05), (0.2, 0.19, 0.21)], 85)
