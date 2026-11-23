@@ -144,8 +144,9 @@ def build_height(W):
     north = Z > 1700
     gap = np.where(north, ss(gdx, 8.5, 13.0), 1.0)                              # 봉인문 폭만큼 홈 (문 충돌이 막는다)
     zb = Z - (GATE[1] + 150) + jit                                               # 홈 안쪽: 문 뒤 150 m 의 막다른 턱 (문 사이로 하늘이 보이게 멀리)
-    wf = gap * ss(dout + jit, -5, 25) + (1 - gap) * ss(zb, -5, 25) * north * 0.45
-    crest = gap * ss(dout + jit, 18, 50) + (1 - gap) * ss(zb, 18, 50) * north * 0.45   # 벼랑 위는 평평한 대지 대신 들쭉날쭉한 봉우리
+    slant = 25.0 * calm                                                          # 봉인문 둘레 벼랑은 둑처럼 서지 않게 55 m 에 걸쳐 오른다 (가운데 띠 기울기는 여전히 1.2 넘음)
+    wf = gap * ss(dout + jit, -5, 25 + slant) + (1 - gap) * ss(zb, -5, 25) * north * 0.45
+    crest = gap * ss(dout + jit, 18 + slant, 50 + slant) + (1 - gap) * ss(zb, 18, 50) * north * 0.45   # 벼랑 위는 평평한 대지 대신 들쭉날쭉한 봉우리
     rug = 45 * ridged(X, Z, 1 / 120, 4, 945)
     W.wall = ((amp * wf + rug * crest) * fade * (1 - ss(h, 200, 300))).astype(np.float32)
     W.mount = np.maximum(m * (1 - corridor), ss(dout + jit, 0, 25) * np.maximum(gap, ss(zb, 0, 25)))
@@ -996,7 +997,8 @@ def lay_gate(W, P):
     W.fx.append({"type": "soulfire", "p": [cx, P.height(cx, cz - 10) + 1.2, cz - 10], "r": 8})
     # 문이 박힌 벽 홈의 양쪽 면을 바위 절벽으로 덮는다 (매끈한 흙 비탈로 보이지 않게)
     for side in (-1, 1):
-        for (dx, dz, nm, sc) in ((19.0, 6.0, "cliff_a", 1.2), (36.0, 9.0, "cliff_c", 1.2)):
+        for (dx, dz, nm, sc) in ((19.0, 6.0, "cliff_a", 1.2), (36.0, 9.0, "cliff_c", 1.2), (27.0, 20.0, "cliff_b", 1.8),
+                                 (47.0, 17.0, "cliff_a", 1.6), (60.0, 24.0, "cliff_c", 1.5), (38.0, 34.0, "cliff_b", 2.0)):
             P.put(nm, cx + side * dx, cz + dz, yaw=180 + side * 4 + rng.normal(0, 4), s=sc, check=False,
                   align=0.5, align_max=25, stamp=("rock", 1.2))
         for dz in (14.0, 30.0):                           # 문 너머 골짜기 양벽 (쇠창살 사이로 보인다). 밑동은 골짜기 바닥 높이
