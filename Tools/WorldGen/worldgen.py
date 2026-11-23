@@ -107,6 +107,7 @@ def build_height(W):
     W.X, W.Z = X, Z
     h = 34 + 14 * fbm(X, Z, 1 / 700, 4, 100) + 22 * (Z / SIZE)
     h += 16 * ss(fbm(X, Z, 1 / 420, 3, 110), -0.1, 0.6)          # 큰 언덕 덩어리
+    h += 15 * fbm(X, Z, 1 / 300, 4, 120)                           # 구릉 (장소 사이의 오르내림)
     h += eroded(X, Z, 1 / 230, 6, 200, 12.0)
     # 가장자리 산 (안쪽 선이 구불구불하게)
     log("높이: 산")
@@ -1014,6 +1015,45 @@ def lay_fields(W, P):
                 P.put("fence", x, z, yaw=math.degrees(math.atan2(-d[1], d[0])), tilt=8, road=False)
 
 
+def lay_groves(W, P):
+    """들판 곳곳의 작은 숲과 언덕 위 바위 무리 (먼 데서 보이는 표지)"""
+    rng = P.rng
+    open_ = (W.mount < 0.2).astype(np.float32) * (W.slope < 0.5)
+    a = in_mask(W, open_)
+    for k in range(46):
+        p = a(rng)
+        if p is None:
+            continue
+        x, z = p
+        if any((x - px) ** 2 + (z - pz) ** 2 < (pr + 30) ** 2 for (px, pz), pr in ((GRAVE_C, 190), (SWAMP, SWAMP_R), (DRAGON, DRAGON_R), (CATH, 90), (VILLAGE, 90), (ALTAR, 60))):
+            continue
+        n = int(rng.integers(8, 26))
+        R = rng.uniform(14, 34)
+        kinds = ["dead_tree_a", "dead_tree_a", "dead_tree_c", "dead_tree_b", "bramble", "bush_dead", "bush_dead", "rock_c", "stump"]
+        for j in range(n * 3):
+            if n <= 0:
+                break
+            ang = rng.uniform(0, 2 * math.pi)
+            d = math.sqrt(rng.random()) * R
+            if P.put(kinds[int(rng.integers(0, len(kinds)))], x + math.cos(ang) * d, z + math.sin(ang) * d, stamp=("leaves", 1.8)):
+                n -= 1
+        if rng.random() < 0.5:
+            P.put("mushroom_glow", x + rng.normal(0, 5), z + rng.normal(0, 5))
+    # 언덕 꼭대기 바위 무리
+    hb = W.h - box_blur(W.h, 40)
+    tops = ss(hb, 2.0, 7.0) * open_
+    a2 = in_mask(W, tops)
+    for k in range(30):
+        p = a2(rng)
+        if p is None:
+            continue
+        x, z = p
+        for j in range(int(rng.integers(3, 8))):
+            nm = ["rock_b", "rock_flat", "cliff_b", "rock_a", "rock_b"][j % 5]
+            P.put(nm, x + rng.normal(0, 6), z + rng.normal(0, 6), s=rng.uniform(0.6, 1.0) if nm == "cliff_b" else None, slope=None,
+                  stamp=("moss", 1.4))
+
+
 def lay_effects(W, P):
     rng = P.rng
     # 묘지와 제단
@@ -1068,6 +1108,13 @@ def paint(W, P):
     ex = ((X - GRAVE_C[0]) / (GRAVE_R[0] + 20)) ** 2 + ((Z - GRAVE_C[1]) / (GRAVE_R[1] + 20)) ** 2
     grave = ss(-ex, -1.0, -0.7)
     gzn = W.gz / (sl + 1e-4)
+    m1 = fbm(X, Z, 1 / 320, 3, 1004)
+    m2 = fbm(X, Z, 1 / 260, 3, 1005)
+    m3 = fbm(X, Z, 1 / 200, 3, 1006)
+    W.dry = ss(m2, 0.12, 0.45)                                       # 마른 풀밭
+    over("moss", ss(m1, 0.05, 0.4) * 0.65 * (0.6 + 0.4 * ss(n2, -0.3, 0.3)))
+    over("leaves", ss(m3, 0.25, 0.5) * 0.55 * ss(n2, -0.2, 0.4))     # 낙엽이 쌓인 곳
+    over("dirt", W.dry * 0.45 * ss(n3, -0.5, 0.3))
     over("moss", ss(n1, 0.05, 0.45) * 0.55 + grave * ss(n2, -0.1, 0.4) * 0.5 + ss(gzn, 0.2, 0.9) * ss(sl, 0.15, 0.4) * 0.5)
     over("dirt", ss(n2, 0.35, 0.65) * 0.55 + ss(sl, 0.3, 0.55) * 0.6 + ss(-W.road_dist, -(W.road_hw + 3.5), -(W.road_hw + 1.0)) * 0.55)
     over("leaves", W.forest * ss(n2, -0.4, 0.3) * 0.95)
@@ -1131,7 +1178,8 @@ def details(W, P):
     d = {}
     d["grass_a"] = (lw["grass"] * 1.0 + lw["moss"] * 0.55 + lw["dirt"] * 0.25) * (0.5 + 0.5 * ss(n1, -0.5, 0.4)) * base
     d["grass_b"] = (lw["grass"] * ss(n2, 0.0, 0.45) + lw["mud"] * 0.35) * base * (0.6 + 0.4 * ss(n3, -0.3, 0.4))
-    d["grass_dead"] = (lw["dirt"] * 0.55 + lw["ash"] * 0.45 + lw["grass"] * ss(n2, -0.6, -0.2) * 0.5 + lw["leaves"] * 0.2) * base
+    d["grass_dead"] = (lw["dirt"] * 0.55 + lw["ash"] * 0.45 + lw["grass"] * ss(n2, -0.6, -0.2) * 0.5 + lw["leaves"] * 0.2 + W.dry * 0.6) * base
+    d["grass_a"] *= (1 - W.dry * 0.45)
     d["fern_a"] = (lw["leaves"] * 0.7 + lw["moss"] * 0.45 + W.forest * 0.5) * ss(n1, -0.25, 0.4) * base
     ex = ((X - GRAVE_C[0]) / GRAVE_R[0]) ** 2 + ((Z - GRAVE_C[1]) / GRAVE_R[1]) ** 2
     vil = np.sqrt((X - VILLAGE[0]) ** 2 + (Z - VILLAGE[1]) ** 2)
@@ -1358,6 +1406,7 @@ def main():
     lay_forest(W, P, FOREST_SW[0], FOREST_SW[1], 1 / 70.0, 1301)
     lay_forest(W, P, FOREST_NE[0], FOREST_NE[1], 1 / 85.0, 1311)
     lay_mountain_foot(W, P)
+    lay_groves(W, P)
     lay_fields(W, P)
     lay_effects(W, P)
     paint(W, P)

@@ -17,6 +17,10 @@ DATA = os.path.join(WORLD, "Data~")
 
 kit.init(KIT, samples=SAMPLES)
 sc = bpy.context.scene
+# FBX 를 읽기 전에 진짜 재질을 먼저 만든다 (FBX 안의 같은 이름 재질이 이름을 차지하면 kit 가 그것을 돌려준다)
+kit.foliage_mat()
+for _g in kit.GLOW:
+    kit.glow_mat(_g)
 W = json.load(open(os.path.join(DATA, "world.json")))
 RES = W["heightRes"]
 H = np.fromfile(os.path.join(DATA, "height.r16"), dtype='<u2').reshape(RES, RES).astype(np.float32) / 65535.0 * W["height"]
