@@ -26,6 +26,7 @@
 | [docs/TESTING.md](docs/TESTING.md) | **테스트 체크리스트** — PC를 켰을 때 순서대로 해 볼 것 |
 | [docs/PROTOTYPE.md](docs/PROTOTYPE.md) | 프로토타입 조작, 진행 순서, 확인할 것 |
 | [docs/LOOK.md](docs/LOOK.md) | 룩 확정: 묘지 테스트 장면, 주인공(VRoid) 가져오기, 툰 셰이더 |
+| [docs/WORLD.md](docs/WORLD.md) | 1장 오픈월드: 소품 프리팹·월드 장면 만들기 도구, 풀·물·하늘 셰이더, 장소 발견·지도 |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | 단계별 로드맵 |
 | [CLAUDE.md](CLAUDE.md) | 코드 규칙 (Claude와 함께 작업할 때 기준) |
 
@@ -38,8 +39,9 @@ Assets/_Necro/
   Scripts/Player/        본편용 주인공 입력·이동·애니메이션 연결
   Scripts/CameraSystem/  본편용 3인칭 카메라
   Scripts/Look/          본편용 분위기 컴포넌트 (등불 일렁임)
+  Scripts/World/         본편용 오픈월드 컴포넌트 (바람, 주변 효과, 장소 발견·지도, 광원 컬링)
   Scripts/Editor/        Tools → Necro 메뉴 (원클릭 세팅 도구)
-  Shaders/               툰 셰이더, 밤하늘, 영혼 입자
+  Shaders/               툰 셰이더, 밤하늘(구름·성운·오로라), 풀·덩굴, 늪 물, 영혼 입자
 Archive/Taming/          이전 프로젝트(몬스터 테이밍) 자료. 참고용, Unity가 읽지 않음
 docs/                    문서
 ```

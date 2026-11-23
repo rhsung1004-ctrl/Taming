@@ -20,9 +20,10 @@ namespace Necro.EditorTools
         const string SceneFolder = "Assets/_Necro/Scenes";
         const string ScenePath = SceneFolder + "/Look_Graveyard.unity";
         const string ProfilePath = SettingsFolder + "/DarkFantasyProfile.asset";
-        // Blender로 만든 묘지 소품 (모델 .fbx + 색 _albedo.png + 굴곡 _normal.png)
-        const string KitFolder = "Assets/_Necro/Art/Environment/Graveyard";
-        const string PropMatFolder = "Assets/_Necro/Art/Materials/Props";
+        // Blender로 만든 묘지 소품 (모델 .fbx + 색 _albedo.jpg(이전 버전 .png) + 굴곡 _normal.png).
+        // '월드 → 0. 소품 가져오기 설정 + 프리팹 만들기'로 만든 프리팹이 있으면 프리팹을 쓴다
+        const string KitFolder = NecroProps.KitFolder;
+        const string PropMatFolder = NecroProps.MatFolder;
 
         static readonly Color Horizon = new Color(0.16f, 0.12f, 0.27f);
         static readonly Color Soul = new Color(0.72f, 0.45f, 1f);
@@ -306,10 +307,7 @@ namespace Necro.EditorTools
             BuildDummies(env);
 
             // 걸어 다닐 임시 주인공 (VRoid 모델이 생기면 'Tools → Necro → 2. 선택한 모델로 플레이어 만들기'로 교체)
-            var hero = BuildMannequin(PlaceholderName,
-                Toon("Hero_Robe", new Color(0.24f, 0.16f, 0.4f)),
-                Toon("Hero_Skin", new Color(0.98f, 0.88f, 0.84f), m => m.SetColor("_ShadeColor", new Color(0.78f, 0.6f, 0.72f))),
-                Toon("Hero_Hair", new Color(0.8f, 0.74f, 0.95f), m => { m.SetFloat("_SpecStrength", 0.6f); m.SetFloat("_SpecSize", 0.12f); }));
+            var hero = BuildPlaceholderHero();
             hero.transform.position = new Vector3(0f, 0f, -12f);
             NecroSetupTools.BuildPlayer(hero);
 
@@ -320,11 +318,21 @@ namespace Necro.EditorTools
             Debug.Log("[Necro] 묘지 룩 테스트 장면을 만들었어요: " + ScenePath + "\nPlay를 누르고 걸어 다니며 분위기를 확인하세요. 제단 앞의 세 인형은 툰 셰이더 비교용입니다 (적 / 지배된 망자 / 금속 갑옷).");
         }
 
+        // 걸어 다닐 임시 주인공 인형 (월드 도구도 쓴다)
+        public static GameObject BuildPlaceholderHero()
+        {
+            return BuildMannequin(PlaceholderName,
+                Toon("Hero_Robe", new Color(0.24f, 0.16f, 0.4f)),
+                Toon("Hero_Skin", new Color(0.98f, 0.88f, 0.84f), m => m.SetColor("_ShadeColor", new Color(0.78f, 0.6f, 0.72f))),
+                Toon("Hero_Hair", new Color(0.8f, 0.74f, 0.95f), m => { m.SetFloat("_SpecStrength", 0.6f); m.SetFloat("_SpecSize", 0.12f); }));
+        }
+
         // ───────────── 묘지 소품으로 장면 짓기 ─────────────
+        // 프리팹이 있거나, 모델과 색 텍스처(jpg 또는 png)가 있으면 실제 소품으로 짓는다
         static bool HasKit()
         {
-            return AssetDatabase.LoadAssetAtPath<GameObject>(KitFolder + "/grave_slab_a.fbx") != null &&
-                   AssetDatabase.LoadAssetAtPath<Texture2D>(KitFolder + "/grave_slab_a_albedo.png") != null;
+            if (NecroProps.LoadPrefab("grave_slab_a") != null) return true;
+            return NecroProps.LoadModel("grave_slab_a") != null && NecroProps.FindTexture(KitFolder, "grave_slab_a_albedo") != null;
         }
 
         static Texture2D NormalMap(string path)
@@ -342,7 +350,7 @@ namespace Necro.EditorTools
         {
             return LoadOrCreate(PropMatFolder, name, "Universal Render Pipeline/Lit", m =>
             {
-                var albedo = AssetDatabase.LoadAssetAtPath<Texture2D>(texBase + "_albedo.png");
+                var albedo = NecroProps.FindTexture(Path.GetDirectoryName(texBase).Replace('\\', '/'), Path.GetFileName(texBase) + "_albedo");
                 var normal = NormalMap(texBase + "_normal.png");
                 if (albedo != null) m.SetTexture("_BaseMap", albedo);
                 if (normal != null)
@@ -356,23 +364,13 @@ namespace Necro.EditorTools
             });
         }
 
-        static Material soulGlowCache;
-        static Material SoulGlow()
-        {
-            if (soulGlowCache == null)
-                soulGlowCache = Toon("SoulGlow", Soul, m =>
-                {
-                    m.SetColor("_EmissionColor", new Color(2.6f, 1.4f, 4.6f));
-                    m.SetFloat("_OutlineWidth", 0f);
-                });
-            return soulGlowCache;
-        }
-
         // 소품 하나 놓기. 좌표는 위에서 본 배치도 기준 (x: 오른쪽, y: 안쪽), rz: 반시계 회전(도).
-        // Blender에서 만든 방향 그대로 놓이도록 180도 돌려서 둔다.
+        // Blender에서 만든 방향 그대로 놓이도록 180도 돌려서 둔다 (SPEC: Unity Y 회전 = 180 − rz).
+        // 프리팹(재질·충돌·LOD·광원이 이미 들어 있다)이 있으면 프리팹, 없으면 모델을 놓고 재질·충돌을 붙인다.
         static GameObject Place(string name, Transform parent, float x, float y, float rz = 0f, float scale = 1f, float tiltX = 0f, float tiltZ = 0f, float sink = 0f)
         {
-            var src = AssetDatabase.LoadAssetAtPath<GameObject>(KitFolder + "/" + name + ".fbx");
+            var prefab = NecroProps.LoadPrefab(name);
+            var src = prefab != null ? prefab : NecroProps.LoadModel(name);
             if (src == null) return null;
             var go = (GameObject)PrefabUtility.InstantiatePrefab(src);
             go.name = name;
@@ -380,12 +378,13 @@ namespace Necro.EditorTools
             go.transform.localPosition = new Vector3(x, -sink, y);
             go.transform.localRotation = Quaternion.Euler(tiltX, 180f - rz, tiltZ);
             go.transform.localScale = Vector3.one * scale;
-            var main = TexturedLit(name, KitFolder + "/" + name, 1f);
+            if (prefab != null) return go;
+            var main = NecroProps.MainMaterial(name);
             foreach (var r in go.GetComponentsInChildren<Renderer>(true))
             {
                 var mats = r.sharedMaterials;
                 for (int i = 0; i < mats.Length; i++)
-                    mats[i] = mats[i] != null && mats[i].name.Contains("Glow") ? SoulGlow() : main;
+                    mats[i] = NecroProps.PickMaterial(mats[i] != null ? mats[i].name : "", main, null, name);
                 r.sharedMaterials = mats;
                 var mf = r.GetComponent<MeshFilter>();
                 if (mf != null && mf.sharedMesh != null && r.GetComponent<Collider>() == null)
@@ -395,6 +394,8 @@ namespace Necro.EditorTools
         }
 
         static float Rand(System.Random rnd, float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
+
+        static bool HasOwnLight(GameObject go) { return go != null && go.GetComponentInChildren<Light>(true) != null; }
 
         static void BuildKitEnvironment(Transform env, System.Random rnd)
         {
@@ -409,9 +410,12 @@ namespace Necro.EditorTools
             // 봉인의 제단과 둘러선 기둥
             var center = new GameObject("Altar Area").transform;
             center.SetParent(env, false);
-            Place("altar", center, 0f, 6f);
-            var altarLight = PointLight("Soul Light", center, new Vector3(0f, 2.7f, 6f), Soul, 18f, 30f, true);
-            altarLight.GetComponent<SoulFlicker>().amount = 0.3f;
+            var altar = Place("altar", center, 0f, 6f);
+            if (!HasOwnLight(altar))
+            {
+                var altarLight = PointLight("Soul Light", center, new Vector3(0f, 2.7f, 6f), Soul, 18f, 30f, true);
+                altarLight.GetComponent<SoulFlicker>().amount = 0.3f;
+            }
             string[] pillars = { "pillar_a", "pillar_b", "pillar_a", "pillar_a", "pillar_b" };
             for (int i = 0; i < pillars.Length; i++)
             {
@@ -431,7 +435,8 @@ namespace Necro.EditorTools
             for (int i = 0; i < spots.GetLength(0); i++)
             {
                 float x = spots[i, 0], y = spots[i, 1], rz = spots[i, 2];
-                Place("lantern", lanterns, x, y, rz);
+                var lantern = Place("lantern", lanterns, x, y, rz);
+                if (HasOwnLight(lantern)) continue;      // 프리팹에 META 광원이 이미 들어 있다
                 float r = rz * Mathf.Deg2Rad;
                 PointLight("Lantern Light", lanterns, new Vector3(x + Mathf.Cos(r) * 0.5f, 2.28f, y + Mathf.Sin(r) * 0.5f), Soul, 9f, 9f, true);
             }
@@ -725,7 +730,7 @@ namespace Necro.EditorTools
         }
 
         // 구·캡슐로 만든 사람 모양 인형 (둥근 면이라 툰 음영과 외곽선이 잘 보인다)
-        static GameObject BuildMannequin(string name, Material body, Material skin, Material head)
+        public static GameObject BuildMannequin(string name, Material body, Material skin, Material head)
         {
             var root = new GameObject(name);
             var t = root.transform;
