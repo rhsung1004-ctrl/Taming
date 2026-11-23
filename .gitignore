@@ -32,3 +32,6 @@ crashlytics-build.properties
 Thumbs.db
 
 # 아카이브 프로토타입은 Unity가 읽지 않도록 Assets 밖에 둔다 (meta 불필요)
+
+# 파이썬 캐시
+__pycache__/
