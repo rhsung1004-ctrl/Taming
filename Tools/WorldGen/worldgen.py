@@ -945,7 +945,7 @@ def lay_dragon(W, P):
     for i in range(6):
         x, z = area(rng)
         W.lights.append({"p": [round(x, 2), round(P.height(x, z) + 1.5, 2), round(z, 2)], "c": SOUL, "i": 4.0, "r": 9.0, "flicker": True})
-    for t in (0, 19.5, 31.5):
+    for t in (19.5, 31.5):                     # 머리(t=0)는 두개골 프리팹에 광원이 있다
         x, z = at(t)
         W.lights.append({"p": [round(x, 2), round(P.height(x, z) + 2.5, 2), round(z, 2)], "c": SOUL, "i": 5.0, "r": 12.0, "flicker": True})
 

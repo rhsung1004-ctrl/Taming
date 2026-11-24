@@ -1,6 +1,6 @@
 # 1장 오픈월드 데이터 규격 (월드 생성기 ↔ Unity 도구)
 
-월드 생성기(`Tools/WorldGen`, Python)가 만들고 Unity 도구(`Tools → Necro → 월드 → 1장 오픈월드 만들기`)가 읽는다.
+월드 생성기(`Tools/WorldGen`, Python)가 만들고 Unity 도구(`Tools → Necro → 월드 → 1. 1장 오픈월드 만들기`)가 읽는다.
 두 쪽은 이 문서만 보고 서로 맞춘다. 바꿀 때는 이 문서를 먼저 고친다.
 
 ## 좌표
@@ -53,7 +53,8 @@ Assets/_Necro/Art/World/Ch1/
     {"id": "altar", "name": "봉인의 제단", "p": [x, y, z], "r": 30, "map": true}
   ],
   "fog": {"color": [r, g, b], "density": 0.006},     // 월드 규모 안개 (선택)
-  "bounds": {"min": [x, z], "max": [x, z]}           // 걸어 다닐 수 있는 범위 (바깥은 산)
+  "bounds": {"min": [x, z], "max": [x, z]},          // 걸어 다닐 수 있는 범위 (바깥은 산)
+  "levels": {"swamp": 30.9, "lake": 28.1, "creekPool": 44.7}   // 수면 높이 (참고·확인 렌더용, Unity 도구는 읽지 않음. objects.json 의 water y 와 같다)
 }
 ```
 
@@ -83,12 +84,21 @@ Assets/_Necro/Art/World/Ch1/
 ## 소품 목록 (manifest)
 
 `Assets/_Necro/Art/Environment/Graveyard/manifest.json` — `Tools/BlenderKit/build.py` 가 묶음별로 만든 `manifest_<묶음>.json` 을 합친 것.
+`python3 Tools/BlenderKit/publish.py <빌드 출력 폴더>` 가 manifest_<묶음>.json 을 합쳐 manifest.json 으로 쓰고, 모델·텍스처·foliage_atlas.png 를 이 폴더로 복사한다.
 `{ "이름": {"name", "group", "size": [x, y, z] (Blender 축), "tris_lod0", "meta": {kind, tags, collider, footprint, sink, tilt, align, scale, cull, shadows, light}} }`
-META 항목은 `Tools/BlenderKit/README.md` 참고.
+META 항목은 `Tools/BlenderKit/README.md` 참고. 단 `kind` 는 다섯 가지다 (BlenderKit README 에는 scatter 가 빠져 있다):
+
+| kind | 월드 데이터 | Unity |
+| --- | --- | --- |
+| `prop` | objects.json | 일반 프리팹 |
+| `scatter` | objects.json (작은 흩뿌림: 해골·초·꽃·버섯. 풀에 가리지 않게 둘레 풀을 조금 넓게 걷는다) | 일반 프리팹 (prop 과 같다) |
+| `landmark` | objects.json (큰 구조물) | 일반 프리팹 (가림 컬링의 가리는 쪽) |
+| `tree` | trees.json | 지형 나무 프로토타입 (충돌은 캡슐, `collider: none` 이면 없음) |
+| `detail` | world.json `details` + detail_*.png | 지형 풀 (전용 재질 `Foliage_Detail`) |
 
 ## Unity 도구가 지키는 것
 
 - 지형 2 × 2 타일, 타일마다 TerrainData 에셋, 이웃 연결, `drawInstanced`
 - splat/detail PNG 는 `ImageConversion.LoadImage` 로 읽는다. `Texture2D.GetPixels32()` 는 아래 줄부터 → 행 0 = 남쪽 = Z 0 (PNG 맨 윗줄 = 북쪽 규칙과 맞다)
-- 풀: 인스턴스 수 모드(InstanceCountMode, Unity 2022.2+), 인스턴싱 메쉬 (`Necro/Foliage` 재질)
+- 풀: 인스턴스 수 모드(InstanceCountMode, Unity 2022.2+), 인스턴싱 메쉬 (`Necro/Foliage` 셰이더, 거리 축소가 켜진 지형 풀 전용 재질 `Foliage_Detail`)
 - 소품: 프리팹으로 만들어 `PrefabUtility.InstantiatePrefab`, 256m 칸마다 부모 오브젝트로 묶는다

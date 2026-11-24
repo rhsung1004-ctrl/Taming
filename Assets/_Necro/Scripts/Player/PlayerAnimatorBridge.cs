@@ -8,8 +8,10 @@ namespace Necro
     // "Tools → Necro → 플레이어 애니메이터 만들기"로 만든 컨트롤러와 짝이 맞는다.
     public class PlayerAnimatorBridge : MonoBehaviour
     {
-        public PlayerMotor motor;
-        public Animator animator;
+        [Header("참조")]
+        [Tooltip("속도·착지 상태를 읽을 이동 컴포넌트 (비우면 같은 오브젝트에서 찾는다)")] public PlayerMotor motor;
+        [Tooltip("파라미터를 넘길 Animator (비우면 자식에서 찾는다)")] public Animator animator;
+        [Header("부드러움")]
         [Tooltip("속도 변화를 부드럽게 (클수록 빠르게 따라감)")] public float speedDamp = 10f;
 
         static readonly int SpeedId = Animator.StringToHash("Speed");

@@ -8,24 +8,24 @@ namespace Necro
     public class PlayerMotor : MonoBehaviour
     {
         [Header("참조")]
-        public PlayerInputReader input;
-        public Transform cameraTransform;
+        [Tooltip("이동·점프 입력을 읽을 곳 (비우면 같은 오브젝트에서 찾는다)")] public PlayerInputReader input;
+        [Tooltip("이동 방향의 기준 카메라 (비우면 Main Camera)")] public Transform cameraTransform;
 
         [Header("이동 속도 (m/s)")]
-        public float walkSpeed = 2.4f;
-        public float runSpeed = 5.6f;
-        public float sprintSpeed = 8.5f;
-        public float acceleration = 22f;
-        public float deceleration = 28f;
-        [Range(0f, 1f)] public float airControl = 0.35f;
-        public float turnSpeed = 720f;
+        [Tooltip("스틱을 절반쯤 밀 때 걷는 속도 (m/s)")] public float walkSpeed = 2.4f;
+        [Tooltip("키보드 이동·스틱을 끝까지 밀 때 달리는 속도 (m/s)")] public float runSpeed = 5.6f;
+        [Tooltip("Shift·왼쪽 스틱 누르기로 질주할 때 속도 (m/s)")] public float sprintSpeed = 8.5f;
+        [Tooltip("빨라질 때 초당 늘어나는 속도 (m/s²). 클수록 바로 최고 속도")] public float acceleration = 22f;
+        [Tooltip("느려질 때 초당 줄어드는 속도 (m/s²). 클수록 바로 멈춘다")] public float deceleration = 28f;
+        [Tooltip("공중에서 방향을 바꾸는 힘 (땅 위 대비 비율)")] [Range(0f, 1f)] public float airControl = 0.35f;
+        [Tooltip("몸을 돌리는 빠르기 (초당 도)")] public float turnSpeed = 720f;
 
         [Header("점프")]
-        public float jumpHeight = 1.3f;
-        public float gravity = -22f;
-        public float fallMultiplier = 1.7f;
-        public float coyoteTime = 0.12f;
-        public float jumpBufferTime = 0.15f;
+        [Tooltip("점프 키를 끝까지 누를 때 오르는 높이 (m)")] public float jumpHeight = 1.3f;
+        [Tooltip("중력 (m/s², 음수). 클수록 점프가 짧고 묵직하다")] public float gravity = -22f;
+        [Tooltip("떨어질 때 중력 배율 (클수록 빨리 떨어진다)")] public float fallMultiplier = 1.7f;
+        [Tooltip("발판에서 벗어난 뒤에도 점프를 받아 주는 시간 (초)")] public float coyoteTime = 0.12f;
+        [Tooltip("땅에 닿기 직전에 누른 점프를 기억하는 시간 (초)")] public float jumpBufferTime = 0.15f;
 
         CharacterController cc;
         Vector3 planarVelocity;

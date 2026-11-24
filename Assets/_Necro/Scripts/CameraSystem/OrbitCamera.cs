@@ -7,26 +7,26 @@ namespace Necro
     public class OrbitCamera : MonoBehaviour
     {
         [Header("대상")]
-        public Transform target;
-        public PlayerInputReader input;
-        public Vector3 pivotOffset = new Vector3(0f, 1.45f, 0f);
+        [Tooltip("따라갈 대상 (주인공)")] public Transform target;
+        [Tooltip("카메라 회전·줌 입력을 읽을 곳")] public PlayerInputReader input;
+        [Tooltip("대상 발밑에서 카메라가 바라보는 점까지의 높이 (m)")] public Vector3 pivotOffset = new Vector3(0f, 1.45f, 0f);
 
         [Header("거리·각도")]
-        public float distance = 5f;
-        public float minDistance = 2f;
-        public float maxDistance = 9f;
-        public float yaw;
-        public float pitch = 12f;
-        public float minPitch = -35f;
-        public float maxPitch = 70f;
+        [Tooltip("카메라와 주인공 사이 거리 (m). 마우스 휠로 바뀐다")] public float distance = 5f;
+        [Tooltip("휠로 당길 수 있는 가장 가까운 거리 (m)")] public float minDistance = 2f;
+        [Tooltip("휠로 밀 수 있는 가장 먼 거리 (m)")] public float maxDistance = 9f;
+        [Tooltip("좌우 각도 (도). 시작할 때 대상이 보는 방향으로 맞춘다")] public float yaw;
+        [Tooltip("위아래 각도 (도). 클수록 위에서 내려다본다")] public float pitch = 12f;
+        [Tooltip("올려다볼 수 있는 한계 (도, 음수 = 아래에서 위로)")] public float minPitch = -35f;
+        [Tooltip("내려다볼 수 있는 한계 (도)")] public float maxPitch = 70f;
 
         [Header("부드러움")]
-        public float followSharpness = 14f;
-        public float zoomSharpness = 8f;
+        [Tooltip("주인공을 따라가는 빠르기 (클수록 바로 붙는다)")] public float followSharpness = 14f;
+        [Tooltip("벽에서 벗어날 때 원래 거리로 돌아가는 빠르기")] public float zoomSharpness = 8f;
 
         [Header("충돌")]
-        public float collisionRadius = 0.25f;
-        public LayerMask collisionMask = ~(1 << 2);
+        [Tooltip("벽 충돌 검사 공의 반지름 (m). 카메라가 벽에 파고들면 키운다")] public float collisionRadius = 0.25f;
+        [Tooltip("카메라를 앞으로 당기는 충돌 층")] public LayerMask collisionMask = ~(1 << 2);
 
         float currentDistance;
         Vector3 smoothedPivot;

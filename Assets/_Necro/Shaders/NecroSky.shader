@@ -46,7 +46,7 @@ Shader "Necro/Sky"
         _AuroraAzimuth ("오로라 방위 (도, +X 에서 +Z 쪽으로)", Range(-180, 180)) = -150
 
         [Header(Shooting Stars)]
-        _ShootingStarRate ("별똥별 빈도 (1분에 약 몇 개)", Range(0, 30)) = 6
+        _ShootingStarRate ("별똥별 빈도 (값 6 = 하늘 전체에 1분에 약 5개)", Range(0, 30)) = 6
         _ShootingStarBrightness ("별똥별 밝기", Range(0, 10)) = 3
     }
 
