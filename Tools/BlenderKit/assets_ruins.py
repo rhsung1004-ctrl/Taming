@@ -1228,6 +1228,7 @@ def top_rubble(rng, top, x0, x1, y0, y1, n, M=None, keep=None):
     return out
 
 def wall_ruin_a():
+    """무너진 벽 (뾰족 창). v3: 블록마다 색조, 평면 끌 자국, 잔 조각 전 바탕에서 저폴리, paint3, cage 굽기 2048"""
     rng = random.Random(101)
     y0, y1 = -0.4, 0.4
     top = profile([(-2.25, 1.95), (-1.95, 2.5), (-1.5, 2.9), (-1.0, 3.18), (-0.4, 3.22), (0.05, 2.98), (0.35, 2.5),
@@ -1265,9 +1266,12 @@ def wall_ruin_a():
     fa = fallen.obj("wall_fallen")
     rub = top_rubble(rng, top, -2.05, 2.1, y0, y1, 34)
     body = join([bo, fo, co, fa] + rub + ext)
-    sculpt(body, 0.011, STONE_LAYERS(1.25, wear=1.3, cracks=0.6), seed=21)
-    set_mat(body, paint("wall_ruin_a_src", 'stone', moss=0.8, dirt=0.7, streaks=0.75, ao=0.45))
-    low = low_of(body, 11500)
+    # v3: 블록마다 번호(색조) → 되붙인 리메시 → STONE3(평면 끌 자국·곧은 금) / 저폴리는 잔 조각 전 바탕에서 / paint3 / cage 굽기
+    base = carve(body, 0.009, *STONE3(1.25, wear=1.2, cracks=0.6), seed=21, base=True)
+    set_mat(body, paint3("wall_ruin_a_src", 'stone', h=3.2, k=1.25, moss=0.6, moss_low=0.7, moss_low_h=0.7, dirt=0.7, dirt_h=0.35,
+                         streaks=0.6, edge_w=0.009, piece_var=0.85, ao=0.45))
+    low = low_of(base, 11500)
+    delete(base)
     tgt = copy(low)
     v = Vine(random.Random(8), leaf=(0.05, 0.08), leaf_p=0.42)
     ivy_grow(v, tgt, (-1.95, y0 - 0.03, 0.05), seed=8, length=3.0, max_roots=9)
@@ -1277,7 +1281,8 @@ def wall_ruin_a():
     for x, ln in ((-1.62, 1.1), (-0.15, 0.9), (0.2, 0.55)):
         hang_strand(v, (x, y0 - 0.02, top(x) - 0.06), ln, rng)
     print("IVY tris", v.tris())
-    return finish("wall_ruin_a", [body], [low], extras=v.objects(), size=2048, extr=0.05, lod1=0.35, lod2=0.12)
+    return finish3("wall_ruin_a", [body], [low], extras=v.objects(), size=2048, cage=0.01, cage_reach=0.1, lod1=0.35, lod2=0.12,
+                   uv_margin=0.001)
 
 def wall_ruin_b():
     rng = random.Random(202)

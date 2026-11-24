@@ -852,7 +852,8 @@ def round_top(w, z0, h_side, steps=22, lop=0.0):
 
 # ───────────────────────── 소품 ─────────────────────────
 def grave_slab_a():
-    """위가 둥근 묘비: 액자처럼 판 면, 십자가와 비문, 깨진 어깨, 겹겹이 떨어진 풍화, 아래쪽 이끼, 작은 덩굴"""
+    """위가 둥근 묘비: 액자처럼 판 면, 십자가와 비문, 깨진 어깨, 겹겹이 떨어진 풍화, 아래쪽 이끼, 작은 덩굴.
+    v3: 저폴리는 새기기 전 깨끗한 형태(평평한 면·곧은 모서리 + 단단한 모서리), 원본은 되붙인 리메시 + 평면 끌 자국, paint3, cage 굽기 2048"""
     rng = random.Random(101)
     W_, T_ = 0.65, 0.16
     z0, hs = 0.12, 0.63                    # 옆선 끝 0.75 → 꼭대기 0.75 + 0.325 = 1.075
@@ -862,6 +863,7 @@ def grave_slab_a():
     # 오른쪽 어깨가 크게 깨져 나감 + 왼쪽 아래 모서리
     cut(slab, [chunk((0.3, -0.02, 1.0), (0.13, 0.16, 0.11), rng, 9, (0.1, 0.3)),
                chunk((-0.335, -0.075, 0.45), (0.035, 0.045, 0.07), rng, 8, (0.1, 0.3))])
+    slab_low = copy(slab)                  # 저폴리 바탕: 큰 깨짐까지만 (새김·얇은 떨어짐은 노멀맵으로)
     # 앞면 테두리 안쪽을 얕게 판 면 (액자)
     inner = round_top(W_ - 0.1, z0 + 0.1, hs - 0.1, 22)
     cut(slab, [obj_bm(bm_poly(inner, y0 - 0.05, y0 + 0.009), "panel")])
@@ -875,30 +877,35 @@ def grave_slab_a():
     st += text_strokes(rng, 0.0, 0.52, 0.34, 0.034, yf, jitter=0.002)
     st += text_strokes(rng, 0.0, 0.445, 0.3, 0.03, yf, jitter=0.002)
     st += crack_strokes(rng, (0.27, yf, 0.32), (-1, 0, 0.4), 0.22, 5, 0.5, yf)     # 아래 오른쪽에서 들어온 금
-    engrave(slab, st, (0, -1, 0), 0.0085, 0.007)
+    engrave_v(slab, st, (0, -1, 0), 0.011, 0.007, floor=0.3)       # V 자 홈 (끌로 판 글자)
     # 앞·옆면이 얇게 떨어져 나간 자국
     cut(slab, [spall((0.2, y0, 0.3), (0, -1, 0), (0.09, 0.06), 0.01, rng),
                spall((-0.24, y0, 0.98), (0, -1, 0.2), (0.07, 0.05), 0.008, rng),
                spall((0.325, 0.0, 0.55), (1, 0, 0), (0.06, 0.09), 0.012, rng)])
     # 뒤로 살짝 눕고 옆으로 기운다
-    slab.data.transform(Matrix.Translation((0, 0, 0.14)) @ Matrix.Rotation(R(-2.5), 4, 'X') @ Matrix.Rotation(R(2.0), 4, 'Y') @ Matrix.Translation((0, 0, -0.14)))
+    tilt = Matrix.Translation((0, 0, 0.14)) @ Matrix.Rotation(R(-2.5), 4, 'X') @ Matrix.Rotation(R(2.0), 4, 'Y') @ Matrix.Translation((0, 0, -0.14))
+    slab.data.transform(tilt)
+    slab_low.data.transform(tilt)
     pl = bm_box(0.86, 0.34, 0.17, TR((0, 0.005, 0.065)))
     stone_blk(pl, rng, (2, 4), (0.03, 0.07), (2, 3), 0.01, zmin=0.0)
     plinth = obj_bm(pl, "plinth")
     chip(plinth, rng, 7, (0.04, 0.08), bite=0.35, zmin=0.08)
     cut(plinth, [chunk((0.42, -0.17, 0.15), (0.08, 0.07, 0.06), rng, 8)])
+    union(slab_low, [copy(plinth)])        # 저폴리는 한 덩어리로 (받침 속에 묻힌 면이 UV 를 차지하지 않게)
+    low = lowpoly(slab_low, z=-0.015)
+    delete(slab_low)
     body = join([slab, plinth])
-    sculpt(body, 0.0035, STONE_LAYERS(1.0, wear=1.15, cracks=0.55), seed=11)
-    m = stone_mat("slab_a", 'stone', moss=0.65, low_moss=0.85, mz=0.42)
+    carve(body, 0.0025, *STONE3(1.0, wear=1.1, cracks=0.45), seed=11)
+    m = paint3("slab_a", 'stone', h=1.1, k=1.0, moss=0.45, moss_low=0.85, moss_low_h=0.4, dirt=0.6, dirt_h=0.18)
     set_mat(body, m)
-    low = low_of(body, 3700)
+    print("LOW grave_slab_a", tri_count(low))
     # 왼쪽 뒤 받침에서 기어오르는 덩굴 (조금)
     v = Vine(rng, leaf=(0.032, 0.052), leaf_p=0.42)
     tgt = copy(low)
     ivy_grow(v, tgt, (-0.36, 0.12, 0.02), seed=4, length=1.0, step=0.025, max_roots=6, gravity=0.4, adhesion=0.8, zmax=0.85)
     ivy_grow(v, tgt, (0.3, 0.17, 0.02), seed=9, length=0.5, step=0.025, max_roots=4, gravity=0.4, adhesion=0.8, zmax=0.45)
     delete(tgt)
-    return finish("grave_slab_a", [body], [low], extras=v.objects(), size=1024, extr=0.03)
+    return finish3("grave_slab_a", [body], [low], extras=v.objects(), size=2048, cage=0.006, hard=55)
 
 def daisy_strokes(cx, cz, r, y, n=8):
     """여섯 꽃잎 원 문양 (컴퍼스로 그린 옛 묘비 장식): 바깥 원 위 여섯 점을 중심으로 한 호"""

@@ -79,7 +79,8 @@ Assets/_Necro/Art/World/Ch1/
 ```
 
 - 소품에 META.light 가 있으면 Unity 도구가 프리팹 안에 광원을 넣으므로 lights 에 다시 넣지 않는다
-- lights 는 소품과 상관없는 광원 (예: 늪 위의 도깨비불)
+- lights 는 소품과 상관없는 광원 (예: 늪 위의 도깨비불, 장면을 떠도는 영혼 빛)
+- 아직 manifest 에 없는 장면용 새 소품(worldgen `NEW_PROPS`)을 대체 소품으로 놓았을 때, 예상 META 에 광원이 있는데 대체 소품에 없으면 그 광원도 lights 에 들어간다 (진짜 소품이 생기면 다음 생성부터 빠진다)
 
 ## 소품 목록 (manifest)
 

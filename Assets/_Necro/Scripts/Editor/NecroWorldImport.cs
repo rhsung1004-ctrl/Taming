@@ -65,6 +65,8 @@ namespace Necro.EditorTools
         public float lightRange = 8f;
         public Vector3 sizeBlender;
         public bool fromManifest;
+        public string detail;                        // 근접 디테일 재질: stone / wood / bone / metal / none. 비면 이름·tags 로 정한다
+        public string detailResolved;                // Main 재질을 만들 때 실제로 건 디테일 (요약용)
 
         public bool HasTag(string t) { return tags.Contains(t); }
         public bool IsDetail { get { return kind == "detail"; } }
@@ -117,6 +119,18 @@ namespace Necro.EditorTools
         public const string FoliageShader = "Necro/Foliage";
         const string LitShader = "Universal Render Pipeline/Lit";
 
+        // 근접 디테일 텍스처 (Tools/BlenderKit/detailtex.py 가 만든다): detail_<종류>_albedo.png / _normal.png
+        public const string DetailFolder = "Assets/_Necro/Art/Materials/Detail";
+        public static readonly string[] DetailKinds = { "stone", "wood", "bone", "metal" };
+        // 디테일 한 장이 덮는 실제 크기 (m). detailtex.py 의 REPEAT_M 과 같아야 무늬 크기(알갱이 1~3 mm, 구멍 2~10 mm)가 맞는다
+        static readonly float[] DetailRepeat = { 0.9f, 0.75f, 0.6f, 0.6f };
+        // 밉맵 fade: 이 밉 단계부터 회색(노멀은 평평)으로 옅어져 끝 단계에서 사라진다.
+        // 디테일 텍셀 밀도 ≈ 1024 / 0.6~0.9 m → 1080p·시야 55° 에서 밉 3 ≈ 7 m, 밉 7 ≈ 110 m.
+        // 반복 무늬가 멀리서 격자로 보이지 않고, UV 섬 경계(미분이 튀어 가장 낮은 밉을 읽는 곳)에도 티가 나지 않는다
+        public const int DetailFadeStart = 3, DetailFadeEnd = 7;
+        // 지난번에 자동으로 넣은 디테일 타일링 (재질 태그). 지금 값이 이것과 다르면 사람이 Inspector 에서 고친 것으로 보고 둔다
+        const string DetailTilingTag = "NecroDetailTiling";
+
         // kit.py 의 GLOW 표와 같다: (색, 세기). HDR 선형 값 = 색 × 세기
         public static readonly string[] GlowNames = { "Glow_Soul", "Glow_Spirit", "Glow_Toxic", "Glow_Ember" };
         static readonly Color[] GlowColors =
@@ -128,12 +142,13 @@ namespace Necro.EditorTools
         // ───────────── 가져오기 설정 ─────────────
         public static bool WantsTextureSettings(string path)
         {
-            return path.StartsWith(KitFolder + "/") || path.StartsWith(WorldFolder + "/");
+            return path.StartsWith(KitFolder + "/") || path.StartsWith(WorldFolder + "/") || path.StartsWith(DetailFolder + "/");
         }
 
         // 텍스처 가져오기 설정. 바뀐 것이 있으면 true
         public static bool ConfigureTexture(TextureImporter ti, string path)
         {
+            if (path.StartsWith(DetailFolder + "/")) return ConfigureDetailTexture(ti, path);
             string file = Path.GetFileNameWithoutExtension(path).ToLowerInvariant();
             bool changed = false;
             bool isMap = path.EndsWith("/map.png");
@@ -174,6 +189,32 @@ namespace Necro.EditorTools
             }
             if (!ti.mipmapEnabled) { ti.mipmapEnabled = true; changed = true; }
             if (!isMap && !ti.streamingMipmaps) { ti.streamingMipmaps = true; changed = true; }   // 오픈월드: 텍스처 스트리밍
+            return changed;
+        }
+
+        // 근접 디테일 텍스처 가져오기 설정. 바뀐 것이 있으면 true
+        // - 색(albedo): sRGB 끔. URP Lit 은 디테일 색을 "기본 색 × (디테일 × 2)" 로 곱한다 (URP 6000.0 LitInput.hlsl ApplyDetailAlbedo,
+        //   셰이더 기본값도 "linearGrey"). 선형으로 읽어야 화소값 128 = 0.5 → ×2 = 1 (그대로). sRGB 로 읽으면 0.5 가 0.21 이 되어 소품이 반쯤 어두워진다
+        // - 노멀: Normal map 형식 (OpenGL, 초록 = 위 — Unity 와 같다). sRGB 는 형식이 끈다
+        // - 반복(Repeat), 밉맵 fade, 삼선형·이방성 필터 (비스듬히 보이는 벽·바닥에서도 흐려지지 않게)
+        // - 압축 고품질: 0.5 둘레 ±5% 의 낮은 대비라 일반 압축(DXT1)의 색 단계·초록 틀어짐이 ×2 로 커져 보인다
+        // - 스트리밍 끔: 모든 소품이 함께 쓰는 작은 텍스처라 늘 올려 둔다
+        static bool ConfigureDetailTexture(TextureImporter ti, string path)
+        {
+            bool changed = false;
+            bool normal = Path.GetFileNameWithoutExtension(path).ToLowerInvariant().EndsWith("_normal");
+            var type = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+            if (ti.textureType != type) { ti.textureType = type; changed = true; }
+            if (ti.sRGBTexture) { ti.sRGBTexture = false; changed = true; }
+            if (ti.wrapMode != TextureWrapMode.Repeat) { ti.wrapMode = TextureWrapMode.Repeat; changed = true; }
+            if (!ti.mipmapEnabled) { ti.mipmapEnabled = true; changed = true; }
+            if (!ti.fadeout) { ti.fadeout = true; changed = true; }
+            if (ti.mipmapFadeDistanceStart != DetailFadeStart) { ti.mipmapFadeDistanceStart = DetailFadeStart; changed = true; }
+            if (ti.mipmapFadeDistanceEnd != DetailFadeEnd) { ti.mipmapFadeDistanceEnd = DetailFadeEnd; changed = true; }
+            if (ti.filterMode != FilterMode.Trilinear) { ti.filterMode = FilterMode.Trilinear; changed = true; }
+            if (ti.anisoLevel != 8) { ti.anisoLevel = 8; changed = true; }
+            if (ti.textureCompression != TextureImporterCompression.CompressedHQ) { ti.textureCompression = TextureImporterCompression.CompressedHQ; changed = true; }
+            if (ti.streamingMipmaps) { ti.streamingMipmaps = false; changed = true; }
             return changed;
         }
 
@@ -241,6 +282,8 @@ namespace Necro.EditorTools
                     if (sc != null) m.scale = new Vector2(sc[0], sc[1]);
                     m.cull = (float)ctx.Num(meta, "cull", where, m.cull, false);
                     m.shadows = ctx.Bool(meta, "shadows", true);
+                    string dk = ctx.Str(meta, "detail", where, null, false);
+                    if (dk != null) m.detail = dk.Trim().ToLowerInvariant();
                     object lo;
                     if (meta.TryGetValue("light", out lo) && lo is Dictionary<string, object>)
                     {
@@ -297,8 +340,9 @@ namespace Necro.EditorTools
             return m;
         }
 
-        // 굽기 텍스처 재질 (URP Lit + 알베도 + 노멀). 이미 있으면 직접 조정한 값은 두고 텍스처만 새 것으로 바꾼다
-        public static Material MainMaterial(string name)
+        // 굽기 텍스처 재질 (URP Lit + 알베도 + 노멀 + 근접 디테일). 이미 있으면 직접 조정한 값은 두고 텍스처만 새 것으로 바꾼다.
+        // meta 가 없으면 (룩 장면 도구처럼 프리팹 없이 모델만 놓을 때) manifest.json 에서 찾는다 → 프리팹 경로와 같은 디테일이 걸린다
+        public static Material MainMaterial(string name, PropMeta meta = null, List<string> warnings = null)
         {
             var m = GetOrCreate(MatFolder + "/" + name + ".mat", LitShader, x =>
             {
@@ -316,7 +360,215 @@ namespace Necro.EditorTools
                 m.EnableKeyword("_NORMALMAP");
                 EditorUtility.SetDirty(m);
             }
+            if (meta == null) meta = FindMeta(name);
+            meta.detailResolved = ApplyDetail(m, meta, warnings);
             return m;
+        }
+
+        // manifest.json 을 한 번 읽어 두고 (파일이 바뀌면 다시 읽는다) 이름으로 META 를 찾는다. 없으면 기본값
+        static Dictionary<string, PropMeta> metaCache;
+        static System.DateTime metaCacheTime;
+        public static PropMeta FindMeta(string name)
+        {
+            string full = NecroEditorUtil.FullPath(ManifestPath);
+            var t = File.Exists(full) ? File.GetLastWriteTimeUtc(full) : System.DateTime.MinValue;
+            if (metaCache == null || t != metaCacheTime)
+            {
+                metaCache = LoadManifest(null);
+                metaCacheTime = t;
+            }
+            PropMeta m;
+            return metaCache.TryGetValue(name, out m) ? m : PropMeta.Default(name);
+        }
+
+        // ───────────── 근접 디테일 (URP Lit Detail Inputs) ─────────────
+        // 굽힌 텍스처는 텍셀 하나가 2~6 mm (큰 구조물은 1~14 cm) 라 가까이 가면 흐리다.
+        // 이어 붙는 잔무늬(돌 알갱이·구멍, 나무 결, 뼈 잔금, 쇠 녹)를 URP Lit 의 Detail 로 겹친다. URP 6000.0 소스 기준:
+        // - 셰이더: Lit.shader 의 _DetailMask·_DetailAlbedoMap·_DetailAlbedoMapScale·_DetailNormalMap·_DetailNormalMapScale,
+        //   키워드 _DETAIL_MULX2 / _DETAIL_SCALED (ForwardLit·GBuffer·DepthNormals·Meta 패스)
+        // - UV: 디테일 UV = (UV0 × _BaseMap_ST) × _DetailAlbedoMap_ST. 디테일 노멀도 _DetailAlbedoMap_ST 를 같이 쓴다 (_DetailNormalMap_ST 는 쓰지 않는다)
+        // - 색: 기본 색 × (디테일 × 2) (MULX2). 노멀: BlendNormalRNM 으로 겹친다. 마스크는 _DetailMask 의 알파 (기본 흰색 = 전체)
+        // 디테일 종류: META "detail" 이 있으면 그것, 없으면 이름 → tags 순으로 정한다. 확실하지 않으면 stone
+        public static string DetailKindFor(PropMeta meta, List<string> warnings)
+        {
+            if (!string.IsNullOrEmpty(meta.detail))
+            {
+                if (meta.detail == "none" || System.Array.IndexOf(DetailKinds, meta.detail) >= 0) return meta.detail;
+                if (warnings != null) warnings.Add(meta.name + ": META detail '" + meta.detail + "' 를 몰라 이름·tags 로 정했어요 (stone / wood / bone / metal / none)");
+            }
+            if (meta.IsDetail) return "none";                       // 지형 풀: 작고 수가 많아 디테일을 걸지 않는다
+            string n = (meta.name ?? "").ToLowerInvariant();
+            // 1) 이름 (가장 구체적). 버섯·초(밀랍)는 돌·나무 무늬가 어울리지 않아 걸지 않는다
+            if (NameHas(n, "mushroom", "lotus", "candle")) return "none";
+            if (NameHas(n, "lantern", "iron", "cage", "chain", "anvil", "sword", "bell")) return "metal";
+            if (NameHas(n, "bone", "skull", "dragon", "rib", "spine", "claw", "skeleton")) return "bone";
+            if (NameHas(n, "tree", "stump", "log", "root", "coffin", "cart", "plank", "wood", "branch", "barrel", "crate")) return "wood";
+            if (NameHas(n, "grave", "ruin", "rock", "cliff", "statue", "pillar", "wall", "stair", "altar", "crypt", "tomb", "obelisk", "rubble")) return "stone";
+            // 2) tags. fence·fence_gate 는 돌 기둥 + 쇠창살이라 ruin → stone
+            if (meta.HasTag("bone")) return "bone";
+            if (meta.HasTag("rock") || meta.HasTag("cliff") || meta.HasTag("grave") || meta.HasTag("ruin") || meta.HasTag("landmark")) return "stone";
+            if (meta.HasTag("nature")) return "wood";
+            return "stone";
+        }
+
+        static bool NameHas(string n, params string[] keys)
+        {
+            foreach (var k in keys) if (n.Contains(k)) return true;
+            return false;
+        }
+
+        static float DetailRepeatFor(string kind)
+        {
+            int i = System.Array.IndexOf(DetailKinds, kind);
+            return i >= 0 ? DetailRepeat[i] : 0.8f;
+        }
+
+        static bool IsAutoDetail(Texture t)
+        {
+            return t == null || AssetDatabase.GetAssetPath(t).StartsWith(DetailFolder + "/");
+        }
+
+        // Main 재질에 디테일을 건다. 걸린 종류("stone"…, "none", 사람이 직접 넣은 것은 "custom")를 돌려준다.
+        // 다시 눌러도 같은 결과:
+        // - Detail 폴더 밖의 텍스처를 사람이 Inspector 에서 넣었으면 그 재질의 디테일은 건드리지 않는다
+        // - 타일링은 지난번에 자동으로 넣은 값(재질 태그)과 지금 값이 같을 때만 새로 계산한 값으로 바꾼다 (사람이 고친 값은 둔다)
+        // - 세기(Scale 두 개)는 처음 걸 때만 1 로 맞춘다. 키워드는 URP Inspector 와 같은 규칙으로 늘 다시 맞춘다
+        static string ApplyDetail(Material m, PropMeta meta, List<string> warnings)
+        {
+            if (!m.HasProperty("_DetailAlbedoMap") || !m.HasProperty("_DetailNormalMap")) return null;   // URP Lit 이 아닌 재질
+            var curA = m.GetTexture("_DetailAlbedoMap");
+            var curN = m.GetTexture("_DetailNormalMap");
+            if (!IsAutoDetail(curA) || !IsAutoDetail(curN)) return "custom";
+
+            string kind = DetailKindFor(meta, warnings);
+            Texture2D a = null, n = null;
+            if (kind != "none")
+            {
+                a = AssetDatabase.LoadAssetAtPath<Texture2D>(DetailFolder + "/detail_" + kind + "_albedo.png");
+                n = AssetDatabase.LoadAssetAtPath<Texture2D>(DetailFolder + "/detail_" + kind + "_normal.png");
+                if (a == null || n == null)
+                {
+                    if (warnings != null && !missingDetailWarned)
+                        warnings.Add("근접 디테일 텍스처(" + DetailFolder + "/detail_" + kind + "_*.png)가 없어 디테일 없이 만들었어요 " +
+                                     "(Git Bash 에서 git lfs pull, 또는 python3 Tools/BlenderKit/detailtex.py)");
+                    missingDetailWarned = true;
+                    a = n = null;
+                    kind = "none";
+                }
+            }
+
+            bool dirty = false;
+            bool attach = a != null && curA == null && curN == null;      // 이번에 처음 건다
+            if (curA != a) { m.SetTexture("_DetailAlbedoMap", a); dirty = true; }
+            if (curN != n) { m.SetTexture("_DetailNormalMap", n); dirty = true; }
+            string lastTag = m.GetTag(DetailTilingTag, false, "");
+            if (a != null)
+            {
+                if (attach)
+                {
+                    m.SetFloat("_DetailAlbedoMapScale", 1f);      // 1 이면 _DETAIL_MULX2 (가장 가볍다). 세기는 텍스처에 구워 두었다
+                    m.SetFloat("_DetailNormalMapScale", 1f);
+                    dirty = true;
+                }
+                float tiling = DetailTiling(meta, kind);
+                Vector2 cur = m.GetTextureScale("_DetailAlbedoMap");
+                float last;
+                bool userTuned = !attach && float.TryParse(lastTag, System.Globalization.NumberStyles.Float,
+                                                           System.Globalization.CultureInfo.InvariantCulture, out last)
+                                 && (Mathf.Abs(cur.x - last) > 0.005f || Mathf.Abs(cur.y - last) > 0.005f);
+                if (!userTuned)
+                {
+                    if (cur.x != tiling || cur.y != tiling) { m.SetTextureScale("_DetailAlbedoMap", new Vector2(tiling, tiling)); dirty = true; }
+                    string t = tiling.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+                    if (lastTag != t) { m.SetOverrideTag(DetailTilingTag, t); dirty = true; }
+                }
+            }
+            else if (lastTag != "") { m.SetOverrideTag(DetailTilingTag, ""); dirty = true; }
+            if (SetDetailKeywords(m)) dirty = true;
+            if (dirty) EditorUtility.SetDirty(m);
+            return kind;
+        }
+        static bool missingDetailWarned;
+
+        // URP 6000.0 LitDetailGUI.SetMaterialKeywords 와 같은 규칙 (Inspector 를 열면 URP 가 이 규칙으로 다시 맞추므로 같아야 한다):
+        // 디테일 텍스처(색 또는 노멀)가 있으면, 색 Scale 이 1 일 때 _DETAIL_MULX2, 1 이 아니면 _DETAIL_SCALED. 없으면 둘 다 끈다
+        static bool SetDetailKeywords(Material m)
+        {
+            bool has = m.GetTexture("_DetailAlbedoMap") != null || m.GetTexture("_DetailNormalMap") != null;
+            bool scaled = m.HasProperty("_DetailAlbedoMapScale") && m.GetFloat("_DetailAlbedoMapScale") != 1f;
+            bool changed = SetKeyword(m, "_DETAIL_MULX2", has && !scaled);
+            changed |= SetKeyword(m, "_DETAIL_SCALED", has && scaled);
+            return changed;
+        }
+
+        static bool SetKeyword(Material m, string keyword, bool on)
+        {
+            if (m.IsKeywordEnabled(keyword) == on) return false;
+            if (on) m.EnableKeyword(keyword); else m.DisableKeyword(keyword);
+            return true;
+        }
+
+        // 디테일 타일링 = (UV 1 단위가 덮는 실제 길이 m) / (디테일 한 장의 실제 크기 m) → 실제 크기로 0.6~0.9 m 에 한 번 반복.
+        // 근거: kit.py 는 smart_project 로 UV 를 편다. smart_project 는 섬마다 크기를 따로 맞추지 않고 실제 크기 비율 그대로 [0,1] 에 담으므로
+        // 한 소품 안에서는 텍셀 밀도가 거의 고르다 (큰 구조물의 unwrap_smoothed 는 부드럽게 한 사본을 펴서 조금 흩어진다).
+        // 그래서 LOD0 Main 면의 √(실제 면적 / UV 면적) 이 곧 "UV 1 = 몇 m" 이고, 섬이 조금씩 다르므로 면적 가중 중앙값을 쓴다.
+        // Blender 로 잰 값 (2026-11, 62종): 묘비 1.9 m, 바위 3.6 m, 고목 14 m, 절벽 29 m, 성당 300 m —
+        // 같은 해상도라도 텍셀 밀도가 7~1600 px/m 로 크게 달라 "크기·해상도" 만으로 짐작하면 몇 배씩 틀린다 (섬 채움률이 3~65 %).
+        // 메쉬를 못 읽을 때만 manifest 크기로 짐작한다 (상자 겉넓이 × 0.6 을 UV 채움률 0.45 로 나눈 값).
+        public static float DetailTiling(PropMeta meta, string kind)
+        {
+            float mPerUv = MetersPerUv(LoadModel(meta.name));
+            if (mPerUv <= 0f)
+            {
+                Vector3 s = meta.sizeBlender;
+                float area = 2f * (s.x * s.y + s.y * s.z + s.z * s.x) * 0.6f;
+                mPerUv = area > 0f ? Mathf.Sqrt(area / 0.45f) : 2f;
+            }
+            float tiling = Mathf.Clamp(mPerUv / DetailRepeatFor(kind), 0.25f, 2000f);
+            return Mathf.Round(tiling * 100f) / 100f;
+        }
+
+        // LOD0 의 Main 면 (Glow·Foliage 슬롯 제외): 삼각형마다 √(실제 면적 / UV0 면적) 의 면적 가중 중앙값. 못 재면 0
+        public static float MetersPerUv(GameObject model)
+        {
+            if (model == null) return 0f;
+            var r = FindLod0Renderer(model, model.name);
+            var mf = r != null ? r.GetComponent<MeshFilter>() : null;
+            var mesh = mf != null ? mf.sharedMesh : null;
+            if (mesh == null) return 0f;
+            Vector3[] v = mesh.vertices;                 // 에디터에서는 읽기 가능 설정과 상관없이 읽힌다
+            Vector2[] uv = mesh.uv;
+            if (v.Length == 0 || uv.Length != v.Length) return 0f;
+            Matrix4x4 mtx = model.transform.worldToLocalMatrix * r.transform.localToWorldMatrix;
+            for (int i = 0; i < v.Length; i++) v[i] = mtx.MultiplyPoint3x4(v[i]);
+            var mats = r.sharedMaterials;
+            var samples = new List<Vector2>();           // (비율, 실제 면적)
+            float total = 0f;
+            for (int sub = 0; sub < mesh.subMeshCount; sub++)
+            {
+                string mn = sub < mats.Length && mats[sub] != null ? mats[sub].name : "";
+                if (mn.StartsWith("Glow") || mn.StartsWith("Foliage")) continue;
+                int[] tri = mesh.GetTriangles(sub);
+                for (int t = 0; t + 2 < tri.Length; t += 3)
+                {
+                    int i0 = tri[t], i1 = tri[t + 1], i2 = tri[t + 2];
+                    float wa = Vector3.Cross(v[i1] - v[i0], v[i2] - v[i0]).magnitude * 0.5f;
+                    Vector2 e1 = uv[i1] - uv[i0], e2 = uv[i2] - uv[i0];
+                    float ua = Mathf.Abs(e1.x * e2.y - e1.y * e2.x) * 0.5f;
+                    if (wa < 1e-8f || ua < 1e-12f) continue;
+                    samples.Add(new Vector2(Mathf.Sqrt(wa / ua), wa));
+                    total += wa;
+                }
+            }
+            if (samples.Count == 0 || total <= 0f) return 0f;
+            samples.Sort((p, q) => p.x.CompareTo(q.x));
+            float acc = 0f;
+            foreach (var s in samples)
+            {
+                acc += s.y;
+                if (acc >= total * 0.5f) return s.x;
+            }
+            return samples[samples.Count - 1].x;
         }
 
         public static Material GlowMaterial(string glowName)
@@ -407,13 +659,32 @@ namespace Necro.EditorTools
             var counts = BuildAll(warnings);
             string summary = "[Necro] 소품 프리팹 " + counts.prefabs + "개 (일반 " + counts.props + ", 지형 나무 " + counts.trees +
                              ", 지형 풀 " + counts.details + ", 광원 포함 " + counts.lights + ") — " + PrefabFolder +
+                             "\n근접 디테일 재질: " + counts.detail + " (" + DetailFolder + ")" +
                              "\n가져오기 설정을 고친 파일: 텍스처 " + counts.textures + ", 모델 " + counts.models +
                              "\n걸린 시간 " + counts.seconds.ToString("0.0") + "초" + (warnings.Count > 0 ? ", 경고 " + warnings.Count + "개" : "");
             Debug.Log(summary);
             if (warnings.Count > 0) Debug.LogWarning("[Necro] 소품 프리팹 경고\n" + string.Join("\n", warnings.ToArray()));
         }
 
-        public struct BuildCounts { public int prefabs, props, trees, details, lights, textures, models; public float seconds; }
+        public struct BuildCounts { public int prefabs, props, trees, details, lights, textures, models; public float seconds; public string detail; }
+
+        // "돌 30 · 나무 8 …" (Main 재질이 있는 소품만. 직접 넣은 디테일은 '직접')
+        static string DetailSummary(List<string> names, Dictionary<string, PropMeta> manifest)
+        {
+            string[] keys = { "stone", "wood", "bone", "metal", "none", "custom" };
+            string[] labels = { "돌", "나무", "뼈", "쇠", "없음", "직접" };
+            var n = new int[keys.Length];
+            foreach (var name in names)
+            {
+                PropMeta m;
+                if (!manifest.TryGetValue(name, out m) || m.detailResolved == null) continue;
+                int i = System.Array.IndexOf(keys, m.detailResolved);
+                if (i >= 0) n[i]++;
+            }
+            var parts = new List<string>();
+            for (int i = 0; i < keys.Length; i++) if (n[i] > 0) parts.Add(labels[i] + " " + n[i]);
+            return parts.Count > 0 ? string.Join(" · ", parts.ToArray()) : "없음";
+        }
 
         public static BuildCounts BuildAll(List<string> warnings)
         {
@@ -431,21 +702,27 @@ namespace Necro.EditorTools
             {
                 // 1. 가져오기 설정 (바뀐 것만 다시 가져온다)
                 EditorUtility.DisplayProgressBar("소품 가져오기", "텍스처·모델 가져오기 설정", 0f);
-                string full = NecroEditorUtil.FullPath(KitFolder);
+                missingDetailWarned = false;
                 var reimport = new List<AssetImporter>();
-                foreach (var f in Directory.GetFiles(full))
+                // 소품 폴더 + 근접 디테일 텍스처 폴더 (이전에 다른 설정으로 가져온 것도 바로잡는다)
+                foreach (string folder in new[] { KitFolder, DetailFolder })
                 {
-                    string ext = Path.GetExtension(f).ToLowerInvariant();
-                    string assetPath = KitFolder + "/" + Path.GetFileName(f);
-                    if (ext == ".png" || ext == ".jpg" || ext == ".jpeg")
+                    string full = NecroEditorUtil.FullPath(folder);
+                    if (!Directory.Exists(full)) continue;
+                    foreach (var f in Directory.GetFiles(full))
                     {
-                        var ti = AssetImporter.GetAtPath(assetPath) as TextureImporter;
-                        if (ti != null && ConfigureTexture(ti, assetPath)) { reimport.Add(ti); counts.textures++; }
-                    }
-                    else if (ext == ".fbx")
-                    {
-                        var mi = AssetImporter.GetAtPath(assetPath) as ModelImporter;
-                        if (mi != null && ConfigureModel(mi)) { reimport.Add(mi); counts.models++; }
+                        string ext = Path.GetExtension(f).ToLowerInvariant();
+                        string assetPath = folder + "/" + Path.GetFileName(f);
+                        if (ext == ".png" || ext == ".jpg" || ext == ".jpeg")
+                        {
+                            var ti = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+                            if (ti != null && ConfigureTexture(ti, assetPath)) { reimport.Add(ti); counts.textures++; }
+                        }
+                        else if (ext == ".fbx")
+                        {
+                            var mi = AssetImporter.GetAtPath(assetPath) as ModelImporter;
+                            if (mi != null && ConfigureModel(mi)) { reimport.Add(mi); counts.models++; }
+                        }
                     }
                 }
                 if (reimport.Count > 0)
@@ -486,6 +763,7 @@ namespace Necro.EditorTools
                 }
                 foreach (var kv in manifest)
                     if (!names.Contains(kv.Key)) warnings.Add(kv.Key + ": manifest.json 에는 있는데 .fbx 가 없어요");
+                counts.detail = DetailSummary(names, manifest);
                 AssetDatabase.SaveAssets();
             }
             finally
@@ -512,7 +790,7 @@ namespace Necro.EditorTools
             Material main;
             if (UsesMain(model))
             {
-                main = MainMaterial(name);
+                main = MainMaterial(name, meta, warnings);
                 if (main == null) { warnings.Add(name + ": URP Lit 셰이더가 없어 재질을 만들지 못했어요"); return false; }
                 if (FindTexture(KitFolder, name + "_albedo") == null)
                     warnings.Add(name + ": 색 텍스처(" + name + "_albedo.jpg/.png)가 없어요");

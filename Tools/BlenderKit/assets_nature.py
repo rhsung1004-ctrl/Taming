@@ -810,7 +810,8 @@ def rock_a():
 
 
 def rock_b():
-    """큰 바위 ~3m: 위에서부터 갈라진 큰 바위, 윗면 이끼 두껍게, 틈과 발치에 풀"""
+    """큰 바위 ~3m: 위에서부터 갈라진 큰 바위, 윗면 이끼 두껍게, 틈과 발치에 풀.
+    v3: ROCK3(큰 평면 끌 자국·곧게 꺾인 금, 둥근 굴곡 없음) + 되붙인 리메시, paint3(위 밝고 아래·틈 보라, 칸마다 색조), cage 굽기 2048"""
     rng = random.Random(33)
     main = rock_mass(rng, (3.6, 2.8, 2.6), (0, 0, 0.75), planes=30, depth=(0.03, 0.16), rz=R(8), base='sphere')
     side = rock_mass(rng, (1.6, 1.5, 1.3), (1.5, 0.6, 0.25), planes=16, depth=(0.03, 0.18), base='sphere')
@@ -822,13 +823,17 @@ def rock_b():
     xf_all(wedge_)
     cut(o, [wedge_])
     chip(o, rng, 14, (0.22, 0.5), sharp_deg=25, bite=0.32)
-    spalls_on(o, rng, 5, (0.5, 0.9), (0.035, 0.07), center=(0, 0, 0.8))
-    base = sculpt2(o, 0.014, *rock_split(2.0, 0.7), seed=5)
-    m = rock_paint("rock_b", 2.0, moss=0.55)
-    top_cover(m, MOSS, amount=0.9, scale=0.9, k=2.0, nz=(0.55, 0.85), lo=0.36, hi=0.5)
+    # 저폴리 바탕은 얇게 떨어진 자국(spall)·조각 전의 평면 덩어리에서: 큰 끌 자국(6cm)까지 넣고 줄이면 면이 구겨져 UV 섬이 수천 개로
+    # 쪼개지고, 떨어진 자국의 벽을 저폴리로 따라가면 테두리가 톱니처럼 검게 남는다 → 둘 다 노멀맵·색으로만 옮긴다
+    base = copy(o)
+    spalls_on(o, rng, 5, (0.5, 0.9), (0.02, 0.04), center=(0, 0, 0.8))     # v3: 얕게 (깊은 벽은 굽힌 뒤 검은 톱니 테두리)
+    co, fi = ROCK3(2.0, 0.7)
+    carve(o, 0.009, (), co + fi + [{'t': 'chisel', 'scale': 15.0, 'amp': 0.003, 'tilt': 0.8, 'wall': 0.2, 'cover': 0.8}],
+          seed=5, pieces=False, relax=2)      # relax: 떨어진 자국 벽에 남는 되붙임 톱니를 편다 (굽힌 테두리가 검은 톱니로 보이던 것)
+    m = paint3("rock_b", ROCK_PAL, h=2.0, k=2.0, cells=0.8, piece_var=0.5, moss=0.9, moss_low=0.5, moss_low_h=0.35,
+               dirt=0.6, dirt_h=0.3, edge=0.85, edge_w=0.012, streaks=0.35, ao=0.5)
     set_mat(o, m)
     low = low_from(base, 8000); delete(base)
-    soften(low)
     cards = Cards()
     grass_on_top(cards, low, rng, 9, (1.6, 1.2), zmin=0.9, h=(0.2, 0.4), w=(0.2, 0.35), nz=0.75)
     # 바닥 둘레 풀
@@ -836,7 +841,7 @@ def rock_b():
         a = rng.uniform(0, 6.28)
         p = Vector((math.cos(a) * 1.75, math.sin(a) * 1.3, 0.0))
         grass_tuft(cards, rng, p, rng.uniform(0.25, 0.45), rng.uniform(0.25, 0.4), 3, 0.4)
-    return finish("rock_b", [o], [low], extras=[cards.obj("grass")], size=1024, extr=0.045, uv_angle=75)
+    return finish3("rock_b", [o], [low], extras=[cards.obj("grass")], size=2048, cage=0.015, cage_reach=0.12, uv_angle=75)
 
 
 def low_parts(high, tris, z=-0.05, floor=60):
@@ -1258,8 +1263,9 @@ def limb(tr, parent, t, az, elev, length, r_k=0.75, taper=1.4, gnarl=0.25, up=0.
 
 def tree_build(name, tree, split_r, voxel, layers_a, layers_b, mat, low_a, size, extr, extras=(), guide_step=0.05,
                lod2=None, low_sides=5, extra_highs=(), extra_lows=(), post_a=None, r_cut=0.03, mat_b=None,
-               low_step=(0.08, 0.3), uv_angle=66, extra_a=None, ivy_starts=()):
+               low_step=(0.08, 0.3), uv_angle=66, extra_a=None, ivy_starts=(), fin=None):
     """뼈대 → 굵은 부분 리메시·조각, 잔가지 관 → 굽기. post_a(굵은 부분): 리메시 뒤 구멍 파기 등.
+    fin: kit.finish 에 더 넘길 v3 인자 (cage, pack, margin=0 …). 없으면 예전과 같다.
     저폴리 굵은 부분은 껍질 조각 전의 매끈한 사본에서 줄인다 (껍질은 노멀맵으로)."""
     guide = tree.guide(guide_step)
     A, Bh = tree.meshes(split_r, hi=True, r_cut=r_cut, low_step=low_step)
@@ -1292,7 +1298,7 @@ def tree_build(name, tree, split_r, voxel, layers_a, layers_b, mat, low_a, size,
         extras += ivy_light(la, p, sd, ln, leaf=0.06, gravity=-0.2, adhesion=0.9)
     print("TREE", name, "branches", len(tree.br), "lowA", tri_count(la), "lowB", tri_count(lb) if lb else 0)
     return finish(name, highs + list(extra_highs), lows + list(extra_lows), extras=extras, size=size, extr=extr, lod2=lod2,
-                  uv_angle=uv_angle)
+                  uv_angle=uv_angle, **(fin or {}))
 
 
 def bcut(o, cutters, solver='EXACT'):
@@ -1549,7 +1555,8 @@ def hang_moss_on(tree, cards, rng, n, depths=(1, 2), r_min=0.03, length=(0.35, 1
 
 
 def dead_tree_a():
-    """뒤틀린 죽은 나무 ~7m: 비틀린 줄기에서 팔처럼 뻗은 큰 가지 넷, 끝은 발톱처럼 가늘고 날카롭다. 몇 곳에 늘어진 이끼"""
+    """뒤틀린 죽은 나무 ~7m: 비틀린 줄기에서 팔처럼 뻗은 큰 가지 넷, 끝은 발톱처럼 가늘고 날카롭다. 몇 곳에 늘어진 이끼.
+    v3: BARK3(깊은 골 사이 판을 평평하게 깎은 껍질), paint3 껍질(위 밝고 아래·골 보라, 판 모서리 밝게), cage 굽기 2048"""
     rng = random.Random(1234)
     tr = Tree(rng)
     trunk = path_grow(rng, (0, 0, -0.35), (0.06, -0.04, 1), 6.9, 0.45, 0.14, up=0.04, kink=0.3)
@@ -1561,11 +1568,19 @@ def dead_tree_a():
     tr.grow(tk, [dict(CLAW_LEVELS[0], kids=(2, 3), t=(0.86, 0.97), len=(0.4, 0.6), r=(0.6, 0.8))] + CLAW_LEVELS[1:])
     cards = Cards()
     hang_moss_on(tr, cards, rng, 6, length=(0.4, 0.95), width=(0.16, 0.26))
-    m = bark_paint("dead_tree_a", BARK_DEAD, moss=0.35, pale=0.45)
-    grad_dark(m, 0.0, 1.2, 0.55)
-    mb = bark_paint("dead_tree_a_tw", BARK_DEAD, moss=0.15, pale=0.3, edge=0.3)
-    return tree_build("dead_tree_a", tr, 0.045, 0.0085, bark_layers(1.0), twig_layers(), m, 5000, 2048, 0.06,
-                      extras=[cards.obj("moss")], mat_b=mb)
+    m = paint3("dead_tree_a", BARK_DEAD, h=6.6, k=1.0, moss=0.3, moss_color=MOSS_DEAD, moss_low=0.5, moss_low_h=0.9,
+               piece_var=0.0, hue_var=0.45, edge=0.7, edge_w=0.01, cavity=1.0, ao=0.35, strokes=0.25, tooling=0.0,
+               streaks=0.0, stains=0.3, dirt=0.5, dirt_h=0.5, light=1.0)
+    blotch(m, WOOD_PALE, 0.9, 0.45, 0.5, 0.6)             # 껍질이 벗겨져 하얗게 바랜 나무
+    grad_dark(m, 0.0, 1.2, 0.5)
+    # 잔가지는 밝게 (어두운 하늘에 실루엣이 읽히게)
+    mb = paint3("dead_tree_a_tw", 'bark_pale', h=6.6, k=0.5, moss=0.1, moss_color=MOSS_DEAD, piece_var=0.0, edge=0.3,
+                cavity=0.5, ao=0.1, strokes=0.2, tooling=0.0, streaks=0.0, stains=0.0, dirt=0.0, light=0.8)
+    blotch(mb, WOOD_PALE, 1.6, 0.3, 0.5, 0.6)
+    co, fi = BARK3(1.0)
+    return tree_build("dead_tree_a", tr, 0.045, 0.0075, co + fi, twig_layers(), m, 5000, 2048, 0.06,
+                      extras=[cards.obj("moss")], mat_b=mb,
+                      fin=dict(cage=0.006, cage_reach=0.03, pack=True, samples=8, margin=0, uv_margin=0.001))
 
 
 def arch_root(rng, ang, r_trunk, reach, height):
