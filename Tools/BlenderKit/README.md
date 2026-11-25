@@ -19,11 +19,11 @@ blender -b --python-exit-code 1 -P build.py -- <출력> <묶음> [이름,이름|
 
 1. **형태**: 넓은 면은 평평하고 얕은 평면 끌 자국(chisel)으로 작은 평면들이 보인다. 모서리는 곧고 날카롭다. 깨진 곳은 평면으로 쳐낸
    각진 자국(chip, slice_rock, chunk). 큰 진폭의 둥근 굴곡(lumps)·고리 모양 금(fissure)·물결치는 턱은 쓰지 않는다.
-2. **선명함**: 텍스처는 작은 소품도 2048. 텍셀 밀도는 작은 소품 **512 px/m 이상**(2048 이면 1000 안팎), 중간 300 px/m 이상,
-   큰 구조물 200 px/m 이상 — 중간·큰 것의 1~2m 근접은 Unity 디테일 맵(`detailtex.py`, URP Lit Detail)이 맡는다. 빌드 로그 `TEXEL` 줄로 확인한다.
+2. **선명함**: 텍스처 크기와 텍셀 밀도는 아래 '예산' 표를 따른다 (작은 소품 1024 로 **550 px/m 이상**, 중간 350 px/m 이상,
+   큰 구조물 200 px/m 이상) — 중간·큰 것의 1~2m 근접은 Unity 디테일 맵(`detailtex.py`, URP Lit Detail)이 맡는다. 빌드 로그 `TEXEL` 줄로 확인한다.
 3. **색 (손칠)**: 위는 밝고 아래·틈은 깊은 보라, 닳은 모서리는 밝은 선, 블록마다 색조가 다르다(차가운 청색 ↔ 보랏빛·따뜻한 회색).
    이끼는 위를 향한 면과 위쪽 틈에 가장자리가 또렷한 덩어리로, 땅 쪽은 흙물과 기어오르는 이끼. 붓 자국·잔 점은 낮은 대비로.
-4. **굽기 흠 없음**: 검은 얼룩·검은 줄·이음매·자홍 테두리가 없어야 한다 (로그 `BAKE ... miss 0.000%`).
+4. **굽기 흠 없음**: 검은 얼룩·검은 줄·이음매·자홍 테두리·흰 보풀 테두리가 없어야 한다 (로그 `BAKE ... miss 0.000% steep 2% 미만`, `WARN BAKE` 없음).
 
 - **실루엣**: 완벽한 직선·대칭 금지. 기울고, 깨지고, 빠지고, 무너진 곳이 있어야 한다. 단, 형태가 무엇인지는 한눈에 읽혀야 한다.
 - **음산함 + 화려함**: 전체는 어둡고 낡았지만, 영혼 발광(보라 `Glow_Soul`, 창백한 청록 `Glow_Spirit`)이 군데군데 강하게 빛난다. 덩굴·이끼·거미줄로 버려진 세월을 보여 준다.
@@ -38,76 +38,110 @@ blender -b --python-exit-code 1 -P build.py -- <출력> <묶음> [이름,이름|
 
 ## 예산
 
-| 크기 | 예 | LOD0 삼각형 | 텍스처 (v3) | 텍셀 목표 |
+| 크기 | 예 | LOD0 삼각형 | 텍스처 | 텍셀 목표 |
 | --- | --- | --- | --- | --- |
-| 작은 소품 (~1m) | 묘비, 해골, 양초 | 600~4,000 | 2048 | 1000 px/m 안팎 |
-| 중간 (2~5m) | 기둥, 석상, 바위, 죽은 나무 | 3,000~9,000 | 2048 | 300~500 px/m + 디테일 맵 |
-| 큰 구조물 (5m~) | 벽, 납골당, 성당 폐허, 절벽 | 10,000~30,000 | 2048 (주인공급만 4096) | 200 px/m 이상 + 디테일 맵 |
+| 작은 소품 (가장 긴 변 1.5 m 미만) | 묘비, 해골, 양초 | 600~4,000 | **1024** | 550~650 px/m (`uv_weight` 로 앞면에 더) |
+| 중간 (1.5~5 m) | 기둥, 석상, 바위, 죽은 나무 | 750~9,000 | 2048 | 350~450 px/m, 나무 줄기 밑동 500 이상 + 디테일 맵 |
+| 큰 구조물 (5 m~) | 벽, 납골당, 성당 폐허, 절벽 | 10,000~30,000 | 2048 | 200 px/m 이상 + 디테일 맵 |
 | 식물 (굽지 않음) | 풀 덤불, 꽃, 버섯 | 100~1,500 | 아틀라스 공유 | — |
 
-LOD1 = 35%, 큰 것은 LOD2 = 12% (`finish(..., lod1=0.35, lod2=0.12)`).
+- **텍스처 크기 규칙** (저장소 Git LFS 1 GB, Graveyard 폴더 합계 300 MB 안): 가장 긴 변 1.5 m 미만 1024, 그 밖 2048, **4096 금지**.
+  `finish3(size='auto')`(기본)가 규칙대로 고르고, 2048 보다 큰 값을 주면 2048 로 낮추고 `WARN tex` 를 찍는다.
+- 노멀 PNG 는 저장할 때 최대 압축한다 (`save_png` → `png_max`: PIL optimize + compress_level 9, Blender 기본보다 15~20% 작다). 로그 `FILES` 줄에 kB.
+  v3b 시범 파일 크기(albedo / normal): 묘비 1024 136 kB / 1.1 MB, 바위 2048 0.5 / 2.7 MB, 벽 2048 0.9 / 4.6 MB, 나무 2048 0.7 / 5.2 MB.
+  잔결이 많은 노멀맵(껍질·벽)이 크다 — 소품 하나 평균 4 MB 로 잡으면 62종 ≈ 250 MB.
+- **LOD 규칙** (`finish3` 의 `lod_rule`, 기본 켬. 로그 `LODRULE`): 본체(Main) 삼각형이
+  - 1,000 미만(깨끗한 저폴리 석물·바위): LOD1 은 본체를 줄이지 않고 잎·덩굴·풀 카드만 뺀다. 잎이 없으면 LOD1 을 만들지 않는다
+    (깨끗한 저폴리를 35% 로 줄이면 실루엣·단단한 모서리·UV 이음매가 무너진다).
+  - 1,000~3,000: LOD1 비율을 0.6 이상으로.
+  - 그 밖: LOD1 0.35, 큰 것은 LOD2 0.12 (`finish3(..., lod1=0.35, lod2=0.12)`).
 
-## 만드는 과정 (kit.py, v3)
+## 만드는 과정 (kit.py, v3b)
 
 v3 함수는 새 이름으로만 들어 있다. 예전 함수(`sculpt`, `paint`, `STONE_LAYERS`, `finish` 기본 인자)는 그대로라 v3 로 바꾸지 않은 묶음도 그대로 빌드된다.
+v3b 는 시범 4종(grave_slab_a, rock_b, wall_ruin_a, dead_tree_a)을 검토 지적에 맞춰 다시 만들며 고친 판이다. 새 기능은 모두 선택 인자·새 함수다.
 
 ```python
 from kit import *        # 주의: sc 는 init 뒤에 생기므로 kit.sc 또는 link(o) 를 쓴다
 rng = random.Random(7)
-# 1. 조립: 깨끗한 형태 (bmesh 상자·윤곽 기둥, 바위는 slice_rock). 모서리를 평면으로 쳐낸다
+# 1. 조립: 깨끗한 형태 (bmesh 상자·윤곽 기둥, 바위는 facet_mass). 모서리를 평면으로 쳐낸다
 body = join([box(...), ...])
 chip(body, rng, 14, (0.03, 0.08), bite=0.38)
 low_src = copy(body)                          # (석물) 저폴리 바탕 = 큰 깨짐까지만, 새김·얇은 떨어짐은 노멀맵으로
-cut(body, [...])                              # 새김·구멍 (boolean)
-engrave_v(body, strokes, (0, -1, 0), 0.011, 0.007)   # 글자·선은 V 자 홈 (vgroove)
+cut(body, [...])                              # 판 면·십자가 (boolean)
+esrc = copy(body)                             # 닳은 모서리를 찾을 형태 (글자·금 새기기 전)
+engrave_v(body, strokes, (0, -1, 0), 0.011, 0.007)   # 글자·선·긴 금은 V 자 홈 (vgroove)
 # 2. 조각: 블록 번호 → 리메시 + 원래 표면에 되붙임(평평한 면·날카로운 모서리) → 조각 층
-carve(body, 0.0025, *STONE3(1.0, wear=1.1, cracks=0.45), seed=11)
-# 3. 칠: 손칠 재질 (위 밝고 아래·틈 보라, 베벨로 찾은 닳은 모서리, 블록마다 색조, 이끼, 흙물)
-set_mat(body, paint3("이름", 'stone', h=1.1, k=1.0, moss=0.45, moss_low=0.85, moss_low_h=0.4))
+carve(body, 0.0025, *STONE3(1.0), seed=11, edge_from=esrc)
+# 3. 칠: 손칠 재질 (위 밝고 아래·틈 보라, 닳은 모서리, 블록마다 색조·밝기, 이끼, 흙물, 지의류)
+set_mat(body, paint3("이름", 'stone', h=1.1, k=1.0, edge_mode='attr', moss=0.45, moss_low=0.7, moss_low_h=0.4))
 # 4. 저폴리 (석물: 깨끗한 형태에서. 붙은 조각은 union 으로 합쳐 속에 묻힌 면을 없앤다)
 low = lowpoly(low_src, z=-0.015)
-# 5. 굽기 우리(cage) + UV 다시 배치 + 빈 곳 메우기 + LOD + FBX
-finish3("이름", [body], [low], extras=[...], size=2048, cage=0.006, hard=55)
+# 5. 굽기 우리(cage, 단단한 모서리에서 쪼갬) + UV 다시 배치 + 빈 곳 메우기 + LOD 규칙 + FBX
+finish3("이름", [body], [low], extras=[...], cage=0.006, hard=55)     # size='auto' → 1024/2048
 ```
 
-### 종류별 권장값
+### 종류별 권장값 (v3b 시범에서 확인한 값)
 
-| 종류 | carve voxel | 조각 층 | 저폴리 | cage (push / cage_reach) | hard | uv_margin |
-| --- | --- | --- | --- | --- | --- | --- |
-| 작은 석물 ~1m (묘비·십자가) | 0.0025 | `STONE3(1.0)` | `lowpoly(새김 전 형태)` | 0.006 / 0.2 | 55 | 0.003 |
-| 블록 많은 석조 (벽·기둥·계단) | 0.008~0.009 | `STONE3(1.25)` | `carve(..., base=True)` → `low_of` | 0.01 / 0.1 | 없음 | **0.001** |
-| 바위 2~4m | 0.009 + `relax=2` | `ROCK3(k=크기/2)` 를 모두 fine 에 | spall 전 `copy` → `low_from` | 0.015 / 0.12 | 없음 | 0.003 |
-| 죽은 나무 | 0.0075 | `BARK3` (guide 필요) | `tree_build(..., fin=dict(cage=…, pack=True, margin=0, …))` | 0.006 / 0.03 | 없음 | 0.001 |
+| 종류 | 형태·저폴리 | carve | 칠 (paint3) | finish3 |
+| --- | --- | --- | --- | --- |
+| 작은 석물 ~1m (묘비·십자가) | `lowpoly(새김 전 형태)` | 0.0025, `edge_from=새김 전 사본` | `edge_mode='attr'`, edge 0.8 / edge_w 0.009 / edge_gain 0.85, cavity 1.0, stains 0.55 | cage 0.006, hard 55, `uv_weight`(앞면 1.0, 뒷면 0.65, 받침 0.7) |
+| 블록 많은 석조 (벽·아치·계단) | `ashlar(..., damage=(0.14, rng))` → `carve(base=True)` → `low_of` | 0.009, `STONE3(1.25, 1.2, 0.6)` | piece_var 1.0, **piece_val 0.15**, **grime 0.85** (grime_h 0.16), edge_w 0.022 / edge_gain 1.35, ao 0.45, lichen 0.4 | cage 0.01 / reach 0.1, **uv_margin 0.001**, lod2 0.12 |
+| 바위 2~4m | `facet_mass` + `chip_convex` + `step_spalls` → `lowpoly(그 형태)` | 0.005, **`mode='octree'`**, `ROCK3(k, 0.7, chisel=0.25)`, pieces=False | cells 0.7, facet_var 0.3, `edge_mode='attr'` edge 0.45 / edge_w 0.014, lichen 0.55 / **lichen_scale 20** | cage 0.012 / reach 0.1, **hard 38**, uv_angle 40, uv_margin 0.002 |
+| 죽은 나무 | `tree_build(..., low_mode='tube', rho=tree_rho)` | 0.006, `BARK3(1.0, depth=0.85)` | BARK_GREY, edge 0.65, cavity 0.55, dirt_h 0.85, moss_low_h 0.95, lichen 0.3 (blotch 는 작고 어둡게) | `fin=dict(cage=0.006, cage_reach=0.06, samples=8, margin=0, uv_margin=0.002)` |
 
-- `carve(o, voxel, coarse, fine, seed, snap=True, pieces=True, base=False, relax=0)`: `relax` = 되붙인 리메시의 오목한 꺾임에 남는 잔 톱니를 편다
-  (깊은 벽이 있는 바위는 2, 석물은 0). `pieces` = 떨어진 조각(블록)마다 'piece' 값 → `paint3` 가 블록마다 색조를 바꾼다.
-  `base=True` 면 저폴리 바탕(되붙이지 않은 리메시 + coarse)을 돌려준다. coarse 는 저폴리 바탕에도 들어가니 몇 mm 이하만.
-- 조각 층 (`surface`): **chisel**(평면 끌 자국, v3 의 주력), **cracks**(곧게 꺾인 금, `warp` 0.08, cover 0.15~0.3 으로 드물게), pits, grain,
-  bark, strata, lumps(아주 약하게). terrace 는 `soft` 0.35(기본) 그대로만.
-- `paint3(name, pal, h=높이, k=무늬 배율, ...)`: `cells=` 를 주면 블록 번호 대신 큰 칸(m)으로 색조를 나눈다 (바위). `edge_w` 닳은 모서리 폭,
-  `ao` 그늘 거리(틈 그늘은 그 1/10), `stains` 삭은 얼룩(곱하기), `tooling` 끌 자국 결(노멀). 묶음의 덧칠(blotch, grad_dark, top_cover, moss_low)도 그대로 얹을 수 있다.
-- `finish3(..., size=2048, cage=push, cage_reach=…, hard=각도, uv_margin=…, samples=8)`:
-  - 굽기 우리: 저폴리 정점·면 가운데에서 법선으로 광선을 쏴 원본이 바깥에 있으면 그만큼 + push 부풀린 사본. extr 하나로 맞추던 때의 검은 얼룩·줄이 없어진다.
-  - 저폴리·우리는 광선에 안 보이게 하고, `paint3` 의 AO 는 자기 객체만 본다 (저폴리에 가려 그늘이 검게 번지던 원인).
-  - 여백 없이 굽고(자홍으로 채워 둔 그림) 빈 곳을 둘레 색으로 메운다 → 섬 가장자리에 자홍·검정 테두리가 없다.
-  - 노멀맵에서 70도 넘게 누운 법선은 세운다 (`clamp_normals`, 로그 `steep %`). 깊은 골·겹친 부품에서 검은 점이 되던 것.
-  - `hard`: UV 섬 경계이면서 그 각도보다 꺾인 모서리를 단단하게 → 평평한 면의 노멀맵이 휘지 않아 중간 거리에서 또렷하다. 깨끗한 저폴리(석물)에만.
-  - albedo 는 sRGB 그대로 저장한다 (예전 `_save_jpg` 는 AgX 보기 변환이 입혀져 밝은 색이 바래 있었다 → 다시 만들면 조금 밝고 진해진다).
-- 로그 읽기: `TEXEL 이름 px/m … uv_fill …` (uv_fill 0.45 미만이면 uv_margin·저폴리를 의심), `UVPACK`, `CAGE … max`,
-  `BAKE … miss % steep %` (miss 는 0, steep 은 1% 안팎이 정상), `PIECES`.
-- 비교 렌더: `blender -b -P compare.py -- <이전 폴더> <새 폴더> <이름> <출력 접두사> [near=x,y,z,거리,방위,앙각]` → `_near.png`, `_mid.png`.
+- **석물 (묘비)**: 다듬은 앞면에는 칸 무늬 층(plates, chisel 칸)을 쓰지 않는다 — 거북등·유약 금처럼 읽힌다. 앞면은 긴 금 2~3줄(`crack_strokes` →
+  `engrave_v` 0.0075/0.005) + 칠의 `tooling`(끌 자국 결). 뒷면은 조각 층에 `'face': (0, 1, 0)`(그 방향 면에만, `face_lo`/`face_hi` 로 경계)을 붙여
+  거친 다듬 자국(chisel 5.5·16) + 잔 구멍. 글자·금 입술이 밝게 빛나면 흰 외곽선 장난감이 되므로 `carve(edge_from=새기기 전 사본)`.
+- **블록 석조 (벽)**: 형태는 그대로 두고 칠로 세월을 넣는다. `piece_val` 블록마다 밝기 ±15%, 색조 띠(차가운 청색 ↔ 따뜻한 회색), `grime` 줄눈 바로 아래
+  흙물·그을음(블록 꼭대기에서 흘러내린 세로 줄), 넓게 밝은 닳은 모서리, 오목한 곳 AO, 이끼·지의류 포인트. `ashlar(damage=(비율, rng))` 로 깨지고 이 빠진 블록.
+- **바위**: 구(타원체)에서 출발하지 않는다 — `facet_mass`(20면체를 늘여 깊은 평면 16개로 깎고 모서리 모따기). 떨어진 자국은 **평면 바닥 + 40~45° 벽**
+  (`spall_flat`, `step_spalls`)으로 파고 **저폴리에도 넣는다** (큰 면을 저폴리가 그대로 따라가 굽기 광선이 스치지 않는다). 조각은
+  `carve(mode='octree')`(옥트리 리메시 = 모서리 위에 정점, 곧은 모서리) + `ROCK3`(아주 얕은 큰 굴곡 + 굵은 금 몇 줄 + 큰 평면 끌 면 `chisel=0.25`).
+  칠은 `facet_var`(깨진 면마다 다른 톤)와 `edge_mode='attr'`(깨끗한 형태의 볼록 모서리까지 거리 = 곧고 고른 닳은 모서리).
+- **나무**: `low_mode='tube'` — 저폴리를 가지마다 관 하나로 다시 찍고 원통으로 편다(이음매 하나, 섬 = 가지 하나, 이음매는 줄기 뒤·뿌리 아래·가지 위).
+  `tree_rho` 로 텍셀 배율(줄기 밑동 1.0 → 위·뿌리 끝·가지·잔가지 0.22), 원본은 가지마다 따로 깎고 서로 닿지 않는 가지끼리 무리를 지어 따로 굽는다
+  (`bake_groups`: 가지 이음매의 극단 법선·검은 점 방지). `BARK3` = 세로로 긴 껍질판(폭 15 cm, 길이 그 5~6배) + 깊은 골(2~5 m 에서 읽히는 굵기).
+  잔결은 Unity 디테일 맵(wood). 회색 큰 얼룩(blotch 0.9) 은 솜뭉치처럼 보여 쓰지 않는다.
+- `paint3` 의 v3b 인자: `piece_val`(블록 밝기 ±), `grime`/`grime_h`(줄눈 아래 그을음), `edge_gain`, `contrast`/`gain`/`pivot`(명암 대비·전체 밝기),
+  `facet_var`/`facet_scale`(면마다 톤), `edge_mode`('bevel' | 'attr'), `lichen`/`lichen_color`/`lichen_scale`(지의류: 작고 가장자리가 또렷한 반점),
+  `moss_patch`(이끼 덩어리 크기). 기본 `contrast=0.15, gain=1.1` 은 albedo 를 sRGB(Standard)로 저장하게 된 뒤 이전 판 밝기에 맞춘 값이다.
+- **밝기 맞추기**: 소품마다 `compare.py` 게임 시점 로그 `LUM` 의 평균을 이전 판 ±10% 안으로 (`gain` 으로). 대비(p90)는 이전보다 크게.
+- `finish3(..., size='auto', cage=push, cage_reach=…, hard=각도, uv_margin=…, uv_weight=…, samples=8, split_cage=True)`:
+  - 굽기 우리: 저폴리 정점·면 가운데에서 법선으로 광선을 쏴 원본이 바깥에 있으면 그만큼 + push 부풀린 사본.
+  - **split_cage** (기본 켬, hard 가 있을 때): 단단한 모서리에서 저폴리 사본을 쪼갠 뒤 우리를 만들어 굽는다. 쪼개지 않으면 모서리 정점의 우리가 양쪽 면 법선의
+    평균으로 부풀어, 좁은 면(모따기·떨어진 자국 벽)에서 광선이 옆 면으로 비껴 맞아 빗살 무늬(흰 점선 + 검은 점)가 생긴다.
+  - 저폴리·우리는 광선에 안 보이게 하고, `paint3` 의 AO 는 자기 객체만 본다. 여백 없이 굽고(자홍으로 채워 둔 그림) 빈 곳은 섬마다 자기 가장자리 색으로 넓힌 뒤 메운다.
+  - 노멀맵에서 70도 넘게 누운 법선은 세운다 (`clamp_normals`, 로그 `steep %`).
+  - `uv='keep'`(저폴리에 이미 있는 UV, 나무 원통 전개), `uv_weight`(섬마다 텍셀 배율), `bake_groups`(무리별 굽기), `probe`(로그 줄 더).
+  - albedo 는 sRGB 그대로 저장한다 (예전 `_save_jpg` 는 AgX 보기 변환이 입혀져 밝은 색이 바래 있었다).
+- **로그 읽기** (빌드 로그에서 확인할 것):
+  - `TEXEL 이름 px/m … uv_fill … tex … low1.5m …` — uv_fill 0.45 이상. 나무는 `TEXEL_TRUNK … base px/m` 500 이상.
+  - `BAKE … miss % steep % rim % rim_soft % inner %` — miss 는 0, **steep 2% 미만**. rim = UV 섬 경계 4 화소 띠 안에서 노멀 z<0.6 인 비율
+    ('miss 0%' 가 못 잡는, 비스듬히 스친 광선의 흰·검은 테두리), rim_soft = 그 가운데 단단한 모서리 둘레를 뺀 것, inner = 섬 안쪽의 같은 비율.
+  - `WARN BAKE …` — steep 2% 초과, 또는 rim_soft 5% 초과이면서 inner 의 1.5배 초과(테두리가 안쪽보다 나쁘다). 고칠 때까지 결과물로 쓰지 않는다.
+  - `UVPACK`, `CAGE … max`, `SPLITCAGE … sharp`, `LODRULE`, `FILES … albedo_kb … normal_kb`, `PIECES`.
+- **비교 렌더** (`compare.py`): `blender -b -P compare.py -- <이전 폴더> <새 폴더> <이름> <출력 접두사> [near=x,y,z,거리,방위,앙각] [views=near,mid,game,back] [ref=이름]`
+  → `_near.png`(1~2 m), `_mid.png`(전체), `_back.png`(뒤), `_game.png`(**게임 시점**: 눈높이 1.7 m 카메라, 3 m·6 m, 월드 룩 도구의 달빛·주변광·노출,
+  `ref=` 로 이전 폴더의 다른 소품을 옆에 세워 붕 뜨는지 본다). 여러 장 모으기: `compare.py -- --sheet <출력> <그림…>`.
+- 빠른 반복: 환경 변수 `KIT_FAST=1` 이면 텍스처 512·표본 4로 굽는다 (칠·밝기만 볼 때, 결과물로 쓰지 않는다).
 
-### 피할 것 (v3 를 만들며 겪은 것)
+### 피할 것 (v3·v3b 를 만들며 겪은 것)
 
-- **값이 뚝 끊기는 조각 층**(plates, soft 를 줄인 terrace): 복셀 격자에 톱니가 생겨 굽은 뒤 테두리 잡음. 이어지는 층(chisel, cracks)을 쓴다.
-- **fissure**: 잡음 등고선이라 작은 고리(녹은 밀랍 무늬)가 생긴다 → cracks.
+- **값이 뚝 끊기는 조각 층**(plates, soft 를 줄인 terrace): 복셀 격자에 톱니. 다듬은 면의 plates 는 거북등처럼 읽힌다 → 이어지는 층(chisel, cracks)이나 V 홈 금.
+- **fissure**: 잡음 등고선이라 작은 고리(녹은 밀랍 무늬) → cracks.
 - **벽이 수직인 새김 상자**(stroke_box): 글자 테두리가 1화소 검은 점선 → `vgroove` / `engrave_v`.
-- **큰 조각(수 cm)까지 들어간 리메시에서 저폴리 줄이기**: 면이 구겨져 UV 섬이 수천 개, 텍셀이 반토막 → 조각 전 바탕에서.
-- **깊은(3cm↑) spall 을 저폴리가 따라가게**: 벽이 검은 톱니 테두리 → 저폴리는 spall 전 형태, spall 은 2~4cm 로 얕게, `carve(relax=2)`.
-- **섬이 수백 개인데 uv_margin 0.003 이상**: 여백이 텍스처를 절반 넘게 먹는다 (벽 0.27 → 0.001 로 0.52).
-- **되붙인(snap) 리메시를 그대로 줄여 저폴리 만들기**: 모서리에 접힌 잔 삼각형 → UV 가 쪼개진다 (`carve(base=True)` 는 알아서 피한다).
-- 나무는 cage_reach 를 작게 (0.03): 껍질 조각은 거의 안쪽으로 파이므로 그 이상 부풀릴 까닭이 없고, 크면 줄기에 박힌 잔가지까지 우리가 부푼다.
-  깊은 껍질 골·잔가지가 박힌 곳의 검은 점은 극단 법선 때문이라 `clamp_normals` 가 고친다.
+- **바위에 잔 주파수 chisel**(scale 7 이상)·pits: 칸 경계마다 접힌 능선 → 구겨진 종이·은박지, 물집 같은 고리. 바위는 `ROCK3`(chisel 은 큰 칸만).
+- **구(타원체) 바탕 바위**: 깎아도 둥근 덩어리에 판을 붙인 모양 → `facet_mass`.
+- **구 커터 spall + 저폴리는 spall 전 형태**: 벽이 수직인 깊은 자국을 광선이 비스듬히 스쳐 흰 보풀·검은 톱니 → 평면 spall(벽 40~45°)을 저폴리에도 넣는다.
+- **바위에 복셀 리메시 + 되붙이기**: 비스듬한 모서리가 계단처럼 놓여 닳은 모서리 빛이 찢어진 종이 테두리 → `carve(mode='octree')`.
+- **모든 모서리를 같은 굵기로 밝게**: 외곽선을 그린 장난감 → edge 0.45~0.8, edge_w 1 cm 안팎, 글자·금은 `edge_from` 으로 뺀다.
+- **큰 지의류·회색 큰 얼룩**: 흰 물감 자국·솜뭉치 → lichen_scale 20 안팎, 어두운 색.
+- **나무 저폴리를 리메시 + smart_project**: 섬이 수천 개, 텍셀 반토막, 껍질 결이 섬마다 끊긴다 → `low_mode='tube'`.
+- **나무 원본을 하나로 합쳐 한 번에 굽기**: 가지 이음매에 극단 법선 → 검은 점 → `bake_groups`.
+- **큰 조각(수 cm)까지 들어간 리메시에서 저폴리 줄이기**: 면이 구겨져 UV 섬이 수천 개 → 조각 전 바탕(`carve(base=True)`)에서.
+- **섬이 수백 개인데 uv_margin 0.003 이상**: 여백이 텍스처를 절반 넘게 먹는다 (벽 0.27 → 0.001 로 0.47~0.52).
+- **우리를 쪼개지 않고 단단한 모서리 굽기**: 좁은 면에 빗살 → `split_cage`(finish3 기본).
 
 ### 예전 방식 (v2, 아직 v3 로 바꾸지 않은 묶음)
 

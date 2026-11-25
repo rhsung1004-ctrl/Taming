@@ -873,6 +873,7 @@ def grave_slab_a():
     cross = [(-0.022, -0.13), (0.022, -0.13), (0.018, 0.02), (0.075, 0.025), (0.08, 0.065), (0.018, 0.06), (0.022, 0.13),
              (-0.022, 0.13), (-0.018, 0.06), (-0.08, 0.065), (-0.075, 0.025), (-0.018, 0.02)]
     cut(slab, [obj_bm(bm_poly([(cx + x, cz + z) for x, z in cross], yf - 0.05, yf + 0.013), "cross")])
+    esrc = copy(slab)                      # v3b: 닳은 모서리는 글자·금 새기기 전 형태에서 (금 둘레 흰 외곽선 방지)
     st = text_strokes(rng, 0.0, 0.61, 0.4, 0.046, yf, jitter=0.002)
     st += text_strokes(rng, 0.0, 0.52, 0.34, 0.034, yf, jitter=0.002)
     st += text_strokes(rng, 0.0, 0.445, 0.3, 0.03, yf, jitter=0.002)
@@ -884,13 +885,16 @@ def grave_slab_a():
     ck += crack_strokes(crng, (-0.275, yf, 0.42), (1, 0, -0.35), 0.24, 5, 0.4, yf)
     engrave_v(slab, ck, (0, -1, 0), 0.0075, 0.005, floor=0.25)
     # 앞·옆면이 얇게 떨어져 나간 자국
-    cut(slab, [spall((0.2, y0, 0.3), (0, -1, 0), (0.09, 0.06), 0.01, rng),
-               spall((-0.24, y0, 0.98), (0, -1, 0.2), (0.07, 0.05), 0.008, rng),
-               spall((0.325, 0.0, 0.55), (1, 0, 0), (0.06, 0.09), 0.012, rng)])
+    sps = [spall((0.2, y0, 0.3), (0, -1, 0), (0.09, 0.06), 0.01, rng),
+           spall((-0.24, y0, 0.98), (0, -1, 0.2), (0.07, 0.05), 0.008, rng),
+           spall((0.325, 0.0, 0.55), (1, 0, 0), (0.06, 0.09), 0.012, rng)]
+    cut(esrc, [copy(c) for c in sps])
+    cut(slab, sps)
     # 뒤로 살짝 눕고 옆으로 기운다
     tilt = Matrix.Translation((0, 0, 0.14)) @ Matrix.Rotation(R(-2.5), 4, 'X') @ Matrix.Rotation(R(2.0), 4, 'Y') @ Matrix.Translation((0, 0, -0.14))
     slab.data.transform(tilt)
     slab_low.data.transform(tilt)
+    esrc.data.transform(tilt)
     pl = bm_box(0.86, 0.34, 0.17, TR((0, 0.005, 0.065)))
     stone_blk(pl, rng, (2, 4), (0.03, 0.07), (2, 3), 0.01, zmin=0.0)
     plinth = obj_bm(pl, "plinth")
@@ -899,16 +903,22 @@ def grave_slab_a():
     union(slab_low, [copy(plinth)])        # 저폴리는 한 덩어리로 (받침 속에 묻힌 면이 UV 를 차지하지 않게)
     low = lowpoly(slab_low, z=-0.015)
     delete(slab_low)
+    esrc = join([esrc, copy(plinth)])
     body = join([slab, plinth])
     # v3b: 앞면은 다듬어 매끈하게(끌 자국 칸 = 거북등 선 없이, 결은 칠의 tooling), 뒷면만 거칠게 쪼아 다듬은 자국 + 잔 구멍
     back = {'face': (0, 1, 0), 'face_lo': 0.3, 'face_hi': 0.7}
-    fine = [dict(back, t='chisel', scale=5.5, amp=0.0045, tilt=0.8, jitter=0.6, wall=0.14),
-            dict(back, t='chisel', scale=16.0, amp=0.0018, tilt=0.8, jitter=0.6, wall=0.18, cover=0.7),
-            dict(back, t='pits', scale=40.0, depth=0.0016, cover=0.7),
+    # i10: 뒷면 쪼아 다듬은 자국을 2배 깊게 (i9 에서도 비누처럼 밋밋했다) + 뒷면 금 한 갈래
+    fine = [dict(back, t='chisel', scale=5.5, amp=0.009, tilt=0.8, jitter=0.6, wall=0.14),
+            dict(back, t='chisel', scale=16.0, amp=0.0038, tilt=0.8, jitter=0.6, wall=0.18, cover=0.75),
+            dict(back, t='pits', scale=40.0, depth=0.003, cover=0.75),
+            dict(back, t='cracks', scale=3.0, width=0.025, depth=0.004, warp=0.08, cover=0.25, cover_scale=1.0),
             {'t': 'cracks', 'scale': 2.2, 'width': 0.02, 'depth': 0.004, 'warp': 0.08, 'cover': 0.08, 'cover_scale': 0.8}]
-    carve(body, 0.0025, [{'t': 'lumps', 'scale': 0.7, 'amp': 0.0009}], fine, seed=11)
-    m = paint3("slab_a", 'stone', h=1.1, k=1.0, moss=0.45, moss_low=0.85, moss_low_h=0.4, dirt=0.6, dirt_h=0.18, tooling=0.45,
-               streaks=0.5, stains=0.4, lichen=0.45, edge=0.9, edge_w=0.012, edge_mode='attr', piece_val=0.06)
+    carve(body, 0.0025, [{'t': 'lumps', 'scale': 0.7, 'amp': 0.0009}], fine, seed=11, edge_from=esrc)
+    # v3b 칠: 모서리 빛은 좁고 덜 밝게(흰 외곽선 → 장난감), 틈·글자 그늘 진하게, 삭은 얼룩·흙물 더 (오래 버려진 돌)
+    # contrast·pivot: 밝은 곳은 그대로, 어두운 곳은 더 어둡게 (게임 시점 p90/평균 대비를 이전보다 크게). gain: 평균은 이전 ±10%
+    m = paint3("slab_a", 'stone', h=1.1, k=1.0, moss=0.45, moss_low=0.7, moss_low_h=0.4, dirt=0.7, dirt_h=0.2, tooling=0.45,
+               streaks=0.7, stains=0.65, lichen=0.5, edge=0.8, edge_w=0.009, edge_gain=0.85, edge_mode='attr', piece_val=0.06,
+               cavity=1.0, contrast=0.3, pivot=0.2, gain=1.05)
     set_mat(body, m)
     print("LOW grave_slab_a", tri_count(low))
     # 왼쪽 뒤 받침에서 기어오르는 덩굴 (조금)

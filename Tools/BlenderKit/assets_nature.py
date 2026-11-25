@@ -950,11 +950,13 @@ def rock_b():
     step_spalls(o, rng, 6, (0.45, 0.8), (0.05, 0.09))
     origin0(o)
     low = lowpoly(o, z=-0.05)
-    co, fi = ROCK3(1.8, 0.7)
+    co, fi = ROCK3(1.8, 0.7, chisel=0.25)     # 큰 평면 끌 면 (칸 75 cm, 깊이 1 cm 안팎) — 넓은 면이 비닐처럼 비지 않게
     carve(o, 0.005, co, fi, seed=5, pieces=False, mode='octree')
+    # 닳은 모서리는 좁고 덜 밝게 (모든 모서리를 같은 굵기로 빛내면 외곽선을 그린 장난감), 지의류는 잘고 어둡게 (흰 물감 자국 방지)
     m = paint3("rock_b", ROCK_PAL, h=2.3, k=1.8, cells=0.7, piece_var=0.4, piece_val=0.08, facet_var=0.3, light=1.2, moss=0.9, moss_low=0.5,
-               moss_low_h=0.35, dirt=0.6, dirt_h=0.3, edge=0.6, edge_w=0.018, edge_gain=1.0, streaks=0.55, ao=0.5, grain=0.12, tooling=0.0,
-               speckle=0.4, strokes=0.8, stains=0.5, edge_mode="attr", lichen=0.7, contrast=0.2)
+               moss_low_h=0.35, dirt=0.6, dirt_h=0.3, edge=0.45, edge_w=0.014, edge_gain=0.95, streaks=0.55, ao=0.5, grain=0.12, tooling=0.0,
+               speckle=0.4, strokes=0.8, stains=0.55, edge_mode="attr", lichen=0.55, lichen_scale=20.0, lichen_color=(0.34, 0.37, 0.31),
+               contrast=0.2)
     set_mat(o, m)
     print("LOW rock_b", tri_count(low))
     cards = Cards()
@@ -2045,19 +2047,21 @@ def dead_tree_a():
     hang_moss_on(tr, cards, rng, 6, length=(0.4, 0.95), width=(0.16, 0.26))
     # v3b: 껍질판 사이 골이 어둡고(좁은 AO) 판 가장자리는 밝게(베벨), 껍질이 벗겨진 맨나무는 작고 경계가 또렷한 조각,
     # 이끼·지의류도 작게 (v3 의 회색 솜뭉치 얼룩 blotch(0.9, 0.5~0.6) 은 뺐다)
-    m = paint3("dead_tree_a", BARK_GREY, h=2.5, k=1.0, moss=0.3, moss_color=MOSS_DEAD, moss_patch=5.5, moss_low=0.25, moss_low_h=0.6,
-               piece_var=0.0, hue_var=0.2, edge=1.0, edge_w=0.014, edge_gain=1.1, cavity=0.75, ao=0.16, strokes=0.15, tooling=0.0,
-               streaks=0.2, stains=0.2, dirt=0.45, dirt_h=0.45, light=1.1, lichen=0.3, lichen_color=(0.3, 0.32, 0.28), grain=0.25,
-               contrast=0.2, pivot=0.06, gain=1.0)
+    # i8: 골 그늘을 덜 검게(가장자리에서 검은 구멍처럼 보였다), 판 모서리 빛을 줄여(뿌리 판이 수정 조각처럼 보였다),
+    # 밑동 흙물·이끼를 높이 올려 줄기와 뿌리 퍼짐이 만나는 고리를 덮는다
+    m = paint3("dead_tree_a", BARK_GREY, h=2.5, k=1.0, moss=0.3, moss_color=MOSS_DEAD, moss_patch=5.5, moss_low=0.5, moss_low_h=0.95,
+               piece_var=0.0, hue_var=0.2, edge=0.65, edge_w=0.012, edge_gain=1.0, cavity=0.55, ao=0.16, strokes=0.15, tooling=0.0,
+               streaks=0.2, stains=0.25, dirt=0.6, dirt_h=0.85, light=1.1, lichen=0.3, lichen_color=(0.3, 0.32, 0.28), grain=0.25,
+               contrast=0.2, pivot=0.06, gain=0.85)       # gain: 게임 시점 6 m 밝기가 이전보다 14% 밝았다 → ±10%
     blotch(m, (0.2, 0.19, 0.22), 2.6, 0.45, 0.62, 0.63)   # 껍질이 벗겨진 맨나무 (작고 또렷하게, 흰 물감 같지 않게 어둡게)
     grad_dark(m, 0.0, 1.0, 0.45)
     # 잔가지는 밝게 (어두운 하늘에 실루엣이 읽히게)
     mb = paint3("dead_tree_a_tw", 'bark_pale', h=6.6, k=0.5, moss=0.1, moss_color=MOSS_DEAD, piece_var=0.0, edge=0.3,
                 cavity=0.5, ao=0.1, strokes=0.2, tooling=0.0, streaks=0.0, stains=0.0, dirt=0.0, light=0.8)
-    co, fi = BARK3(1.0)
+    co, fi = BARK3(1.0, depth=0.8)         # 골 벽이 조금 덜 가파르게 (depth 1.0: steep 3.0% → 0.85: 2.4%)
     return tree_build("dead_tree_a", tr, 0.045, 0.006, co + fi, twig_layers(), m, 5000, 2048, 0.06,
                       extras=[cards.obj("moss")], mat_b=mb, low_mode='tube', rho=tree_rho,
-                      fin=dict(cage=0.006, cage_reach=0.06, samples=8, margin=0, uv_margin=0.002))
+                      fin=dict(cage=0.006, cage_reach=0.06, samples=8, margin=0, uv_margin=0.002, despeck=True))
 
 
 def arch_root(rng, ang, r_trunk, reach, height):

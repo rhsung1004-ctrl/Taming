@@ -1032,17 +1032,20 @@ class Placer:
         return c - lo
 
     def put(self, a, x, z, yaw=None, s=None, tilt=None, align=None, y=None, check=True, r=None,
-            road=True, water=True, slope=0.75, stamp=None, occupy=True, ground=None, ground_margin=None, align_max=None, pad=True):
+            road=True, water=True, slope=0.75, stamp=None, occupy=True, ground=None, ground_margin=None, align_max=None, pad=True,
+            bury_max=None, bury_reject=None):
         """소품 하나. META 기본값(크기·기울기·묻기·경사 맞춤)을 쓴다. 성공하면 True
         align: True/False 또는 0~1 (지형 법선 쪽으로 기울이는 비율), align_max: 기울임 상한(도)
         ground: "box" 면 기울인 바닥 상자 전체가 땅에 닿게 높이를 정한다 (절벽은 기본). ground_margin: 더 묻는 깊이(m)
-        pad: 바닥 상자 접지에서 오르막 쪽이 높이의 BURY_MAX 넘게 묻히면 밑을 조금 고른다 (안 되면 check 일 때 놓지 않는다)"""
+        pad: 바닥 상자 접지에서 오르막 쪽이 높이의 BURY_MAX 넘게 묻히면 밑을 조금 고른다 (안 되면 check 일 때 놓지 않는다)
+        bury_max: 이 소품만 BURY_MAX 대신 (실제 메쉬 바닥이 상자보다 거친 대체 소품 등). bury_reject: 묻힘 때문에 놓지 않는가
+        (기본 = check. 장면의 loose 요소는 겹침 검사는 끄되 묻힘 검사는 켠다)"""
         m = self.meta.get(a)
         if m is None:
             if a in NEW_PROPS:
                 return self._put_sub(a, x, z, yaw=yaw, s=s, tilt=tilt, align=align, y=y, check=check, r=r, road=road, water=water,
                                      slope=slope, stamp=stamp, occupy=occupy, ground=ground, ground_margin=ground_margin,
-                                     align_max=align_max, pad=pad)
+                                     align_max=align_max, pad=pad, bury_max=bury_max, bury_reject=bury_reject)
             self.missing.add(a)
             return False
         rng = self.rng
@@ -1105,7 +1108,7 @@ class Placer:
                 if hgt < 1.0:
                     sink_ok = True                     # 낮은 것(관·잔해)은 묻혀도 눈에 띄지 않는다
                 # v3: 큰 소품이 비탈 오르막 쪽에 높이의 25% 넘게 묻히면 밑을 조금 고른다 (의도된 묻힘: 절벽·묻는 깊이를 준 것은 빼고)
-                if sink_ok or bury <= BURY_MAX * hgt:
+                if sink_ok or bury <= (BURY_MAX if bury_max is None else bury_max) * hgt:
                     break
                 if attempt == 0 and pad:
                     size = m.get("_size") or [2 * m.get("footprint", 0.5)] * 3
@@ -1113,7 +1116,7 @@ class Placer:
                     if self.terraform(x, z, rin, rin + max(4.0, 3.5 * self._spread), "flat", 1.0):
                         self.pads += 1
                         continue
-                if check:
+                if check if bury_reject is None else bury_reject:
                     self.pad_reject += 1
                     self.pad_reject_by[a] += 1
                     return False
@@ -1447,7 +1450,7 @@ def lay_village(W, P):
     W.lights.append({"p": [round(cx - 4.5, 2), round(P.height(cx - 4.5, cz + 3.0) + 2.6, 2), round(cz + 3.0, 2)], "c": SPIRIT,
                      "i": 4.0, "r": 8.0, "flicker": True, "far": 150.0})          # 우물가 등대 빛 (마을이 멀리서 보이게)
     P.scatter("stump", 6, in_disk((cx, cz), 68, 20))
-    P.scatter("log_fallen", 3, in_disk((cx, cz), 68, 20))
+    P.scatter("log_fallen", 3, in_disk((cx, cz), 68, 20), ground="box")
     P.scatter("bush_dead", 16, in_disk((cx, cz), 72))
     P.scatter("bramble", 12, in_disk((cx, cz), 76, 30))
     P.put("lantern", cx + 5, cz - 6, yaw=200, check=True)
@@ -1519,7 +1522,7 @@ def lay_swamp(W, P):
     P.scatter("dead_tree_b", 95, dry, water=True)          # v3: 면적당 v1 이상 (넓이 0.578 배: 160 → 93, 70 → 41)
     P.scatter("dead_tree_c", 42, dry)
     P.scatter("roots", 30, dry)
-    P.scatter("log_fallen", 22, dry)
+    P.scatter("log_fallen", 22, dry, ground="box")
     P.scatter("stump", 26, dry)
     P.scatter("mushroom_toxic", 44, dry)
     P.scatter("bush_dead", 40, dry)
@@ -1766,7 +1769,8 @@ def lay_bridge_creek(W, P):
 
 
 FORESTS = ((FOREST_SW[0], FOREST_SW[1], 1 / 70.0, 1301, ("camp", "crystal", "barrow")),
-           (FOREST_NE[0], FOREST_NE[1], 1 / 75.0, 1311, ("crystal", "camp")))   # v3: 면적당 죽은 나무 v1 이상 (1/85 → 1/75)
+           (FOREST_NE[0], FOREST_NE[1], 1 / 71.0, 1311, ("crystal", "camp")))   # v3: 면적당 죽은 나무 v1 이상 (1/85 → 1/75 → 채움 1/71:
+#   잔굴곡 위 빈터 장면 자리가 바뀌어도 v1 밀도 35.2 그루/ha 아래로 내려가지 않게)
 
 
 def forest_mask(W, center, R, seed):
@@ -1824,12 +1828,14 @@ def lay_forest(W, P, center, R, density, seed, clearings=()):
     area_g = in_mask(W, m * glade)
     area_tot = float(m.sum())
     nt = int(area_tot * density)
-    P.scatter("dead_tree_a", int(nt * 0.34 * 1.05 * DEAD_TREE_CUT), area_t)
-    P.scatter("dead_tree_c", int(nt * 0.22 * 1.05 * DEAD_TREE_CUT), area_t)
-    P.scatter("dead_tree_b", int(nt * 0.22 * 1.05 * DEAD_TREE_CUT), area_t)
+    for nm_, fr_ in (("dead_tree_a", 0.34), ("dead_tree_c", 0.22), ("dead_tree_b", 0.22)):
+        want = int(nt * fr_ * 1.05 * DEAD_TREE_CUT)
+        got_ = P.scatter(nm_, want, area_t)
+        if got_ < want:                       # v3: 잔굴곡(둔덕·턱) 위에서 뿌리가 뜨는 자리가 늘어 모자라면 더 시도 (숲 밀도 유지)
+            P.scatter(nm_, want - got_, area_t, tries=24)
     P.scatter("bramble", int(nt * 0.75), area_b)
     P.scatter("bush_dead", int(nt * 0.55), area_b)
-    P.scatter("log_fallen", int(nt * 0.13), area_b)
+    P.scatter("log_fallen", int(nt * 0.13), area_b, ground="box")
     P.scatter("roots", int(nt * 0.06), area_b)
     P.scatter("rock_a", int(nt * 0.06), area_t)
     P.scatter("rock_c", int(nt * 0.07), area_t)
@@ -1863,7 +1869,7 @@ def lay_lake(W, P):
     P.scatter("rock_a", 11, shore)
     P.scatter("rock_flat", 5, shore)
     P.scatter("dead_tree_b", 10, shore)
-    P.scatter("log_fallen", 3, shore)
+    P.scatter("log_fallen", 3, shore, ground="box")
     for i in range(8):
         x, z = area(rng)
         l = {"p": [round(x, 2), round(max(P.height(x, z), lev) + rng.uniform(0.8, 2.2), 2), round(z, 2)], "c": SPIRIT, "i": 3.5, "r": 8.0, "flicker": True}
@@ -1998,8 +2004,10 @@ class Scene:
                         break
                 if ok:
                     break
-            if not ok and not loose:
-                ok = self._put(a, lx, lz, yaw, ayaw, True, max(slope or 0.35, 0.45), **kw)
+            if not ok:
+                kw2 = dict(kw)
+                kw2["bury_reject"] = False
+                ok = self._put(a, lx, lz, yaw, ayaw, True, max(slope or 0.35, 0.45), **kw2)
         if ok:
             rec[1] += 1
         elif self.P.sub_skip.get(a, 0) > skip0:
@@ -2019,6 +2027,7 @@ class Scene:
             if not P.ok_ground(x, z, P.fp(a) * s0, kw.get("road", True), kw.get("water", True), 0.35 if slope is None else slope):
                 return False
             kw["check"] = False
+            kw.setdefault("bury_reject", True)       # 겹침은 보지 않되, 큰 구조물이 오르막에 묻히면 놓지 않는다
         else:
             kw.setdefault("slope", 0.6 if slope is None else slope)
         n0, t0, l0 = len(P.objects), len(P.trees), len(W.lights)
@@ -3023,24 +3032,37 @@ def lay_fields(W, P):
     # 채움 소품은 뭉쳐서 놓는다 (덤불숲과 빈터가 번갈아 온다. 고르게 흩으면 소금·후추처럼 단조롭다)
     # v3 채움: 외톨이로 고르게 흩어지는 것을 줄였다 (FIELD_SCATTER). 나무·덤불은 나무 무리·산울타리(lay_fill)가 맡는다.
     # 바닥의 작은 것(바위 조각·해골·꽃)은 덜 줄인다 (가까이서만 보이고 그리는 물체 수에 거의 들지 않는다)
-    af = in_mask(W, open_ * (0.2 + 1.6 * ss(fbm(W.X, W.Z, 1 / 170, 3, 1401), -0.05, 0.25)))
+    wf = open_ * (0.2 + 1.6 * ss(fbm(W.X, W.Z, 1 / 170, 3, 1401), -0.05, 0.25))
+    # 장소 둘레(용의 무덤·호수 물가·늪)는 채움(lay_fill)이 들어가지 않으므로 흩뿌림을 줄이지 않는다 (장소 면적당 밀도 유지).
+    # 그 몫(가중치 비율 fin)은 장소 안에 그대로(배율 1), 나머지 들판 몫만 FIELD_SCATTER·FIELD_TREES 로 줄인다
+    pm = np.zeros(W.h.shape, np.float32)
+    for c, R in ((DRAGON, DRAGON_R), (LAKE, LAKE_R + 35), (SWAMP, SWAMP_R)):
+        rs, cs, d = disk(W.h.shape, c[0], c[1], R)
+        pm[rs, cs] = np.maximum(pm[rs, cs], (d <= R).astype(np.float32))
+    tot = float(wf.sum())
+    fin = float((wf * pm).sum()) / tot if tot > 0 else 0.0
+    af_in, af_out = in_mask(W, wf * pm), in_mask(W, wf * (1 - pm))
     k, k2, kt = FIELD_SCATTER, min(1.0, FIELD_SCATTER * 1.6), FIELD_TREES
-    P.scatter("dead_tree_a", int(130 * DEAD_TREE_CUT * kt), af)
-    P.scatter("dead_tree_b", int(100 * DEAD_TREE_CUT * kt), af)
-    P.scatter("dead_tree_c", int(70 * DEAD_TREE_CUT * kt), af)
-    P.scatter("bush_dead", int(380 * k), af)
-    P.scatter("bramble", int(280 * k), af)
-    P.scatter("rock_a", int(170 * k2), af)
-    P.scatter("rock_c", int(250 * k2), af)
-    P.scatter("rock_b", int(35 * k), af)
-    P.scatter("rock_flat", int(30 * k), af)
-    P.scatter("stump", int(45 * k2), af)
-    P.scatter("log_fallen", int(25 * k), af)
-    P.scatter("roots", int(20 * k2), af)
-    P.scatter("flower_lily", int(70 * k2), af)
-    P.scatter("mushroom_glow", int(30 * k2), af)
-    P.scatter("skull", int(60 * k2), af)
-    P.scatter("bone_pile", int(15 * k2), af)
+
+    def sc2(a, n, kk, **kw):
+        P.scatter(a, int(round(n * fin)), af_in, **kw)
+        P.scatter(a, int(n * (1 - fin) * kk), af_out, **kw)
+    sc2("dead_tree_a", 130 * DEAD_TREE_CUT, kt)
+    sc2("dead_tree_b", 100 * DEAD_TREE_CUT, kt)
+    sc2("dead_tree_c", 70 * DEAD_TREE_CUT, kt)
+    sc2("bush_dead", 380, k)
+    sc2("bramble", 280, k)
+    sc2("rock_a", 170, k2)
+    sc2("rock_c", 250, k2)
+    sc2("rock_b", 35, k)
+    sc2("rock_flat", 30, k)
+    sc2("stump", 45, k2)
+    sc2("log_fallen", 25, k, ground="box")
+    sc2("roots", 20, k2)
+    sc2("flower_lily", 70, k2)
+    sc2("mushroom_glow", 30, k2)
+    sc2("skull", 60, k2)
+    sc2("bone_pile", 15, k2)
     # 길가 등불 (장면이 없는 긴 길 구간만). 다른 길 위에 떨어지지 않게 길 검사를 켠다 (자기 길은 반폭 + 1.4 라 통과)
     sc = np.array([s_["p"] for s_ in W.scenes]) if W.scenes else np.zeros((0, 2))
     pois = [(p if p else W.bridge_p, r) for (_, _, p, r) in POIS if r < 100]      # 작은 장소 (큰 늪·숲·묘지 안 긴 길은 등불을 둔다)
@@ -3077,15 +3099,17 @@ def lay_fields(W, P):
 #  - 물가·장면 둘레 유령 백합, 불·전장 장면 둘레 재
 # 줄 소품 상한(FILL_BUDGET)을 넘으면 그 줄은 소품 없이 턱(지형)만 남는다
 FILL_SEED = 6262
-FILL_BUDGET = {"wall": 420, "fence": 300, "hedge": 1500, "hedge_tree": 210, "stones": 1700, "post": 80}   # 줄 소품 상한 (그리는 물체 수)
+FILL_BUDGET = {"wall": 700, "fence": 420, "hedge": 1500, "hedge_tree": 210, "stones": 1700, "post": 80}   # 줄 소품 상한 (그리는 물체 수).
+#   밤 눈높이에서 가장 잘 읽히는 것은 밝은 돌담이라 돌담 몫을 크게 (대체 돌담은 1.5 m 조각이라 4 m 새 소품이 오면 같은 길이에 물체 수가 약 1/2.6)
 FILL_GROVES = 40             # 나무 무리 수
 FILL_GROVE_TREES = (5, 11)   # 무리마다 고목 수
 FILL_GROVE_GAP = 68.0        # 나무 무리 사이 (m)
 FILL_OUTCROP_GAP = 62.0      # 바위 노두 사이 (m)
 FILL_CLUMPS = 500            # 작은 덩이 (바위 덩이·덤불 덩이·쓰러진 나무 자리) 수: 눈높이 20~40 m 마다 걸리게. 짧은 거리에서 사라지는 값싼 소품만
 FILL_CLUMP_GAP = 26.0        # 작은 덩이 사이 (m)
-FILL_SINGLES = 3300          # 낱개 (큰 바위·큰 덤불·돌무더기·그루터기) 수
-FILL_SINGLE_GAP = 12.0       # 낱개 사이 최소 (m)
+FILL_SINGLES = 2900          # 낱개 (큰 바위·큰 덤불·돌무더기·그루터기) 수
+FILL_SINGLE_GAP = 10.0       # 낱개 사이 최소 (m)
+FILL_SINGLE_PATCH = 0.8      # 낱개를 넓은 얼룩(약 120 m 무늬)으로 몰아 놓는 세기. 0 = 고르게 (소금·후추처럼 보인다), 클수록 무리와 빈터가 뚜렷
 FILL_OUTCROPS = 40           # 바위 노두 수
 FILL_BARROWS = 9             # 작은 무덤 둔덕 (장면 '선돌 무덤 둔덕'보다 작고 빛이 없다)
 FILL_STONES = 22             # 외딴 선돌 (멀리 보이는 세로 실루엣)
@@ -3095,7 +3119,8 @@ FILL_CARTS = 6               # 길가 부서진 수레 자리
 FILL_MILESTONE = (110.0, 170.0)   # 이정표 돌 간격 (길을 따라 m)
 FILL_ROAD_RUN = ((35.0, 95.0), (25.0, 80.0))    # 길가 경계: (이어지는 길이, 끊긴 길이) m. 장면 자리는 저절로 끊긴다
 FIELD_TREES = 0.2            # lay_fields 외톨이 고목 배율 (v3 구조 전 1.0. 고목은 나무 무리·산울타리 나무로)
-FIELD_SCATTER = 0.3          # lay_fields 흩뿌림(외톨이 나무·덤불·바위) 배율 (v3 구조 전 1.0)
+FIELD_SCATTER = 0.3          # lay_fields 흩뿌림(외톨이 나무·덤불·바위) 배율 (v3 구조 전 1.0). 장소 둘레(용의 무덤·호수·늪)는 줄이지 않는다
+FILL_WALL_BURY = 0.15        # 밭 경계 돌담의 묻힘 한계 (높이 비율, 기본 BURY_MAX 0.25). 넘으면 밑을 고르고, 그래도 넘으면 비운다
 
 
 def along_yaw(tx, tz):
@@ -3176,7 +3201,7 @@ def fill_line(W, P, rng, F, pts, kind, src, up=None):
                 ln = seg_len(P, "stone_wall_low", s)
                 x, z, tv, i = at(pos + ln / 2)
                 if F.n["wall"] < budget["wall"] and P.put("stone_wall_low", x, z, yaw=along_yaw(*tv) + (180 if rng.random() < 0.5 else 0) + rng.normal(0, 3),
-                                                          s=s, slope=0.55, ground="box", r=1.1):
+                                                          s=s, slope=0.55, ground="box", r=1.1, bury_max=FILL_WALL_BURY):
                     F.n["wall"] += 1
                     got.append((x, z))
                 step = ln * 0.96
@@ -3283,7 +3308,8 @@ def fill_singles(W, P, rng, F, open_):
             near[int(z), int(x)] = 1.0
     near = np.clip(box_blur(near, 7, 2) * 12.0, 0, 1)
     brk = ss(np.abs(W.slope - box_blur(W.slope, 6)), 0.04, 0.15)
-    w = open_ * (0.45 + 0.8 * near + 0.6 * W.hollow + 0.6 * W.crest + 0.4 * brk) * (W.slope < 0.5)
+    patch = (1.0 - FILL_SINGLE_PATCH * 0.5) + FILL_SINGLE_PATCH * ss(fbm(W.X, W.Z, 1 / 120, 3, 6363), -0.1, 0.3)
+    w = open_ * (0.45 + 0.8 * near + 0.6 * W.hollow + 0.6 * W.crest + 0.4 * brk) * (W.slope < 0.5) * np.clip(patch, 0.05, None)
     pick = in_mask(W, w.astype(np.float32))
     sc = np.array([(s_["p"][0], s_["p"][1], s_["r"] + 4.0) for s_ in W.scenes]) if W.scenes else np.zeros((0, 3))
     pois = np.array([((p if p else W.bridge_p)[0], (p if p else W.bridge_p)[1], r + 6.0) for (_, _, p, r) in POIS if r < 150])
@@ -3349,7 +3375,8 @@ def lay_fill(W, P):
     open_ = ((W.mount < 0.22) & (W.slope < 0.42)).astype(np.float32) * (1 - ss(W.forest_plan, 0.08, 0.25))
     ex = ((W.X - GRAVE_C[0]) / (GRAVE_R[0] + 15)) ** 2 + ((W.Z - GRAVE_C[1]) / (GRAVE_R[1] + 15)) ** 2
     open_ *= ss(ex, 1.0, 1.25)
-    for c, R in ((SWAMP, SWAMP_R + 20), (DRAGON, DRAGON_R - 10), (LAKE, LAKE_R + 25)):
+    # 늪·호수 둘레 빈 띠를 좁힌다 (장소 흩뿌림은 장소 원 안까지라, 원 밖 20~40 m 띠가 아무도 채우지 않는 빈 땅이 됐다)
+    for c, R in ((SWAMP, SWAMP_R), (DRAGON, DRAGON_R - 10), (LAKE, LAKE_R + 12)):
         rs, cs, d = disk(h.shape, c[0], c[1], R + 21)
         open_[rs, cs] *= ss(d, R, R + 20)
     W.fill_open = open_

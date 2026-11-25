@@ -1,7 +1,7 @@
 # 전후 비교 렌더: 같은 소품의 이전 판과 새 판을 같은 카메라·조명으로 찍어 나란히 붙인다 (판단용)
 #   blender -b --python-exit-code 1 -P compare.py -- <이전 폴더> <새 폴더> <이름> <출력 접두사> [near=x,y,z,거리[,방위도,앙각도]]
-#                                                  [views=near,mid,game] [ref=이름[,이름]] [samples=32]
-#   결과: <접두사>_near.png (가까이 1~2m), <접두사>_mid.png (중간 거리, 전체)  — 왼쪽 = 이전, 오른쪽 = 새 판
+#                                                  [views=near,mid,game[,back]] [ref=이름[,이름]] [samples=32]
+#   결과: <접두사>_near.png (가까이 1~2m), <접두사>_mid.png (중간 거리, 전체), [<접두사>_back.png (뒤에서)]  — 왼쪽 = 이전, 오른쪽 = 새 판
 #         <접두사>_game.png (게임 시점: 눈높이 1.7m 카메라, 3m·6m, 밤 달빛 — 월드 룩 도구의 달빛·주변광·노출) — 왼쪽 열 이전, 오른쪽 열 새 판
 #   ref=이름: 게임 시점에 이전 폴더의 다른 소품을 옆에 같이 세운다 (새 판이 이전 소품들 사이에서 붕 뜨는지 본다)
 #   로그 LUM 줄: 게임 시점 렌더에서 소품이 차지한 화소의 평균 밝기 (화면 sRGB 휘도) — 이전/새 판 밝기 비교
@@ -283,5 +283,13 @@ if "mid" in VIEWS:
     tgt = Vector((0, 0, H * 0.48))
     d = max(max(dims.x, dims.y) / (2 * math.tan(hfov / 2)), H / (2 * math.tan(vfov / 2))) * 1.12 + 0.3
     shoot(tgt, tgt + Vector((d * 0.42, -d * 0.9, d * 0.2)).normalized() * d, lens, prefix + "_mid")
+if "back" in VIEWS:
+    # 뒤(+Y)에서 비스듬히 중간 거리 (뒷면이 밋밋하지 않은지)
+    lens = 45
+    vfov = 2 * math.atan(18.0 / lens * RES[1] / RES[0])
+    hfov = 2 * math.atan(18.0 / lens)
+    tgt = Vector((0, 0, H * 0.48))
+    d = max(max(dims.x, dims.y) / (2 * math.tan(hfov / 2)), H / (2 * math.tan(vfov / 2))) * 1.12 + 0.3
+    shoot(tgt, tgt + Vector((-d * 0.42, d * 0.9, d * 0.2)).normalized() * d, lens, prefix + "_back")
 if "game" in VIEWS:
     game_views()

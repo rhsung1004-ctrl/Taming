@@ -949,10 +949,38 @@ def fill_holes(img, misses=True, grow=None):
         img.pixels.foreach_set(a.ravel())
     return float(miss.sum()) / max(1, cov)
 
+def despeckle(img, thr=0.08):
+    """(v3b) 굽힌 albedo 의 외딴 점(둘레 3x3 의 중앙값과 밝기가 thr 넘게 다른 화소)을 중앙값 이웃 색으로 바꾼다.
+    paint3 의 AO 는 표본이 적어, 깊은 틈 바로 옆 입술(반쯤 가려진 곳)에서 밝은 모서리 띠 위에 검은 점(소금·후추)이 생긴다.
+    중앙값이라 모서리·글자 경계는 그대로 남는다. 바꾼 비율을 돌려준다"""
+    import numpy as np
+    w, h = img.size
+    a = np.empty(w * h * 4, np.float32)
+    img.pixels.foreach_get(a)
+    a = a.reshape(h, w, 4)
+    rgb = a[..., :3]
+    L = rgb @ np.array([0.2126, 0.7152, 0.0722], np.float32)
+    P = np.pad(L, 1, mode='edge')
+    offs = [(dy, dx) for dy in (0, 1, 2) for dx in (0, 1, 2)]
+    st = np.stack([P[dy:dy + h, dx:dx + w] for dy, dx in offs])
+    med = np.partition(st, 4, axis=0)[4]
+    bad = np.abs(L - med) > thr
+    n = int(bad.sum())
+    if n:
+        k = np.abs(st[:, bad] - med[bad]).argmin(axis=0)          # 밝기가 중앙값인 이웃
+        ys, xs = np.nonzero(bad)
+        dy = np.array([o[0] for o in offs])[k] - 1
+        dx = np.array([o[1] for o in offs])[k] - 1
+        rgb[ys, xs] = rgb[np.clip(ys + dy, 0, h - 1), np.clip(xs + dx, 0, w - 1)]
+        a[..., :3] = rgb
+        img.pixels.foreach_set(a.ravel())
+    return n / float(w * h)
+
 RIM_PX = 4          # UV 섬 경계에서 몇 화소까지를 '테두리'로 볼지
 RIM_Z = 0.6         # 테두리에서 이보다 누운 법선(z<0.6, 약 53도)은 비스듬히 스친 광선 흔적 = 흰 보풀·검은 톱니 테두리
 WARN_STEEP = 2.0    # steep(%) 이 넘으면 WARN
-WARN_RIM = 5.0      # rim_soft(%) 가 넘으면 WARN (v3 시범 rim: 벽 0.6, 묘비 6.3, 바위 26 — 바위의 흰·검은 테두리)
+WARN_RIM = 5.0      # rim_soft(%) 가 이보다 크고 섬 안쪽(inner) 의 1.5 배보다도 크면 WARN
+                    # (v3 시범 rim: 벽 0.6, 묘비 6.3, 바위 26 — 바위의 흰·검은 테두리. v3b: 벽 0.2, 묘비 0, 바위 1.9)
 
 def _sharp_uv_segments(o):
     """단단한(sharp) 모서리의 UV 선분들 (섬 경계 띠에서 빼려고). 양쪽 면의 UV 를 모두 넣는다"""
@@ -969,12 +997,13 @@ def _sharp_uv_segments(o):
     return segs
 
 def normal_stats(img, hard_segs=None):
-    """굽은 직후(자홍으로 채워 둔 노멀맵, 메우기 전) 법선 통계: (rim, rim_soft, steep, 덮인 비율).
+    """굽은 직후(자홍으로 채워 둔 노멀맵, 메우기 전) 법선 통계: (rim, rim_soft, steep, 덮인 비율, inner).
     rim  = UV 섬 경계 RIM_PX 화소 띠 안에서 z < RIM_Z 인 비율 — 'miss 0%' 가 못 잡는, 비스듬히 스친 광선의 테두리 결함
            (폭이 16 화소도 안 되는 잔 섬은 뺀다: 잔가지 관처럼 섬 전체가 띠라 비율만 부풀린다)
     rim_soft = 그 가운데 단단한 모서리(hard_segs) 둘레를 뺀 것. 단단한 모서리에서는 원본의 둥근 모서리가 띠 안에서
     눕는 것이 정상(모서리 빛)이라 rim 을 부풀린다 → WARN 은 rim_soft 로 판단한다
-    steep = 덮인 화소 가운데 z < 0.35 (70도 넘게 누운 것, clamp_normals 가 세운다) 비율"""
+    steep = 덮인 화소 가운데 z < 0.35 (70도 넘게 누운 것, clamp_normals 가 세운다) 비율
+    inner = 테두리 띠 밖(섬 안쪽)의 z < RIM_Z 비율 — 깊은 껍질 골처럼 원래 누운 면이 많으면 rim 도 그만큼 높다 (WARN 은 둘을 견준다)"""
     import numpy as np
     w, h = img.size
     a = np.empty(w * h * 4, np.float32)
@@ -984,7 +1013,7 @@ def normal_stats(img, hard_segs=None):
     sent = (rgb[..., 0] > 0.995) & (rgb[..., 1] < 0.005) & (rgb[..., 2] > 0.995)
     cov = ~sent
     if not cov.any():
-        return 0.0, 0.0, 0.0
+        return 0.0, 0.0, 0.0, 0.0, 0.0
     def grow(m, n):
         for _ in range(n):
             e = m.copy()
@@ -1010,7 +1039,10 @@ def normal_stats(img, hard_segs=None):
         except ImportError:
             pass
     s = float((nz[cov] < 0.35).mean())
-    return r, rs, s, float(cov.mean())
+    # 테두리 밖(섬 안쪽) 같은 비율: 껍질 골처럼 원래 누운 면이 많은 소품은 rim 이 높아도 결함이 아니다 → 안쪽과 견준다
+    core = cov & ~d
+    ins = float((nz[core] < RIM_Z).mean()) if core.any() else 0.0
+    return r, rs, s, float(cov.mean()), ins
 
 def clamp_normals(img, zmin=0.35):
     """굽힌 노멀맵에서 너무 누운 법선(z < zmin, 약 70도 넘게 꺾인 것)을 zmin 까지 세운다.
@@ -1173,7 +1205,7 @@ def _hard_edges(o, angle):
 
 def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, lod2=None, uv_angle=66,
            cage=None, cage_reach=0.2, hard=None, pack=False, samples=None, margin=16, margin_type='EXTEND', uv_margin=0.003,
-           uv='smart', uv_weight=None, lod_rule=False, bake_groups=None, probe=None):
+           uv='smart', uv_weight=None, lod_rule=False, bake_groups=None, probe=None, split_cage=False, despeck=False):
     """highs: 굽기 원본 / low_parts: 저폴리 조각 (하나로 합쳐 UV를 펴고 Main 재질)
     extras: 굽지 않고 그대로 붙이는 부품 (Glow_* 재질, Foliage 재질을 미리 입힌 것)
     lod1, lod2: LOD 비율 (Main 부분만 줄인다). None 이면 만들지 않는다.
@@ -1189,7 +1221,11 @@ def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, l
       lod_rule: 깨끗한 저폴리 규칙 (finish3 기본). Main 1,000 삼각형 미만이면 LOD1 은 줄이지 않고 잎·덩굴만 뺀다
         (잎이 없으면 LOD1 없음), 1,000~3,000 이면 LOD1 비율을 0.6 이상으로
       bake_groups: [[원본, ...], ...] — 저폴리 면 속성 'bgrp' 가 g 인 면은 bake_groups[g] 의 원본에만 굽는다 (나무 가지별 굽기)
-      probe: f(low, size) — TEXEL 줄 뒤에 더 찍을 것 (나무 줄기 밑동 텍셀 등)"""
+      probe: f(low, size) — TEXEL 줄 뒤에 더 찍을 것 (나무 줄기 밑동 텍셀 등)
+      split_cage: (hard 와 함께) 단단한 모서리에서 저폴리 사본을 쪼갠 뒤 우리를 만들어 굽는다. 쪼개지 않으면 모서리 정점의 우리가
+        양쪽 면 법선의 평균으로 부풀어, 좁은 면(모따기·떨어진 자국 벽)에서 광선이 옆 면으로 비껴 맞아 빗살 무늬(흰 점선 + 검은 점)가 된다.
+        단단한 모서리 = UV 이음매라 쪼개도 이음매가 늘지 않는다 (내보내는 저폴리는 그대로)
+      despeck: albedo 의 외딴 점(AO 표본 잡음)을 지운다 (despeckle, 로그 BAKE 의 despeck %)"""
     t0 = __import__('time').time()
     low = join(low_parts)
     origin0(low)
@@ -1299,30 +1335,46 @@ def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, l
             delete(cg); delete(tmp)
         print("BAKEGROUPS", name, len(jobs))
     else:
-        cg = make_cage(low, highs, cage, cage_reach) if cage else None
+        bl = low
+        if split_cage and hard:
+            bl = copy(low)
+            bm = bmesh.new(); bm.from_mesh(bl.data)
+            sharp = [e for e in bm.edges if not e.smooth]
+            if sharp:
+                bmesh.ops.split_edges(bm, edges=sharp)
+            bm.to_mesh(bl.data); bm.free()
+            _ray_off(bl)
+            print("SPLITCAGE", name, "sharp", len(sharp))
+        cg = make_cage(bl, highs, cage, cage_reach) if cage else None
         tb = __import__('time').time()
         nt.nodes.active = ta
-        _bake(low, highs, img_a, 'DIFFUSE', extr, cg, margin, margin_type, use_clear=not sentinel)
+        _bake(bl, highs, img_a, 'DIFFUSE', extr, cg, margin, margin_type, use_clear=not sentinel)
         tb2 = __import__('time').time()
         nt.nodes.active = tn
-        _bake(low, highs, img_n, 'NORMAL', extr, cg, margin, margin_type, use_clear=not sentinel)
+        _bake(bl, highs, img_n, 'NORMAL', extr, cg, margin, margin_type, use_clear=not sentinel)
         tb3 = __import__('time').time()
         delete(cg)
+        if bl is not low:
+            delete(bl)
     sc.cycles.samples = old_samples
     _ray_off(low, False)
     miss = fill_holes(img_a)
+    dsp = despeckle(img_a) if despeck else None
     steep = 0.0
     rim = rim_s = None
+    inner = 0.0
     if sentinel:
         # v3b: 메우기 전에 법선 통계 — rim(섬 경계 띠의 누운 법선) 은 비스듬히 스친 광선의 흰·검은 테두리를 잡는다
-        rim, rim_s, steep, _cov = normal_stats(img_n, hard_segs)
+        rim, rim_s, steep, _cov, inner = normal_stats(img_n, hard_segs)
         fill_holes(img_n, misses=False)
         clamp_normals(img_n)
     print("BAKE", name, "miss %.3f%%" % (miss * 100), "steep %.2f%%" % (steep * 100),
-          ("rim %.2f%% rim_soft %.2f%%" % (rim * 100, rim_s * 100)) if rim is not None else "rim -",
+          ("rim %.2f%% rim_soft %.2f%% inner %.2f%%" % (rim * 100, rim_s * 100, inner * 100)) if rim is not None else "rim -",
+          ("despeck %.3f%%" % (dsp * 100)) if dsp is not None else "",
           "albedo_s", round(tb2 - tb, 1), "normal_s", round(tb3 - tb2, 1), "total_s", round(__import__('time').time() - t0, 1))
-    if sentinel and (steep * 100 > WARN_STEEP or rim_s * 100 > WARN_RIM):
-        print("WARN BAKE", name, "steep %.2f%% (기준 %.0f%%)" % (steep * 100, WARN_STEEP), "rim_soft %.2f%% (기준 %.0f%%)" % (rim_s * 100, WARN_RIM),
+    if sentinel and (steep * 100 > WARN_STEEP or (rim_s * 100 > WARN_RIM and rim_s > 1.5 * inner)):
+        print("WARN BAKE", name, "steep %.2f%% (기준 %.0f%%)" % (steep * 100, WARN_STEEP),
+              "rim_soft %.2f%% (기준 %.0f%% 이면서 섬 안쪽 %.2f%% 의 1.5 배)" % (rim_s * 100, WARN_RIM, inner * 100),
               "— 섬 경계·깊은 홈을 광선이 비스듬히 스친다: 저폴리가 큰 면(slice·spall)을 따라가게, 홈 벽을 45도 안팎으로, 단단한 모서리+이음매로")
     _save_jpg(img_a, os.path.join(OUT, name + "_albedo.jpg"))
     nbytes = save_png(img_n, os.path.join(OUT, name + "_normal.png"))
@@ -1611,16 +1663,21 @@ def _edge_put(o, kd, cap=0.2):
         out.append(min(cap, r[2]) if r[0] is not None else cap)
     me.attributes.new('edist', 'FLOAT', 'POINT').data.foreach_set('value', out)
 
-def carve(o, voxel, coarse=(), fine=(), seed=0, snap=True, pieces=True, base=False, relax=0, mode='voxel', edges=True):
+def carve(o, voxel, coarse=(), fine=(), seed=0, snap=True, pieces=True, base=False, relax=0, mode='voxel', edges=True,
+          edge_from=None):
     """v3 조각: [조각 번호] → 리메시(+snap: 원래 표면에 되붙임, relax: 되붙인 톱니 펴기) → 큰 형태 층(coarse) → 잔 조각 층(fine).
     voxel: 작은 소품 0.0025~0.0035, 중간 0.005~0.009, 큰 것 0.01~0.02 (snap 덕에 예전보다 조금 커도 모서리가 산다)
     mode='octree' (v3b): 복셀 + 되붙이기 대신 옥트리(SHARP) 리메시 — 모서리가 곧다 (바위처럼 깨끗한 덩어리)
     edges (v3b): 깨끗한 형태의 볼록 모서리까지 거리를 'edist' 속성으로 → paint3(edge_mode='attr') 의 닳은 모서리가 곧고 고르다
+    edge_from (v3b): 닳은 모서리를 찾을 형태 (기본 o). 글자·금을 새기기 전 사본을 주면 글자·금 입술이 밝게 빛나지 않는다
+      (금 둘레에 흰 외곽선이 생기면 장난감 같다). 쓰고 나면 지운다
     base=True 면 저폴리 바탕(되붙이지 않은 리메시 + coarse)을 돌려준다 (리메시 형태에서 저폴리를 줄일 때.
     다 새긴 것·되붙인 것에서 줄이면 면이 구겨지거나 접힌 잔 삼각형 때문에 UV 섬이 수천 개로 쪼개진다)"""
     origin0(o)
     src = _piece_src(o, seed) if pieces else None
-    ekd = _edge_src(o, step=max(0.002, voxel * 0.5)) if edges else None
+    ekd = _edge_src(edge_from or o, step=max(0.002, voxel * 0.5)) if edges else None
+    if edge_from is not None:
+        delete(edge_from)
     b = None
     if base:
         # 저폴리 바탕은 되붙이지 않은 리메시에서 (되붙인 면은 모서리에 접힌 잔 삼각형이 있어, 줄이면 UV 섬이 수천 개로 쪼개진다)
@@ -1788,7 +1845,7 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
            cavity=0.9, ao=None, light=1.0, piece_var=0.6, cells=None, hue_var=0.5, strokes=0.35, tooling=0.25, streaks=0.3,
            grain=0.5, speckle=0.45, stains=0.35, moss_low=0.0, moss_low_h=None, shadow=(0.16, 0.1, 0.3), bump=0.35,
            piece_val=0.0, grime=0.0, grime_h=None, edge_gain=1.0, contrast=0.15, gain=1.1, pivot=0.1, moss_patch=2.4,
-           facet_var=0.0, facet_scale=2.5, edge_mode='bevel', lichen=0.0, lichen_color=(0.42, 0.45, 0.36)):
+           facet_var=0.0, facet_scale=2.5, edge_mode='bevel', lichen=0.0, lichen_color=(0.42, 0.45, 0.36), lichen_scale=11.0):
     """v3 손칠 재질 (굽기 원본용). 색 → Base Color(DIFFUSE 굽기), 잔 결 → Normal(NORMAL 굽기).
     pal: PAL 이름 또는 (어두운, 밝은, 모서리) / h: 물체 높이(m) — 위→아래 밝기 / k: 무늬 크기 배율 (1 = 사람 키)
     light: 위에서 비친 듯한 밝기 차이 / hue_var: 큰 얼룩으로 차가운 청색 ↔ 보랏빛 / piece_var: 블록(carve 의 'piece')마다 색조·밝기 차이 / cells: 블록 번호가 없을 때
@@ -1803,7 +1860,8 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
     facet_var: 면 방향마다 밝기·색조 ±비율 (법선의 잡음 → 평평한 깨진 면 하나는 한 톤, 이웃 면과는 다른 톤: 손칠 바위의 면 나눔)
     edge_mode: 'bevel' = 베벨 노드로 모서리 찾기 (표본 잡음 때문에 점선처럼 보일 수 있다) / 'attr' = carve 가 넣은 'edist'
       (깨끗한 형태의 볼록 모서리까지 거리) — 곧고 고른 닳은 모서리. carve(edges=True) 로 만든 원본에서만
-    lichen: 지의류 반점 (작고 가장자리가 또렷한 옅은 점, 위·옆면) — 넓은 평면이 비닐처럼 비어 보이지 않게 3~6 m 에서 읽히는 잔무늬"""
+    lichen: 지의류 반점 (작고 가장자리가 또렷한 옅은 점, 위·옆면) — 넓은 평면이 비닐처럼 비어 보이지 않게 3~6 m 에서 읽히는 잔무늬
+      lichen_scale: 반점 무늬 주파수 (k 로 나눈 좌표 기준, 클수록 잘다. 바위 k=1.8 에서 11 이면 10~20 cm 흰 물감 자국처럼 커서 20 안팎)"""
     dark, lightc, edgec = PAL[pal] if isinstance(pal, str) else pal
     edge_w = edge_w if edge_w is not None else 0.006 * k
     ao = ao if ao is not None else 0.3 * k
@@ -1898,9 +1956,9 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
         col = _mix(nt, 'MULTIPLY', gm, col, W(lerp(shadow, (0.0, 0.0, 0.0), 0.35)))
 
     # 5. 그늘: 넓은 AO(보라) + 좁은 AO(틈·금은 또렷하게 깊은 보라)
-    aoB = _ao(nt, ao, 12)
+    aoB = _ao(nt, ao, 16)
     col = _mix(nt, 'MULTIPLY', cavity * 0.85, col, _ramp_n(nt, aoB, [(0.2, lerp(shadow, (1, 1, 1), 0.25)), (0.95, (1, 1, 1))]))
-    aoS = _ao(nt, ao * 0.1, 10)
+    aoS = _ao(nt, ao * 0.1, 16)          # v3b: 10 → 16 (틈 입술의 소금·후추 점)
     col = _mix(nt, 'MULTIPLY', cavity * 0.85, col, _ramp_n(nt, aoS, [(0.35, lerp(shadow, (0, 0, 0), 0.15)), (0.9, (1, 1, 1))]))
 
     # 6. 닳은 모서리: 베벨 법선과 실제 법선의 차이(모서리) × 좁은 AO 가 밝은 곳(볼록) — 폭이 고르고 또렷한 선
@@ -1942,7 +2000,7 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
         col = _mix(nt, 'MIX', _mul(nt, _mul(nt, lowm, patch2), moss_low), col, mc2)
     if lichen > 0:   # (v3b) 지의류: 작은 덩어리 무늬 × 또렷한 문턱 (솜뭉치처럼 번지지 않게)
         lz = _maprange(nt, sN.outputs['Z'], -0.2, 0.4)
-        lsp = _maprange(nt, _noise(nt, Pk, 11.0, 3, 0.6), 0.6, 0.63)
+        lsp = _maprange(nt, _noise(nt, Pk, lichen_scale, 3, 0.6), 0.6, 0.63)
         lcl = _maprange(nt, _noise(nt, Pk, 1.3, 2, 0.5), 0.4, 0.6)        # 몰려 있는 곳과 빈 곳
         col = _mix(nt, 'MIX', _mul(nt, _mul(nt, _mul(nt, lsp, lcl), lz), lichen), col, W(lichen_color))
     # 8. 땅에 닿는 아래쪽 흙물
@@ -1985,12 +2043,15 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
     return m
 
 def finish3(name, highs, low_parts, extras=(), size='auto', cage=0.006, cage_reach=0.2, hard=None, lod1=0.35, lod2=None,
-            uv_angle=66, samples=8, uv_margin=0.003, uv='smart', uv_weight=None, lod_rule=True, bake_groups=None, probe=None):
+            uv_angle=66, samples=8, uv_margin=0.003, uv='smart', uv_weight=None, lod_rule=True, bake_groups=None, probe=None,
+            split_cage=True, despeck=True):
     """v3 마무리: 굽기 우리(cage) + UV 다시 배치(pack) + 여백 없이 굽고 빈 곳을 둘레 색으로 메우기(자홍·검정 테두리 없음).
     size: 'auto' = 가장 긴 변 1.5 m 미만 1024, 그 밖 2048 (저장소 용량 규칙, 4096 금지)
     cage: 우리 여유(m), hard: 단단한 모서리 각도(도, 석물 55 안팎·각진 바위 35~40 / 나무 None)
     samples: 굽기 표본 (색은 AO·베벨 광선이 따로 있어 8 이면 충분) / uv_margin: 섬 사이 여백 (섬이 수백 개면 0.001)
-    uv / uv_weight / lod_rule: finish 설명 참고 (lod_rule 기본 켬: Main 1,000 삼각형 미만은 LOD1 에서 잎만 뺀다)"""
+    uv / uv_weight / lod_rule / split_cage: finish 설명 참고 (lod_rule 기본 켬: Main 1,000 삼각형 미만은 LOD1 에서 잎만 뺀다,
+    split_cage 기본 켬: hard 가 있으면 단단한 모서리에서 쪼갠 우리로 굽는다)"""
     return finish(name, highs, low_parts, extras=extras, size=size, lod1=lod1, lod2=lod2, uv_angle=uv_angle,
                   cage=cage, cage_reach=cage_reach, hard=hard, pack=True, samples=samples, margin=0, uv_margin=uv_margin,
-                  uv=uv, uv_weight=uv_weight, lod_rule=lod_rule, bake_groups=bake_groups, probe=probe)
+                  uv=uv, uv_weight=uv_weight, lod_rule=lod_rule, bake_groups=bake_groups, probe=probe, split_cage=split_cage,
+                  despeck=despeck)

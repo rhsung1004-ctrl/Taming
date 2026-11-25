@@ -1283,8 +1283,8 @@ def wall_ruin_a():
     base = carve(body, 0.009, *STONE3(1.25, wear=1.2, cracks=0.6), seed=21, base=True)
     # v3b 칠: 블록마다 밝기 ±15%·따뜻한/차가운 색조, 닳은 모서리 더 밝고 넓게, 줄눈 아래 흙물·그을음, 오목한 곳 AO, 이끼 포인트
     set_mat(body, paint3("wall_ruin_a_src", 'stone', h=3.2, k=1.25, moss=0.75, moss_patch=3.2, moss_low=0.7, moss_low_h=0.7, dirt=0.75,
-                         dirt_h=0.4, streaks=0.7, edge=1.0, edge_w=0.018, edge_gain=1.25, piece_var=1.0, piece_val=0.15, grime=0.85,
-                         grime_h=0.16, cavity=1.0, ao=0.45, stains=0.45, lichen=0.35, contrast=0.2))
+                         dirt_h=0.4, streaks=0.7, edge=1.0, edge_w=0.022, edge_gain=1.35, piece_var=1.0, piece_val=0.15, grime=0.85,
+                         grime_h=0.16, cavity=1.0, ao=0.45, stains=0.5, lichen=0.4, contrast=0.2, gain=1.2))   # gain: 게임 시점 밝기 이전 ±10%
     low = low_of(base, 11500)
     delete(base)
     tgt = copy(low)
