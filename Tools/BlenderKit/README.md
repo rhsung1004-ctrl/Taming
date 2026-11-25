@@ -56,10 +56,11 @@ blender -b --python-exit-code 1 -P build.py -- <출력> <묶음> [이름,이름|
   - 1,000~3,000: LOD1 비율을 0.6 이상으로.
   - 그 밖: LOD1 0.35, 큰 것은 LOD2 0.12 (`finish3(..., lod1=0.35, lod2=0.12)`).
 
-## 만드는 과정 (kit.py, v3b)
+## 만드는 과정 (kit.py, v3b · v3c)
 
 v3 함수는 새 이름으로만 들어 있다. 예전 함수(`sculpt`, `paint`, `STONE_LAYERS`, `finish` 기본 인자)는 그대로라 v3 로 바꾸지 않은 묶음도 그대로 빌드된다.
 v3b 는 시범 4종(grave_slab_a, rock_b, wall_ruin_a, dead_tree_a)을 검토 지적에 맞춰 다시 만들며 고친 판이다. 새 기능은 모두 선택 인자·새 함수다.
+v3c 는 그 마무리다: 묘비에 세월(큰 깨짐·빗물 때·이끼·흙물), 바위의 위장무늬·모서리 보풀 제거, 나무 골의 흰 보풀·검은 점 제거.
 
 ```python
 from kit import *        # 주의: sc 는 init 뒤에 생기므로 kit.sc 또는 link(o) 를 쓴다
@@ -81,14 +82,14 @@ low = lowpoly(low_src, z=-0.015)
 finish3("이름", [body], [low], extras=[...], cage=0.006, hard=55)     # size='auto' → 1024/2048
 ```
 
-### 종류별 권장값 (v3b 시범에서 확인한 값)
+### 종류별 권장값 (v3b·v3c 시범에서 확인한 값)
 
 | 종류 | 형태·저폴리 | carve | 칠 (paint3) | finish3 |
 | --- | --- | --- | --- | --- |
-| 작은 석물 ~1m (묘비·십자가) | `lowpoly(새김 전 형태)` | 0.0025, `edge_from=새김 전 사본` | `edge_mode='attr'`, edge 0.8 / edge_w 0.009 / edge_gain 0.85, cavity 1.0, stains 0.55 | cage 0.006, hard 55, `uv_weight`(앞면 1.0, 뒷면 0.65, 받침 0.7) |
+| 작은 석물 ~1m (묘비·십자가) | `lowpoly(새김 전 형태)`, **큰 깨짐 한 군데**(들쭉날쭉한 윤곽 기둥을 앞뒤로 기울여 cut, 저폴리 전에) | 0.0025, `edge_from=새김 전 사본` | `edge_mode='attr'`, edge 0.8 / edge_w 0.009 / edge_gain 0.85, cavity 1.0, stains 0.7, **moss 0.95 / moss_patch 1.7, rain 0.9 / rain_h 0.75, splash 0.85 (splash_z = 받침 윗면)**, streaks 0.35 + `blotch`(물때) | cage 0.006, hard 55, `uv_weight`(앞면 1.0, 뒷면 0.65, 받침 0.7) |
 | 블록 많은 석조 (벽·아치·계단) | `ashlar(..., damage=(0.14, rng))` → `carve(base=True)` → `low_of` | 0.009, `STONE3(1.25, 1.2, 0.6)` | piece_var 1.0, **piece_val 0.15**, **grime 0.85** (grime_h 0.16), edge_w 0.022 / edge_gain 1.35, ao 0.45, lichen 0.4 | cage 0.01 / reach 0.1, **uv_margin 0.001**, lod2 0.12 |
-| 바위 2~4m | `facet_mass` + `chip_convex` + `step_spalls` → `lowpoly(그 형태)` | 0.005, **`mode='octree'`**, `ROCK3(k, 0.7, chisel=0.25)`, pieces=False | cells 0.7, facet_var 0.3, `edge_mode='attr'` edge 0.45 / edge_w 0.014, lichen 0.55 / **lichen_scale 20** | cage 0.012 / reach 0.1, **hard 38**, uv_angle 40, uv_margin 0.002 |
-| 죽은 나무 | `tree_build(..., low_mode='tube', rho=tree_rho)` | 0.006, `BARK3(1.0, depth=0.85)` | BARK_GREY, edge 0.65, cavity 0.55, dirt_h 0.85, moss_low_h 0.95, lichen 0.3 (blotch 는 작고 어둡게) | `fin=dict(cage=0.006, cage_reach=0.06, samples=8, margin=0, uv_margin=0.002)` |
+| 바위 2~4m | `facet_mass` + `chip_convex` + `step_spalls` → `lowpoly(그 형태)` | 0.005, **`mode='octree'`**, `ROCK3(k, 0.7, chisel=0.25)`, pieces=False | cells 0.7, facet_var 0.3, **edge 0, lichen 0, strata 0.8**, moss 1.0 / **moss_patch 1.5** | cage 0.012 / reach 0.1, **hard 38, flat_hard 6**, uv_angle 40, uv_margin 0.002 |
+| 죽은 나무 | `tree_build(..., low_mode='tube', rho=tree_rho)` | 0.006, `BARK3(1.0, depth=0.8)` | BARK_GREY, **edge 0, lichen 0, cavity 0.55 / cavity_s 0.2**, dirt_h 0.85, moss_low_h 0.95 (blotch 는 작고 어둡게) | `fin=dict(cage=0.006, cage_reach=0.06, samples=8, margin=0, uv_margin=0.002)` |
 
 - **석물 (묘비)**: 다듬은 앞면에는 칸 무늬 층(plates, chisel 칸)을 쓰지 않는다 — 거북등·유약 금처럼 읽힌다. 앞면은 긴 금 2~3줄(`crack_strokes` →
   `engrave_v` 0.0075/0.005) + 칠의 `tooling`(끌 자국 결). 뒷면은 조각 층에 `'face': (0, 1, 0)`(그 방향 면에만, `face_lo`/`face_hi` 로 경계)을 붙여
@@ -106,6 +107,12 @@ finish3("이름", [body], [low], extras=[...], cage=0.006, hard=55)     # size='
 - `paint3` 의 v3b 인자: `piece_val`(블록 밝기 ±), `grime`/`grime_h`(줄눈 아래 그을음), `edge_gain`, `contrast`/`gain`/`pivot`(명암 대비·전체 밝기),
   `facet_var`/`facet_scale`(면마다 톤), `edge_mode`('bevel' | 'attr'), `lichen`/`lichen_color`/`lichen_scale`(지의류: 작고 가장자리가 또렷한 반점),
   `moss_patch`(이끼 덩어리 크기). 기본 `contrast=0.15, gain=1.1` 은 albedo 를 sRGB(Standard)로 저장하게 된 뒤 이전 판 밝기에 맞춘 값이다.
+- `paint3` 의 v3c 인자: `strata`/`strata_scale`/`strata_tilt`(자연석 돌 결 줄무늬, 큰 잡음으로 짙어졌다 옅어졌다), `rain`/`rain_h`/`rain_color`
+  (꼭대기에서 흘러내린 빗물 때: 줄마다 길이가 다른 3~5 cm 세로 줄, 옆면만, 곱하기), `splash`/`splash_z`/`splash_h`(받침·땅과 만나는 곳 위로 튄 흙물 띠),
+  `cavity_s`(좁은 AO 그늘 세기 — 깊은 골 입술의 AO 표본 잡음이 검은 점이 되면 낮춘다).
+- `finish3(..., flat_hard=화소)` (v3c): 단단한 모서리(= UV 이음매) 둘레 그 폭의 띠를 두 그림 모두 그 섬 안쪽 값으로 다시 메운다(`regrow_hard_band`,
+  로그 `FLATHARD`). 옥트리 리메시 원본의 모서리는 복셀 톱니라 광선이 스치며 띠 안에 빗살이 생긴다 — 저폴리 모서리가 단단하니 띠를 지워도 모서리는
+  또렷하다. 칠한 모서리 빛(edge)도 함께 지워지므로 모서리 빛이 필요한 석물(묘비)에는 쓰지 않는다. 각진 바위·절벽 6 (2048 기준).
 - **밝기 맞추기**: 소품마다 `compare.py` 게임 시점 로그 `LUM` 의 평균을 이전 판 ±10% 안으로 (`gain` 으로). 대비(p90)는 이전보다 크게.
 - `finish3(..., size='auto', cage=push, cage_reach=…, hard=각도, uv_margin=…, uv_weight=…, samples=8, split_cage=True)`:
   - 굽기 우리: 저폴리 정점·면 가운데에서 법선으로 광선을 쏴 원본이 바깥에 있으면 그만큼 + push 부풀린 사본.
@@ -137,6 +144,13 @@ finish3("이름", [body], [low], extras=[...], cage=0.006, hard=55)     # size='
 - **바위에 복셀 리메시 + 되붙이기**: 비스듬한 모서리가 계단처럼 놓여 닳은 모서리 빛이 찢어진 종이 테두리 → `carve(mode='octree')`.
 - **모든 모서리를 같은 굵기로 밝게**: 외곽선을 그린 장난감 → edge 0.45~0.8, edge_w 1 cm 안팎, 글자·금은 `edge_from` 으로 뺀다.
 - **큰 지의류·회색 큰 얼룩**: 흰 물감 자국·솜뭉치 → lichen_scale 20 안팎, 어두운 색.
+- **넓은 면에 고르게 찍힌 지의류 반점**(바위 lichen 0.55): 위장무늬 → 바위·나무는 lichen 0. 이끼는 윗면·틈에 큰 덩어리(moss_patch 1.5),
+  넓은 옆면은 `strata`(줄무늬)·stains(얼룩)로 돌색만 바꾼다.
+- **각진 바위 모서리 빛 + 옥트리 원본 모서리**: 모서리마다 얇은 밝은 보풀 줄 → edge 0 + `flat_hard`.
+- **나무껍질에 베벨 모서리 빛**(edge_mode 'bevel', 표본 8): 골을 따라 들쭉날쭉한 흰 보풀 줄. 좁은 AO 를 세게 쓰면 골 입술에 검은 점 → edge 0, cavity_s 0.2.
+- **깨끗하게 다듬기만 한 묘비**: 버려진 묘지에서 새것처럼 보인다 → 큰 깨짐 한 군데(실루엣, 저폴리에도) + 깨짐에서 뻗은 가는 금 + 윗변·받침 이끼 +
+  빗물 때(rain) + 받침과 만나는 곳 흙물(splash) + 물때 blotch. 빗물 줄이 1 cm 로 잘면 가까이서 나뭇결처럼 읽힌다 (3~5 cm).
+- **둥근 윗변의 어깨를 커터 하나로 깨기**: 어깨가 이미 낮아 거의 물지 못한다 → 윗변에서 10~15 cm 안쪽까지 들어가는 윤곽으로.
 - **나무 저폴리를 리메시 + smart_project**: 섬이 수천 개, 텍셀 반토막, 껍질 결이 섬마다 끊긴다 → `low_mode='tube'`.
 - **나무 원본을 하나로 합쳐 한 번에 굽기**: 가지 이음매에 극단 법선 → 검은 점 → `bake_groups`.
 - **큰 조각(수 cm)까지 들어간 리메시에서 저폴리 줄이기**: 면이 구겨져 UV 섬이 수천 개 → 조각 전 바탕(`carve(base=True)`)에서.

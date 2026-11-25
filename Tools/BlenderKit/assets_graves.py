@@ -863,6 +863,15 @@ def grave_slab_a():
     # 오른쪽 어깨가 크게 깨져 나감 + 왼쪽 아래 모서리
     cut(slab, [chunk((0.3, -0.02, 1.0), (0.13, 0.16, 0.11), rng, 9, (0.1, 0.3)),
                chunk((-0.335, -0.075, 0.45), (0.035, 0.045, 0.07), rng, 8, (0.1, 0.3))])
+    # v3c: 오른쪽 어깨가 크게 깨져 나감 (위 chunk 는 둥근 윗변 밖에 있어 거의 물지 못했다). 들쭉날쭉한 윤곽을 앞뒤로 비틀어
+    # 깨진 면이 앞에서 비스듬히 보이게 (앞면 쪽이 더 많이, 더 낮게 떨어졌다). 실루엣이 바뀌므로 저폴리에도 들어간다
+    # (윗변이 둥글어 어깨는 이미 낮다: 윤곽을 윗변보다 13~15 cm 안쪽으로, 꼭대기 가까이에서 옆면 z 0.69 까지 비스듬히)
+    brk = [(0.06, 1.3), (0.065, 1.09), (0.1, 1.04), (0.125, 1.035), (0.15, 0.985), (0.19, 0.95), (0.205, 0.9), (0.24, 0.87),
+           (0.27, 0.815), (0.3, 0.79), (0.315, 0.735), (0.345, 0.69), (0.6, 0.67), (0.6, 1.3)]
+    bc = obj_bm(bm_poly(brk, -0.2, 0.2), "break")
+    bc.data.transform(Matrix(((1, 0.45, 0, 0), (0, 1, 0, 0), (0, 0.35, 1, 0), (0, 0, 0, 1))))      # x += 0.45y, z += 0.35y
+    bc.data.update()
+    cut(slab, [bc])
     slab_low = copy(slab)                  # 저폴리 바탕: 큰 깨짐까지만 (새김·얇은 떨어짐은 노멀맵으로)
     # 앞면 테두리 안쪽을 얕게 판 면 (액자)
     inner = round_top(W_ - 0.1, z0 + 0.1, hs - 0.1, 22)
@@ -883,6 +892,8 @@ def grave_slab_a():
     crng = random.Random(55)
     ck = crack_strokes(crng, (-0.27, yf, 0.97), (0.35, 0, -1), 0.3, 6, 0.45, yf)
     ck += crack_strokes(crng, (-0.275, yf, 0.42), (1, 0, -0.35), 0.24, 5, 0.4, yf)
+    # v3c: 큰 깨짐에서 판 면으로 뻗은 가는 금 한 줄 (십자가 오른쪽으로 비켜 내려간다)
+    ck += crack_strokes(random.Random(71), (0.185, yf, 0.94), (-0.3, 0, -1), 0.26, 6, 0.35, yf)
     engrave_v(slab, ck, (0, -1, 0), 0.0075, 0.005, floor=0.25)
     # 앞·옆면이 얇게 떨어져 나간 자국
     sps = [spall((0.2, y0, 0.3), (0, -1, 0), (0.09, 0.06), 0.01, rng),
@@ -916,9 +927,13 @@ def grave_slab_a():
     carve(body, 0.0025, [{'t': 'lumps', 'scale': 0.7, 'amp': 0.0009}], fine, seed=11, edge_from=esrc)
     # v3b 칠: 모서리 빛은 좁고 덜 밝게(흰 외곽선 → 장난감), 틈·글자 그늘 진하게, 삭은 얼룩·흙물 더 (오래 버려진 돌)
     # contrast·pivot: 밝은 곳은 그대로, 어두운 곳은 더 어둡게 (게임 시점 p90/평균 대비를 이전보다 크게). gain: 평균은 이전 ±10%
-    m = paint3("slab_a", 'stone', h=1.1, k=1.0, moss=0.45, moss_low=0.7, moss_low_h=0.4, dirt=0.7, dirt_h=0.2, tooling=0.45,
-               streaks=0.7, stains=0.65, lichen=0.5, edge=0.8, edge_w=0.009, edge_gain=0.85, edge_mode='attr', piece_val=0.06,
-               cavity=1.0, contrast=0.3, pivot=0.2, gain=1.05)
+    # v3c: 버려진 묘비답게 — 윗변·받침 윗면 이끼 덩어리(moss 0.45 → 0.95, 덩어리 크게), 꼭대기에서 흘러내린 빗물 때(rain),
+    # 받침과 만나는 곳 위로 튄 흙물(splash, 받침 윗면 z 0.15)
+    m = paint3("slab_a", 'stone', h=1.1, k=1.0, moss=0.95, moss_patch=1.7, moss_low=0.7, moss_low_h=0.4, dirt=0.7, dirt_h=0.2,
+               tooling=0.45, streaks=0.35, stains=0.8, lichen=0.5, edge=0.8, edge_w=0.009, edge_gain=0.85, edge_mode='attr',
+               piece_val=0.06, cavity=1.0, contrast=0.3, pivot=0.2, gain=1.12, rain=1.0, rain_h=0.8,
+               splash=0.9, splash_z=0.15, splash_h=0.18)
+    blotch(m, (0.3, 0.31, 0.27), 3.5, 0.65, 0.45, 0.62)     # v3c: 물때·풍화 얼룩 (넓고 부드럽게 — 새로 다듬은 돌처럼 고르지 않게)
     set_mat(body, m)
     print("LOW grave_slab_a", tri_count(low))
     # 왼쪽 뒤 받침에서 기어오르는 덩굴 (조금)

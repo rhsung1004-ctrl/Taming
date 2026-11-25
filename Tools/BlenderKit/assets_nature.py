@@ -952,11 +952,13 @@ def rock_b():
     low = lowpoly(o, z=-0.05)
     co, fi = ROCK3(1.8, 0.7, chisel=0.25)     # 큰 평면 끌 면 (칸 75 cm, 깊이 1 cm 안팎) — 넓은 면이 비닐처럼 비지 않게
     carve(o, 0.005, co, fi, seed=5, pieces=False, mode='octree')
-    # 닳은 모서리는 좁고 덜 밝게 (모든 모서리를 같은 굵기로 빛내면 외곽선을 그린 장난감), 지의류는 잘고 어둡게 (흰 물감 자국 방지)
-    m = paint3("rock_b", ROCK_PAL, h=2.3, k=1.8, cells=0.7, piece_var=0.4, piece_val=0.08, facet_var=0.3, light=1.2, moss=0.9, moss_low=0.5,
-               moss_low_h=0.35, dirt=0.6, dirt_h=0.3, edge=0.45, edge_w=0.014, edge_gain=0.95, streaks=0.55, ao=0.5, grain=0.12, tooling=0.0,
-               speckle=0.4, strokes=0.8, stains=0.55, edge_mode="attr", lichen=0.55, lichen_scale=20.0, lichen_color=(0.34, 0.37, 0.31),
-               contrast=0.2)
+    m = paint3("rock_b", ROCK_PAL, h=2.3, k=1.8, cells=0.7, piece_var=0.4, piece_val=0.08, facet_var=0.3, light=1.2, moss=1.0, moss_low=0.5,
+               moss_low_h=0.35, dirt=0.6, dirt_h=0.3, edge=0.0, edge_w=0.014, edge_gain=0.95, streaks=0.55, ao=0.5, grain=0.12, tooling=0.0,
+               speckle=0.4, strokes=0.8, stains=0.55, edge_mode="attr", lichen=0.0, contrast=0.28, strata=1.0, strata_scale=2.0,
+               moss_patch=1.5)
+    # v3c: 지의류 반점(lichen 0.55)이 온 면에 고르게 찍혀 위장무늬처럼 읽혔다 → 없애고, 이끼는 윗면·틈에 큰 덩어리로(moss_patch 2.4 → 1.5),
+    # 넓은 옆면은 돌 결 줄무늬(strata)와 삭은 얼룩으로. 모서리 빛(edge)은 끄고 굽기에서 단단한 모서리 띠를 섬 안쪽 값으로 메운다(flat_hard)
+    #  — 모서리를 따라 생기던 얇은 밝은 보풀 줄 (칠한 빛 띠 + 둥근 원본 모서리를 스친 광선의 빗살)
     set_mat(o, m)
     print("LOW rock_b", tri_count(low))
     cards = Cards()
@@ -968,7 +970,7 @@ def rock_b():
         grass_tuft(cards, rng, p, rng.uniform(0.25, 0.45), rng.uniform(0.25, 0.4), 3, 0.4)
     down = lambda c, n: 0.55 if n.z < -0.3 else 1.0
     return finish3("rock_b", [o], [low], extras=[cards.obj("grass")], cage=0.012, cage_reach=0.1, uv_angle=40, hard=38,
-                   uv_margin=0.002, uv_weight=down)
+                   uv_margin=0.002, uv_weight=down, flat_hard=6)
 
 
 def low_parts(high, tris, z=-0.05, floor=60):
@@ -2050,9 +2052,11 @@ def dead_tree_a():
     # i8: 골 그늘을 덜 검게(가장자리에서 검은 구멍처럼 보였다), 판 모서리 빛을 줄여(뿌리 판이 수정 조각처럼 보였다),
     # 밑동 흙물·이끼를 높이 올려 줄기와 뿌리 퍼짐이 만나는 고리를 덮는다
     m = paint3("dead_tree_a", BARK_GREY, h=2.5, k=1.0, moss=0.3, moss_color=MOSS_DEAD, moss_patch=5.5, moss_low=0.5, moss_low_h=0.95,
-               piece_var=0.0, hue_var=0.2, edge=0.65, edge_w=0.012, edge_gain=1.0, cavity=0.55, ao=0.16, strokes=0.15, tooling=0.0,
-               streaks=0.2, stains=0.25, dirt=0.6, dirt_h=0.85, light=1.1, lichen=0.3, lichen_color=(0.3, 0.32, 0.28), grain=0.25,
+               piece_var=0.0, hue_var=0.2, edge=0.0, edge_w=0.012, edge_gain=1.0, cavity=0.55, cavity_s=0.2, ao=0.16, strokes=0.15,
+               tooling=0.0, streaks=0.2, stains=0.25, dirt=0.6, dirt_h=0.85, light=1.1, lichen=0.0, grain=0.25,
                contrast=0.2, pivot=0.06, gain=0.85)       # gain: 게임 시점 6 m 밝기가 이전보다 14% 밝았다 → ±10%
+    # v3c: 골을 따라 흰 보풀 줄(베벨 노드로 찾은 판 모서리 빛 edge 0.65 — 표본 8 개라 들쭉날쭉) 과 검은 점(좁은 AO 표본 잡음이
+    # 골 입술에 찍힘)이 생겼다 → 모서리 빛 끄고, 좁은 AO 그늘은 약하게(cavity_s 0.2, 골은 넓은 AO 로 어둡다), 지의류 반점도 뺐다
     blotch(m, (0.2, 0.19, 0.22), 2.6, 0.45, 0.62, 0.63)   # 껍질이 벗겨진 맨나무 (작고 또렷하게, 흰 물감 같지 않게 어둡게)
     grad_dark(m, 0.0, 1.0, 0.45)
     # 잔가지는 밝게 (어두운 하늘에 실루엣이 읽히게)

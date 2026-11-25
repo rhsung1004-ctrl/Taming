@@ -296,6 +296,7 @@ def props(cam_u, radius=None):
         ld.shadow_soft_size = 0.15
         lo = bpy.data.objects.new("L%d" % i, ld)
         lo.location = p
+        lo.visible_camera = False        # Unity 점광원처럼 광원 자체는 화면에 보이지 않는다 (보이는 것은 소품의 발광 부품과 밝혀진 땅뿐)
         sc.collection.objects.link(lo)
     print("소품 종류", len(groups), "광원", len(lights))
 

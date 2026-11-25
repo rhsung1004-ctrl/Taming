@@ -220,11 +220,14 @@ def build_height(W):
     # 봉인문 둘레 벼랑은 낮게 (약 40 m): 오르지 못하게 하는 것은 높이가 아니라 기울기(가운데 띠 1.2 넘음)라서,
     # 문 위로 하늘과 뒤쪽 산 실루엣이 보이게 한다
     amp = amp * (1 - 0.4 * calm)
-    wf = gap * ss(dout + jit, -5, 25) + (1 - gap) * ss(zb, -5, 25) * north * 0.45
-    crest = gap * ss(dout + jit, 18, 50) + (1 - gap) * ss(zb, 18, 50) * north * 0.45   # 벼랑 위는 평평한 대지 대신 들쭉날쭉한 봉우리
+    dj = face_shift(W, dout, jit, calm, gap)          # v3 검토 반영: 능선 밑동은 안쪽으로 튀어나오고 골 위쪽은 벽 속으로 파인다
+    wf = gap * ss(dj, -5, 25) + (1 - gap) * ss(zb, -5, 25) * north * 0.45
+    crest = gap * ss(dj, 18, 50) + (1 - gap) * ss(zb, 18, 50) * north * 0.45   # 벼랑 위는 평평한 대지 대신 들쭉날쭉한 봉우리
     rug = 45 * ridged(X, Z, 1 / 120, 4, 945) * (1 - 0.65 * calm)
     W.wall = ((amp * wf + rug * crest) * fade * (1 - ss(h, 200, 300))).astype(np.float32)
-    W.mount = np.maximum(m * (1 - corridor), ss(dout + jit, 0, 25) * np.maximum(gap, ss(zb, 0, 25)))
+    W.mount = np.maximum(m * (1 - corridor), ss(dj, 0, 25) * np.maximum(gap, ss(zb, 0, 25)))
+    mountain_face(W, h, dj, calm, gap)
+    del dj
     del wob, rid, mount, corridor, gdx, zn, dout, calm, jit, amp, fade, north, gap, zb, wf, crest, rug
 
     log("높이: 지형지물")
@@ -290,6 +293,76 @@ def build_height(W):
     carve_creek(W)
     lay_roads(W)
     return W
+
+
+FACE_SPUR = 24.0             # 산 앞면 능선·골 높낮이 (m). 둘레를 따라 약 95 m 마다 번갈아 (골은 비탈 방향으로 길쭉)
+FACE_STEP = 10.0             # 층진 바위 턱 한 층 높이 (m)
+FACE_STRATA = 0.7            # 층 세기 (0 = 매끈한 비탈, 1 = 평평한 턱 + 가파른 턱 벽)
+FACE_TALUS = 3.8             # 골 어귀 너덜 부채꼴 높이 (m, 발치 안쪽 약 22 m 에 걸쳐 기울기 0.3 안팎)
+FACE_FOOT = 12.0             # 이보다 발치 쪽(바깥 거리 dd < 12 m: 탈출을 막는 가파른 띠)은 형태를 더하지 않는다
+
+
+FACE_BUTTRESS = 26.0         # 능선 밑동이 벽 앞으로 튀어나오는 거리 (m, 안쪽으로만: 걸을 수 있는 땅이 bounds 밖으로 늘지 않는다)
+FACE_NOTCH = 17.0            # 골 위쪽이 벽 속으로 파이는 거리 (m, 발치 12 m 바깥만: 가파른 발치 띠는 그대로)
+
+
+def face_shift(W, dout, jit, calm, gap):
+    """산 벽의 평면 모양을 둘레 방향으로 흔든다. 반환 = 벽 모양에 쓰는 바깥 거리.
+    능선(spur 높음): 밑동부터 FACE_BUTTRESS 만큼 안쪽으로 튀어나오고 위로 갈수록 벽과 합쳐진다 (버팀벽 같은 산줄기).
+    골(spur 낮음): 발치 12 m 바깥의 위쪽이 FACE_NOTCH 만큼 벽 속으로 파인다 (벼랑 꼭대기 선의 V 자 홈). 발치 띠는 그대로라 탈출 조건이 같다"""
+    X, Z = W.X, W.Z
+    dd = dout + jit
+    # 둘레 좌표: 벽에 수직인 선을 따라 발치(dout 0)까지 내려간 점의 각도 (같은 수직선 위 점은 같은 값 → 골·능선이 벽에 수직으로 길쭉).
+    # 각도를 원 위에 놓아 이음매가 없다. 바깥 방향 거리는 0.3 배로 조금 섞어 능선이 위로 가며 조금 휘게
+    gz_, gx_ = np.gradient(box_blur(dout, 22))         # 모서리 바깥의 꺾인 선(대각선)에서 방향이 튀지 않게 흐린 뒤
+    gn = np.sqrt(gx_ * gx_ + gz_ * gz_) + 1e-6
+    dc = np.clip(dout, -80.0, 420.0)
+    th = np.arctan2(Z - dc * gz_ / gn - 1024.5, X - dc * gx_ / gn - 1024.5)
+    del gz_, gx_, gn
+    rad = 900.0 + 0.3 * dc
+    U, V = rad * np.cos(th), rad * np.sin(th)
+    del th, rad, dc
+    spur = ridged(U, V, 1 / 95.0, 3, 950) + 0.3 * fbm(U, V, 1 / 38.0, 2, 952)      # 1 = 날카로운 능선, 0 = 둥근 골
+    del U, V
+    W.spur = spur.astype(np.float32)
+    quiet = (1 - calm) * gap                                                       # 봉인문 둘레·고갯길은 그대로
+    gx, gz = np.abs(X - GATE[0]), Z - GATE[1]
+    quiet = quiet * ss(np.hypot(gx, np.minimum(gz, 0)), 120, 200)                  # 문 앞 길목은 넓게 비운다
+    del gx, gz
+    W.face_quiet = quiet.astype(np.float32)
+    big = 0.45 + 0.9 * ss(fbm(X, Z, 1 / 280.0, 2, 955), -0.3, 0.4)                # 능선마다 크기가 다르게 (작은 턱 ~ 큰 산줄기)
+    P = FACE_BUTTRESS * ss(spur, 0.3, 1.05) * big * quiet                          # 평면에서 뾰족한 삼각형 (평평한 기둥 모양이 되지 않게)
+    G = FACE_NOTCH * ss(0.42 - spur, 0.0, 0.35) * quiet
+    # 튀어나온 양은 위로 갈수록 천천히 줄어 능선 마루가 비스듬히 벽에 붙는다 (곧게 선 기둥처럼 보이지 않게)
+    return (dd + P * (1 - ss(dd, 0, 95)) - G * ss(dd, 12, 60)).astype(np.float32)
+
+
+def mountain_face(W, h, dd, calm, gap):
+    """v3 검토 반영: 바깥 산 띠가 150 m 높이의 매끈한 벽으로 보였다. 걸어 다니는 범위에서 보이는 앞면(발치 바깥 12~250 m)에
+    큰 형태를 준다: 둘레를 따라 번갈아 드는 능선(튀어나온 산줄기)과 골(비탈 방향으로 길쭉), 층진 바위 턱(조금 기운 지층),
+    골 어귀의 너덜 부채꼴. 발치의 가파른 띠(dd < FACE_FOOT)는 그대로 두어 걷기·탈출 검사 조건이 바뀌지 않는다.
+    dd = 걸을 수 있는 범위(bounds) 밖으로의 거리 + 발치 흔들림 (벽이 시작하는 선 = dd −5 m)"""
+    log("높이: 산 앞면 (능선·골·층진 턱·너덜)")
+    X, Z = W.X, W.Z
+    spur = W.spur
+    quiet = W.face_quiet
+    band = (ss(dd, FACE_FOOT, FACE_FOOT + 28) * (1 - ss(dd, 160, 260)) * quiet).astype(np.float32)
+    face = (FACE_SPUR * (spur - 0.45) * band).astype(np.float32)
+    # 층진 바위 턱: 벽까지 더한 높이를 계단 모양으로 (한 층의 반은 거의 평평한 턱, 반은 가파른 턱 벽). 지층은 느린 노이즈로 조금 기운다
+    tot = h + W.wall + face
+    q = tot + 6.0 * fbm(X, Z, 1 / 260.0, 2, 960)
+    u = q / FACE_STEP
+    k = np.floor(u)
+    qt = FACE_STEP * (k + ss(u - k, 0.5, 1.0))
+    band2 = ss(dd, FACE_FOOT + 4, FACE_FOOT + 22) * (1 - ss(tot, 200, 260)) * quiet
+    face += ((qt - q) * FACE_STRATA * band2).astype(np.float32)
+    del tot, q, u, k, qt, band2
+    W.wall = (W.wall + face).astype(np.float32)
+    # 골 어귀 너덜: 골(spur 낮음)이 내려오는 발치 안쪽에 굴러떨어진 돌이 쌓인 부채꼴. 길 둘레는 finish_height 에서 뺀다
+    mouth = ss(0.42 - spur, 0.0, 0.22) * quiet
+    W.talus = (FACE_TALUS * mouth * ss(dd, -26, -3)).astype(np.float32)
+    W.dd = dd.astype(np.float32)                 # 산기슭 바위·장면 배치에 쓴다 (lay_mountain_foot, 산기슭 장면). 능선 밑동이 튀어나온 만큼 옮긴 거리
+    del face, mouth, band, W.face_quiet
 
 
 def carve_creek(W):
@@ -414,9 +487,12 @@ def finish_height(W, pads):
         t = flatten(h, x, z, rin, rout)
         if (x, z) == tuple(CATH):
             W.cath_level = t
-    # 가장자리 벽 (자리 고르기 뒤에 더해야 봉인문 둘레 벽이 깎이지 않는다)
+    # 가장자리 벽 (자리 고르기 뒤에 더해야 봉인문 둘레 벽이 깎이지 않는다). 산 앞면 형태(mountain_face)가 들어 있다
     h += W.wall
     del W.wall
+    # 골 어귀 너덜 부채꼴 (길 둘레는 뺀다)
+    h += W.talus * ss(W.road_dist, W.road_hw + 6.0, W.road_hw + 26.0)
+    del W.talus
     X, Z = W.X, W.Z
     micro = 0.22 * fbm(X, Z, 1 / 7.0, 3, 800) + 0.5 * fbm(X, Z, 1 / 28.0, 2, 810)
     keep = ss(W.road_dist, 2, 8)
@@ -1880,37 +1956,91 @@ def lay_lake(W, P):
     W.fx.append({"type": "fireflies", "p": [LAKE[0], lev + 1.5, LAKE[1]], "r": 50})
 
 
+MFOOT_CLUSTERS = 125         # 벼랑 밑동 바위 무리 수 (둘레를 따라)
+MFOOT_GAP = 34.0             # 바위 무리 사이 최소 (m)
+MFOOT_BURY = 0.48            # 벼랑 밑동 큰 절벽 바위를 묻는 비율 (높이의 반쯤)
+
+
+def foot_frame(W, x, z):
+    """발치 자리의 (안쪽 단위 벡터, 둘레 방향 단위 벡터, 안쪽을 보는 yaw). 안쪽 = dd 가 줄어드는 쪽"""
+    gx, gz = float(sample(W.dd, x + 1.0, z) - sample(W.dd, x - 1.0, z)), float(sample(W.dd, x, z + 1.0) - sample(W.dd, x, z - 1.0))
+    n = math.hypot(gx, gz)
+    if n < 1e-6:
+        gx, gz, n = sample(W.gx, x, z), sample(W.gz, x, z), 1.0
+        n = math.hypot(gx, gz) or 1.0
+    ix, iz = -gx / n, -gz / n
+    return (ix, iz), (-iz, ix), yaw_to(ix, iz)
+
+
 def lay_mountain_foot(W, P):
-    """산기슭·가장자리 벽의 절벽과 바위"""
+    """산기슭. v3 검토 반영: 벽 비탈 턱(발치보다 10~55 m 위)에 떠 붙어 보이던 바위·절벽은 두지 않는다.
+    1) 벼랑 밑동 바위 무리: 발치 선을 따라 큰 절벽 바위(cliff_a·c, 가끔 바위 기둥 cliff_b)를 반쯤 묻는다
+       (Unity 지형은 가파른 면에서 텍스처가 늘어나므로 가장 눈에 띄는 벽 밑동을 메쉬 바위로 가린다)
+    2) 그 앞 너덜: 굴러떨어진 큰 돌(반쯤 묻힘)과 작은 돌. 골 어귀(너덜 부채꼴)에는 더 많이
+    3) 발치 너덜 띠: 비탈이 평지와 만나는 곳의 작은 돌"""
     rng = P.rng
-    foot = ss(W.mount, 0.12, 0.3) * ss(-W.mount, -0.75, -0.5) * ss(W.slope, 0.25, 0.5)
-    area = in_mask(W, foot)
-    got = 0
-    for i in range(4000):
-        if got >= 200:
+    dd = W.dd
+    gate_far = (np.hypot(W.X - GATE[0], W.Z - GATE[1]) > 95).astype(np.float32)
+    foot = ((dd > -3.0) & (dd < 2.5)).astype(np.float32) * gate_far
+    pick = in_mask(W, foot)
+    centers, nb = [], collections.Counter()
+    for _ in range(MFOOT_CLUSTERS * 40):
+        if len(centers) >= MFOOT_CLUSTERS:
             break
-        x, z = area(rng)
-        nm = ["cliff_a", "cliff_c", "cliff_b", "cliff_a", "rock_b"][got % 5]
-        if nm == "rock_b" and sample(W.slope, x, z) > 1.2:
-            continue                                      # 너무 가파른 면의 바위는 거의 다 묻힌다
-        # 앞면이 내리막을 보면 긴 축(로컬 X)이 등고선을 따르고 짧은 축만 비탈을 가로지른다.
-        # 절벽은 법선 쪽으로 반만 (25° 까지) 기울이고, 높이는 바닥 상자 전체가 땅에 닿게 (아래쪽이 뜨지 않는다)
-        gx, gz = sample(W.gx, x, z), sample(W.gz, x, z)
-        yaw = yaw_to(-gx, -gz) + rng.normal(0, 10)
-        if P.put(nm, x, z, yaw=yaw, slope=None, s=rng.uniform(1.0, 1.9) if nm != "rock_b" else None,
-                 align=0.5 if nm != "rock_b" else None, align_max=25 if nm != "rock_b" else 45, ground="box", stamp=("rock", 1.3)):
-            got += 1
-    # 비탈 면: 경사에 맞춰 눕는 바위만 (지형 나무 바위는 기울지 못해 아래가 뜬다)
-    steep = ss(W.slope, 0.45, 0.9) * (W.slope < 1.5) * (W.mount < 0.75)        # 벽처럼 선 면(기울기 1.5 넘음)에는 붙이지 않는다
-    a2 = in_mask(W, steep)
-    P.scatter("rock_b", 260, a2, slope=None, ground="box", align_max=40)
-    P.scatter("rock_flat", 190, a2, slope=None, ground="box", align_max=40)
-    # 너덜 띠: 비탈이 평지와 만나는 발치 (무너진 돌이 쌓이는 자리). 완만한 곳이라 지형 나무 바위도 땅에 붙는다
+        p = pick(rng)
+        if p is None:
+            break
+        x, z = p
+        if any((x - a) ** 2 + (z - b) ** 2 < MFOOT_GAP ** 2 for a, b in centers):
+            continue
+        if sample(W.road_dist, x, z) < sample(W.road_hw, x, z) + 8 or P.under_water(x, z, 0.5):
+            continue
+        (ix, iz), (tx, tz), yin = foot_frame(W, x, z)
+        nm, lo, hi = [("cliff_a", 1.25, 1.95), ("cliff_c", 1.15, 1.75), ("cliff_a", 1.1, 1.6), ("cliff_b", 0.75, 1.1)][int(rng.choice(4, p=[0.35, 0.35, 0.15, 0.15]))]
+        sc_ = rng.uniform(lo, hi)
+        hgt = (P.meta.get(nm, {}).get("_size") or [1, 1, 8])[2] * sc_
+        bx, bz = x - ix * rng.uniform(0.5, 3.0), z - iz * rng.uniform(0.5, 3.0)       # 벽 쪽으로 조금 (밑동에 기대어)
+        if not P.put(nm, bx, bz, yaw=yin + rng.normal(0, 14), s=sc_, slope=None, align=0.3, align_max=15, ground="box",
+                     ground_margin=hgt * MFOOT_BURY, stamp=("rock", 1.25)):
+            continue
+        centers.append((x, z))
+        nb[nm] += 1
+        mouth = sample(W.spur, x, z) < 0.42
+        for q in range(int(rng.integers(1, 3))):                       # 옆에 작은 절벽 조각 (같은 벽에서 떨어져 나온)
+            sd = 1 if rng.random() < 0.5 else -1
+            o_ = rng.uniform(5.0, 10.0) * sd
+            k = rng.uniform(-1.0, 4.0)
+            n2 = "cliff_c" if rng.random() < 0.6 else "cliff_a"
+            s2 = rng.uniform(0.5, 0.85)
+            h2 = (P.meta.get(n2, {}).get("_size") or [1, 1, 6])[2] * s2
+            if P.put(n2, x + tx * o_ + ix * k, z + tz * o_ + iz * k, yaw=yin + rng.normal(0, 30), s=s2, slope=None, align=0.4,
+                     align_max=20, ground="box", ground_margin=h2 * 0.42, stamp=("rock", 1.2)):
+                nb["piece"] += 1
+        nbig = int(rng.integers(2, 5)) if mouth else int(rng.integers(1, 3))
+        for q in range(nbig):                                          # 굴러떨어진 큰 돌 (반쯤 묻힘)
+            d_ = rng.uniform(4.0, 15.0 if mouth else 9.0)
+            o_ = rng.normal(0, 5.0)
+            n3 = "rock_b" if rng.random() < 0.6 else "rock_flat"
+            s3 = rng.uniform(0.7, 1.25)
+            h3 = (P.meta.get(n3, {}).get("_size") or [1, 1, 1.5])[2] * s3
+            if P.put(n3, x + ix * d_ + tx * o_, z + iz * d_ + tz * o_, yaw=rng.uniform(0, 360), s=s3, slope=None, ground="box",
+                     align_max=30, ground_margin=h3 * 0.3, stamp=("rock", 1.2)):
+                nb["talus_big"] += 1
+        for q in range(int(rng.integers(3, 7)) if mouth else int(rng.integers(1, 4))):     # 작은 돌
+            d_ = rng.uniform(3.0, 18.0 if mouth else 10.0)
+            o_ = rng.normal(0, 6.0)
+            if P.put("rock_a" if rng.random() < 0.45 else "rock_c", x + ix * d_ + tx * o_, z + iz * d_ + tz * o_,
+                     s=rng.uniform(0.8, 1.5), slope=0.4):
+                nb["talus_small"] += 1
+        if mouth:
+            P.stamps.append((x + ix * 8.0, z + iz * 8.0, rng.uniform(7.0, 10.0), "rock"))
+    # 3) 발치 너덜 띠: 비탈이 평지와 만나는 발치 (완만한 곳이라 지형 나무 바위도 땅에 붙는다)
     st = (W.slope > 0.45).astype(np.float32) * (W.mount < 0.75)
     scree = (box_blur(st, 2) > 0.02) * (W.slope < 0.4) * (W.mount < 0.75) * (np.hypot(W.X - GATE[0], W.Z - GATE[1]) > 30)
     a3 = in_mask(W, scree.astype(np.float32))
-    P.scatter("rock_a", 170, a3, slope=0.4)
-    P.scatter("rock_c", 230, a3, slope=0.4)
+    n1 = P.scatter("rock_a", 110, a3, slope=0.4)
+    n2 = P.scatter("rock_c", 150, a3, slope=0.4)
+    log("산기슭: 벼랑 밑동 바위 무리 %d (%s), 발치 너덜 띠 돌 %d" % (len(centers), dict(nb), n1 + n2))
 
 
 # ─────────────────────────── 작은 장면 (v3: 길과 지형을 따라 구조) ───────────────────────────

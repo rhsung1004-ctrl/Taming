@@ -1065,6 +1065,72 @@ def clamp_normals(img, zmin=0.35):
         img.pixels.foreach_set(a.ravel())
     return float(bad.mean())
 
+def regrow_hard_band(img, segs, px, sent, normal=False):
+    """(v3c) 단단한 모서리(= UV 이음매) 둘레 px 화소 띠를 그 섬 안쪽 색으로 다시 메운다.
+    원본의 둥근 모서리를 광선이 비스듬히 스쳐 띠 안에 빗살(밝은 보풀 + 검은 톱니)이 생긴다. 저폴리는 단단한 모서리라
+    띠를 안쪽 값으로 바꿔도 모서리는 또렷하다. 키우기는 띠 화소로만 번지고(빈 곳 sent 는 건너지 않는다) 이웃 섬 색이 섞이지 않는다.
+    섬 전체가 띠인 좁은 섬은 노멀은 평평하게, 색은 그 섬 안에서 평균 낸 고른 톤으로. normal: 노멀맵이면 바꾼 화소의 법선 길이를 1 로.
+    돌려주는 값: 바꾼 비율(덮인 화소 대비)"""
+    import numpy as np
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return 0.0
+    w, h = img.size
+    a = np.empty(w * h * 4, np.float32)
+    img.pixels.foreach_get(a)
+    a = a.reshape(h, w, 4)
+    rgb = a[..., :3]
+    ex = Image.new('L', (w, h), 0)
+    dr = ImageDraw.Draw(ex)
+    for x0, y0, x1, y1 in segs:
+        dr.line([(x0 * w, y0 * h), (x1 * w, y1 * h)], fill=255, width=2 * px + 1)
+    band = (np.asarray(ex) > 0) & ~sent
+    v = ~(band | sent)
+    c = np.where(v[..., None], rgb, 0.0).astype(np.float32)
+    for _ in range(px + 3):
+        cs = np.zeros_like(c); ws = np.zeros(v.shape, np.float32)
+        vf = v.astype(np.float32)
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                if not dy and not dx:
+                    continue
+                ys, yd = (slice(0, -dy or None), slice(dy, None)) if dy >= 0 else (slice(-dy, None), slice(0, dy))
+                xs, xd = (slice(0, -dx or None), slice(dx, None)) if dx >= 0 else (slice(-dx, None), slice(0, dx))
+                cs[yd, xd] += c[ys, xs] * vf[ys, xs, None]
+                ws[yd, xd] += vf[ys, xs]
+        new = band & (~v) & (ws > 0)
+        if not new.any():
+            break
+        c[new] = cs[new] / ws[new][:, None]
+        v = v | new
+    sel = band & v
+    if normal:
+        n = c[sel] * 2.0 - 1.0
+        n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-6)
+        c[sel] = n * 0.5 + 0.5
+    rgb[sel] = c[sel]
+    # 섬 전체가 띠인 좁은 섬(떨어진 자국의 좁은 벽 등)은 안쪽 값이 없다: 노멀은 평평하게(저폴리 면 그대로), 색은 그 좁은 섬 안에서만
+    # 평균 내어(7x7, 섬 사이 여백 4 화소보다 좁게) 빗살 줄무늬를 고른 한 톤으로
+    rest = band & ~v
+    if rest.any():
+        if normal:
+            rgb[rest] = (0.5, 0.5, 1.0)
+        else:
+            m = rest.astype(np.float32)
+            for _ in range(2):
+                cs = np.zeros_like(rgb); ws = np.zeros(m.shape, np.float32)
+                for dy in range(-3, 4):
+                    for dx in range(-3, 4):
+                        ys, yd = (slice(0, -dy or None), slice(dy, None)) if dy >= 0 else (slice(-dy, None), slice(0, dy))
+                        xs, xd = (slice(0, -dx or None), slice(dx, None)) if dx >= 0 else (slice(-dx, None), slice(0, dx))
+                        cs[yd, xd] += rgb[ys, xs] * m[ys, xs, None]
+                        ws[yd, xd] += m[ys, xs]
+                rgb[rest] = cs[rest] / np.maximum(ws[rest], 1e-6)[:, None]
+    a[..., :3] = rgb
+    img.pixels.foreach_set(a.ravel())
+    return float(band.sum()) / max(1, int((~sent).sum()))
+
 def make_cage(low, highs, push=0.006, reach=0.2):
     """굽기 우리(cage): 저폴리 사본을 정점 법선(평균) 방향으로 '그 자리 원본 표면 바로 바깥'까지 부풀린 것.
     정점과 둘레 면 가운데에서 법선 방향으로 광선을 쏴, 원본이 저폴리보다 바깥으로 나와 있으면 그 거리 + push, 아니면 push.
@@ -1205,7 +1271,8 @@ def _hard_edges(o, angle):
 
 def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, lod2=None, uv_angle=66,
            cage=None, cage_reach=0.2, hard=None, pack=False, samples=None, margin=16, margin_type='EXTEND', uv_margin=0.003,
-           uv='smart', uv_weight=None, lod_rule=False, bake_groups=None, probe=None, split_cage=False, despeck=False):
+           uv='smart', uv_weight=None, lod_rule=False, bake_groups=None, probe=None, split_cage=False, despeck=False,
+           flat_hard=None):
     """highs: 굽기 원본 / low_parts: 저폴리 조각 (하나로 합쳐 UV를 펴고 Main 재질)
     extras: 굽지 않고 그대로 붙이는 부품 (Glow_* 재질, Foliage 재질을 미리 입힌 것)
     lod1, lod2: LOD 비율 (Main 부분만 줄인다). None 이면 만들지 않는다.
@@ -1225,7 +1292,11 @@ def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, l
       split_cage: (hard 와 함께) 단단한 모서리에서 저폴리 사본을 쪼갠 뒤 우리를 만들어 굽는다. 쪼개지 않으면 모서리 정점의 우리가
         양쪽 면 법선의 평균으로 부풀어, 좁은 면(모따기·떨어진 자국 벽)에서 광선이 옆 면으로 비껴 맞아 빗살 무늬(흰 점선 + 검은 점)가 된다.
         단단한 모서리 = UV 이음매라 쪼개도 이음매가 늘지 않는다 (내보내는 저폴리는 그대로)
-      despeck: albedo 의 외딴 점(AO 표본 잡음)을 지운다 (despeckle, 로그 BAKE 의 despeck %)"""
+      despeck: albedo 의 외딴 점(AO 표본 잡음)을 지운다 (despeckle, 로그 BAKE 의 despeck %)
+    (v3c 선택 인자)
+      flat_hard: 화소 수. hard 와 margin=0 일 때, 단단한 모서리 둘레 그 폭의 띠를 두 그림 모두 섬 안쪽 값으로 다시 메운다
+        (regrow_hard_band, 로그 FLATHARD). 원본 모서리가 둥근 각진 바위에서 모서리를 따라 생기는 얇은 밝은 보풀 줄을 없앤다.
+        모서리를 밝게 칠한 띠(paint3 edge)도 함께 지워지므로 모서리 빛이 필요한 석물(묘비 등)에는 쓰지 않는다"""
     t0 = __import__('time').time()
     low = join(low_parts)
     origin0(low)
@@ -1366,8 +1437,19 @@ def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, l
     if sentinel:
         # v3b: 메우기 전에 법선 통계 — rim(섬 경계 띠의 누운 법선) 은 비스듬히 스친 광선의 흰·검은 테두리를 잡는다
         rim, rim_s, steep, _cov, inner = normal_stats(img_n, hard_segs)
+        sent_mask = None
+        if flat_hard and hard_segs:
+            import numpy as np
+            _a = np.empty(size * size * 4, np.float32); img_n.pixels.foreach_get(_a)
+            _a = _a.reshape(size, size, 4)
+            sent_mask = (_a[..., 0] > 0.995) & (_a[..., 1] < 0.005) & (_a[..., 2] > 0.995)
+            del _a
         fill_holes(img_n, misses=False)
         clamp_normals(img_n)
+        if sent_mask is not None:
+            fa = regrow_hard_band(img_a, hard_segs, flat_hard, sent_mask)
+            fn = regrow_hard_band(img_n, hard_segs, flat_hard, sent_mask, normal=True)
+            print("FLATHARD", name, "px", flat_hard, "albedo %.2f%% normal %.2f%%" % (fa * 100, fn * 100))
     print("BAKE", name, "miss %.3f%%" % (miss * 100), "steep %.2f%%" % (steep * 100),
           ("rim %.2f%% rim_soft %.2f%% inner %.2f%%" % (rim * 100, rim_s * 100, inner * 100)) if rim is not None else "rim -",
           ("despeck %.3f%%" % (dsp * 100)) if dsp is not None else "",
@@ -1845,7 +1927,9 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
            cavity=0.9, ao=None, light=1.0, piece_var=0.6, cells=None, hue_var=0.5, strokes=0.35, tooling=0.25, streaks=0.3,
            grain=0.5, speckle=0.45, stains=0.35, moss_low=0.0, moss_low_h=None, shadow=(0.16, 0.1, 0.3), bump=0.35,
            piece_val=0.0, grime=0.0, grime_h=None, edge_gain=1.0, contrast=0.15, gain=1.1, pivot=0.1, moss_patch=2.4,
-           facet_var=0.0, facet_scale=2.5, edge_mode='bevel', lichen=0.0, lichen_color=(0.42, 0.45, 0.36), lichen_scale=11.0):
+           facet_var=0.0, facet_scale=2.5, edge_mode='bevel', lichen=0.0, lichen_color=(0.42, 0.45, 0.36), lichen_scale=11.0,
+           strata=0.0, strata_scale=2.2, strata_tilt=(0.35, 0.15), rain=0.0, rain_h=None, rain_color=(0.3, 0.34, 0.3),
+           splash=0.0, splash_z=0.0, splash_h=0.12, cavity_s=None):
     """v3 손칠 재질 (굽기 원본용). 색 → Base Color(DIFFUSE 굽기), 잔 결 → Normal(NORMAL 굽기).
     pal: PAL 이름 또는 (어두운, 밝은, 모서리) / h: 물체 높이(m) — 위→아래 밝기 / k: 무늬 크기 배율 (1 = 사람 키)
     light: 위에서 비친 듯한 밝기 차이 / hue_var: 큰 얼룩으로 차가운 청색 ↔ 보랏빛 / piece_var: 블록(carve 의 'piece')마다 색조·밝기 차이 / cells: 블록 번호가 없을 때
@@ -1861,7 +1945,13 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
     edge_mode: 'bevel' = 베벨 노드로 모서리 찾기 (표본 잡음 때문에 점선처럼 보일 수 있다) / 'attr' = carve 가 넣은 'edist'
       (깨끗한 형태의 볼록 모서리까지 거리) — 곧고 고른 닳은 모서리. carve(edges=True) 로 만든 원본에서만
     lichen: 지의류 반점 (작고 가장자리가 또렷한 옅은 점, 위·옆면) — 넓은 평면이 비닐처럼 비어 보이지 않게 3~6 m 에서 읽히는 잔무늬
-      lichen_scale: 반점 무늬 주파수 (k 로 나눈 좌표 기준, 클수록 잘다. 바위 k=1.8 에서 11 이면 10~20 cm 흰 물감 자국처럼 커서 20 안팎)"""
+      lichen_scale: 반점 무늬 주파수 (k 로 나눈 좌표 기준, 클수록 잘다. 바위 k=1.8 에서 11 이면 10~20 cm 흰 물감 자국처럼 커서 20 안팎)
+      주의 (v3c): lichen 은 넓은 면에 고르게 찍혀 위장무늬처럼 읽힌다 → 바위·나무는 0. 바위의 넓은 면은 strata·stains 로 돌색을 바꾼다
+    (v3c) strata: 돌 결 줄무늬 (기울어진 층을 따라 밝고 어두운 띠가 굽이치며, 큰 잡음으로 짙어졌다 옅어졌다 한다) — 자연석의 넓은 면
+      strata_scale: 띠 간격 주파수 (k 로 나눈 좌표, 2.2 = 띠 하나 0.45k m 안팎) / strata_tilt: 층의 기울기 (x, y 성분, 라디안 근사)
+    rain: 위에서 흘러내린 빗물 때 (물체 꼭대기 h 에서 rain_h 아래까지, 줄마다 길이가 다른 세로 줄, 옆면만, 곱하기)
+    splash: 받침·땅과 만나는 곳 위로 튄 흙물 띠 (z = splash_z 에서 splash_h 위까지, 그 아래는 건드리지 않는다)
+    cavity_s: 좁은 AO(틈·골) 그늘 세기 (기본 = cavity). 깊은 골 입술의 AO 표본 잡음이 검은 점이 되면 낮춘다 (나무 껍질)"""
     dark, lightc, edgec = PAL[pal] if isinstance(pal, str) else pal
     edge_w = edge_w if edge_w is not None else 0.006 * k
     ao = ao if ao is not None else 0.3 * k
@@ -1920,6 +2010,18 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
         f2 = _noise(nt, _vmath(nt, 'ADD', fN, (3.7, 1.3, 5.1)), facet_scale * 0.8, 0.0, 0.5)
         col = _mix(nt, 'OVERLAY', facet_var * 1.6, col, _ramp_n(nt, f2, [(0.3, (0.42, 0.46, 0.6)), (0.5, (0.5, 0.5, 0.5)), (0.7, (0.58, 0.5, 0.47))]))
 
+    # 2c. (v3c) 돌 결 줄무늬: 기운 층을 따라 굽이치는 밝고 어두운 띠 (큰 잡음으로 짙어졌다 옅어졌다 — 온 면에 같은 띠가 깔리지 않게)
+    if strata > 0:
+        mps = nt.nodes.new('ShaderNodeMapping'); mps.inputs['Rotation'].default_value = (strata_tilt[0], strata_tilt[1], 0.0)
+        nt.links.new(Pk, mps.inputs['Vector'])
+        wv = nt.nodes.new('ShaderNodeTexWave'); wv.wave_type = 'BANDS'; wv.bands_direction = 'Z'; wv.wave_profile = 'SIN'
+        wv.inputs['Scale'].default_value = strata_scale; wv.inputs['Distortion'].default_value = 3.0
+        wv.inputs['Detail'].default_value = 2.0; wv.inputs['Detail Scale'].default_value = 1.2
+        nt.links.new(mps.outputs['Vector'], wv.inputs['Vector'])
+        sb = _ramp_n(nt, wv.outputs['Fac'], [(0.15, (0.36, 0.38, 0.5)), (0.5, (0.5, 0.5, 0.5)), (0.85, (0.62, 0.58, 0.56))])
+        sfade = _maprange(nt, _noise(nt, Pk, 0.8, 2, 0.5), 0.35, 0.65, 0.25, 1.0)
+        col = _mix(nt, 'OVERLAY', _mul(nt, sfade, strata), col, sb)
+
     # 3. 붓 자국: 방향이 다른 두 갈래로 늘인 잡음 (낮은 대비)
     if strokes > 0:
         for sc_, sca in (((1.0, 1.0, 7.0), 3.0), ((6.0, 1.0, 1.0), 5.0)):
@@ -1955,11 +2057,34 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
         gm = _mul(nt, _mul(nt, band, side), grime)
         col = _mix(nt, 'MULTIPLY', gm, col, W(lerp(shadow, (0.0, 0.0, 0.0), 0.35)))
 
+    # 4c. (v3c) 빗물 때: 꼭대기에서 흘러내린 세로 줄 (줄마다 길이가 다르고 아래로 갈수록 옅다), 옆면만
+    if rain > 0:
+        rh = rain_h if rain_h is not None else 0.5 * h
+        mpr = nt.nodes.new('ShaderNodeMapping'); mpr.inputs['Scale'].default_value = (26 / k, 26 / k, 0.9 / k)
+        nt.links.new(P, mpr.inputs['Vector'])
+        rlen = _maprange(nt, _noise(nt, mpr.outputs['Vector'], 1.6, 2, 0.5), 0.3, 0.7, 0.25, 1.15)    # 줄마다 흘러내린 길이
+        below = _mul(nt, _mul(nt, h, sP.outputs['Z'], 'SUBTRACT'), rlen, 'DIVIDE')                # 꼭대기에서 아래로 (m / 길이)
+        rband = _maprange(nt, below, rh, 0.0)
+        mpr2 = nt.nodes.new('ShaderNodeMapping'); mpr2.inputs['Scale'].default_value = (14 / k, 14 / k, 0.8 / k)
+        nt.links.new(P, mpr2.inputs['Vector'])
+        rstr = _maprange(nt, _noise(nt, mpr2.outputs['Vector'], 2.0, 3, 0.5), 0.46, 0.58, 0.15, 1.0)  # 3~5 cm 진한 줄 + 옅은 바탕
+        # (줄이 1 cm 로 잘면 가까이서 나뭇결처럼 읽혔다)
+        rside = _maprange(nt, sN.outputs['Z'], 0.75, 0.35)
+        rm = _mul(nt, _mul(nt, _mul(nt, rband, rstr), rside), rain)
+        col = _mix(nt, 'MULTIPLY', rm, col, W(rain_color))
+    if splash > 0:   # (v3c) 받침·땅과 만나는 곳 위로 튄 흙물 (그 아래는 그대로)
+        swob = _mul(nt, _mul(nt, _noise(nt, Pk, 7.0, 3), 0.5, 'SUBTRACT'), splash_h * 0.8)
+        sz = _mul(nt, _mul(nt, sP.outputs['Z'], splash_z, 'SUBTRACT'), swob, 'ADD')
+        sm = _mul(nt, _maprange(nt, sz, splash_h, 0.0), _maprange(nt, sP.outputs['Z'], splash_z - 0.012, splash_z + 0.004))
+        sm = _mul(nt, sm, _ramp_n(nt, _noise(nt, Pk, 16, 3), [(0.35, (0.5, 0.5, 0.5)), (0.65, (1, 1, 1))]))
+        col = _mix(nt, 'MIX', _mul(nt, sm, splash), col, W((0.05, 0.043, 0.05)))
+
     # 5. 그늘: 넓은 AO(보라) + 좁은 AO(틈·금은 또렷하게 깊은 보라)
     aoB = _ao(nt, ao, 16)
     col = _mix(nt, 'MULTIPLY', cavity * 0.85, col, _ramp_n(nt, aoB, [(0.2, lerp(shadow, (1, 1, 1), 0.25)), (0.95, (1, 1, 1))]))
     aoS = _ao(nt, ao * 0.1, 16)          # v3b: 10 → 16 (틈 입술의 소금·후추 점)
-    col = _mix(nt, 'MULTIPLY', cavity * 0.85, col, _ramp_n(nt, aoS, [(0.35, lerp(shadow, (0, 0, 0), 0.15)), (0.9, (1, 1, 1))]))
+    cs_ = cavity if cavity_s is None else cavity_s
+    col = _mix(nt, 'MULTIPLY', cs_ * 0.85, col, _ramp_n(nt, aoS, [(0.35, lerp(shadow, (0, 0, 0), 0.15)), (0.9, (1, 1, 1))]))
 
     # 6. 닳은 모서리: 베벨 법선과 실제 법선의 차이(모서리) × 좁은 AO 가 밝은 곳(볼록) — 폭이 고르고 또렷한 선
     if edge > 0 and edge_mode == 'attr':
@@ -2044,14 +2169,14 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
 
 def finish3(name, highs, low_parts, extras=(), size='auto', cage=0.006, cage_reach=0.2, hard=None, lod1=0.35, lod2=None,
             uv_angle=66, samples=8, uv_margin=0.003, uv='smart', uv_weight=None, lod_rule=True, bake_groups=None, probe=None,
-            split_cage=True, despeck=True):
+            split_cage=True, despeck=True, flat_hard=None):
     """v3 마무리: 굽기 우리(cage) + UV 다시 배치(pack) + 여백 없이 굽고 빈 곳을 둘레 색으로 메우기(자홍·검정 테두리 없음).
     size: 'auto' = 가장 긴 변 1.5 m 미만 1024, 그 밖 2048 (저장소 용량 규칙, 4096 금지)
     cage: 우리 여유(m), hard: 단단한 모서리 각도(도, 석물 55 안팎·각진 바위 35~40 / 나무 None)
     samples: 굽기 표본 (색은 AO·베벨 광선이 따로 있어 8 이면 충분) / uv_margin: 섬 사이 여백 (섬이 수백 개면 0.001)
     uv / uv_weight / lod_rule / split_cage: finish 설명 참고 (lod_rule 기본 켬: Main 1,000 삼각형 미만은 LOD1 에서 잎만 뺀다,
-    split_cage 기본 켬: hard 가 있으면 단단한 모서리에서 쪼갠 우리로 굽는다)"""
+    split_cage 기본 켬: hard 가 있으면 단단한 모서리에서 쪼갠 우리로 굽는다) / flat_hard: (v3c) finish 설명 참고 (각진 바위 6 안팎)"""
     return finish(name, highs, low_parts, extras=extras, size=size, lod1=lod1, lod2=lod2, uv_angle=uv_angle,
                   cage=cage, cage_reach=cage_reach, hard=hard, pack=True, samples=samples, margin=0, uv_margin=uv_margin,
                   uv=uv, uv_weight=uv_weight, lod_rule=lod_rule, bake_groups=bake_groups, probe=probe, split_cage=split_cage,
-                  despeck=despeck)
+                  despeck=despeck, flat_hard=flat_hard)
