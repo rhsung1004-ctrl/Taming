@@ -47,7 +47,7 @@ namespace Necro.EditorTools
         class LayerDesc { public string name, albedo, normal; public float tile = 6f, smoothness = 0.05f; }
         class DetailDesc { public string asset; public float maxPerCell = 3f, minScale = 0.8f, maxScale = 1.3f; }
         class ObjDesc { public string a; public Vector3 p; public Quaternion q = Quaternion.identity; public float s = 1f; }
-        class LightDesc { public Vector3 p; public Color c; public float i, r; public bool flicker; }
+        class LightDesc { public Vector3 p; public Color c; public float i, r, far; public bool flicker; }   // far: 끄는 거리 덮어쓰기 (0 = 없음)
         class WaterDesc { public Vector3 p; public Vector2 size; public float yaw; }
         class FxDesc { public string type; public Vector3 p; public float r; }
 
@@ -63,6 +63,7 @@ namespace Necro.EditorTools
             public bool hasFog;
             public Color fogColor;
             public float fogDensity;
+            public Vector2 mapMin, mapSize;                       // 지도 그림이 덮는 범위 (world.json map, 없으면 지형 전체)
             public ushort[] heights;                              // heightRes × heightRes, 행 = Z(남→북), 열 = X(서→동)
             public Color32[] splat0, splat1, detail0, detail1;   // GetPixels32: 행 0 = 아래 줄 = 남쪽
             public List<string> treeProtos = new List<string>();
@@ -297,6 +298,28 @@ namespace Necro.EditorTools
                     });
                 }
 
+            // 지도 범위 (선택): 없으면 지형 전체. 걸어 다니는 범위만 크게 보이게 생성기가 bounds + 여유로 넣는다
+            w.mapMin = Vector2.zero;
+            w.mapSize = new Vector2(w.size, w.size);
+            if (root.ContainsKey("map") && root["map"] != null)
+            {
+                var map = ctx.Obj(root["map"], "map");
+                if (map != null)
+                {
+                    var mn = ctx.Floats(map, "min", 2, "map", true);
+                    var mx = ctx.Floats(map, "max", 2, "map", true);
+                    if (mn != null && mx != null)
+                    {
+                        if (mx[0] - mn[0] < 1f || mx[1] - mn[1] < 1f) ctx.Fail("map", "max 가 min 보다 커야 합니다");
+                        else
+                        {
+                            w.mapMin = new Vector2(mn[0], mn[1]);
+                            w.mapSize = new Vector2(mx[0] - mn[0], mx[1] - mn[1]);
+                        }
+                    }
+                }
+            }
+
             if (root.ContainsKey("fog") && root["fog"] != null)
             {
                 var fog = ctx.Obj(root["fog"], "fog");
@@ -423,6 +446,7 @@ namespace Necro.EditorTools
                         c = ctx.Col(d, "c", where, new Color(0.62f, 0.35f, 1f), false),
                         i = (float)ctx.Num(d, "i", where, 6, false),
                         r = (float)ctx.Num(d, "r", where, 10, false),
+                        far = Mathf.Max(0f, (float)ctx.Num(d, "far", where, 0, false)),
                         flicker = ctx.Bool(d, "flicker", true)
                     });
                 }
@@ -882,6 +906,7 @@ namespace Necro.EditorTools
                 light.intensity = l.i;
                 light.range = l.r;
                 light.shadows = LightShadows.None;
+                if (l.far > 0f) go.AddComponent<LightCullDistance>().far = l.far;   // 등대 빛: LightCuller 가 far 에서 끈다
                 if (l.flicker)
                 {
                     var f = go.AddComponent<SoulFlicker>();
@@ -1127,8 +1152,8 @@ namespace Necro.EditorTools
             var poi = go.AddComponent<PoiDiscovery>();
             poi.hero = player;
             poi.places = w.pois.ToArray();
-            poi.worldMin = Vector2.zero;
-            poi.worldSize = new Vector2(w.size, w.size);
+            poi.worldMin = w.mapMin;             // world.json map (걸어 다니는 범위 + 여유). map.png 도 같은 범위로 그린다
+            poi.worldSize = w.mapSize;
             poi.mapTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(MapPath);
             st.pois = w.pois.Count;
         }

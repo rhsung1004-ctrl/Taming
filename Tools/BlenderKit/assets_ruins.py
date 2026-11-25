@@ -662,10 +662,12 @@ def courses(rng, z0, z1, hr=(0.27, 0.36)):
     return zs
 
 def ashlar(acc, rng, x0, x1, zs, top, y0, y1, gap=0.028, blen=(0.42, 0.82), skin=(0.3, 0.38), ragged=(0.0, 0.0),
-           missing=0.025, chips=(1, 3), M=None, plinth=0.0, keep=None, broken_top=True):
+           missing=0.025, chips=(1, 3), M=None, plinth=0.0, keep=None, broken_top=True, damage=None):
     """x0~x1 구간에 줄눈이 보이는 돌 블록을 앞·뒤 두 겹으로 쌓는다 (가운데는 심이 채운다).
     zs: 켜 경계 높이, top(x): 무너진 윗선, y0·y1: 벽 앞면·뒷면, ragged: 양 끝이 들쭉날쭉 무너진 정도 (왼, 오른)
-    plinth: 맨 아래 켜가 앞뒤로 튀어나온 정도, keep(xa, xb, za, zb): False 면 그 블록은 놓지 않는다"""
+    plinth: 맨 아래 켜가 앞뒤로 튀어나온 정도, keep(xa, xb, za, zb): False 면 그 블록은 놓지 않는다
+    damage: (v3b) (확률, random.Random) — 그 확률로 블록 하나가 크게 깨지고(모서리가 비스듬히 떨어져 나감) 이가 빠진다.
+      따로 받은 난수를 써서 블록 배치(rng 순서)는 그대로다"""
     n = 0
     for k in range(len(zs) - 1):
         za, zb = zs[k], zs[k + 1] - gap
@@ -709,6 +711,16 @@ def ashlar(acc, rng, x0, x1, zs, top, y0, y1, gap=0.028, blen=(0.42, 0.82), skin
                             xa = xb
                             continue
                         bm_break(bm, rng, (rng.uniform(-0.15, 0.15), 0, h_loc), (-sl + rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5), 1), facets=rng.randint(2, 4), spread=0.6, jitter=0.05)
+                    if damage is not None and damage[1].random() < damage[0]:
+                        drng = damage[1]
+                        hx, hy, hz = (xb - xa - gap) / 2, (yb - ya) / 2, (zb - za) / 2
+                        out_y = -1 if face == 0 else 1
+                        # 겉면 모서리 하나가 비스듬히 크게 떨어져 나감 + 깊은 이 빠짐
+                        sx, sz = drng.choice((-1, 1)), drng.choice((-1, 1))
+                        co = Vector((sx * hx * drng.uniform(0.45, 0.75), out_y * hy, sz * hz * drng.uniform(0.3, 0.7)))
+                        bm_break(bm, drng, co, (sx * drng.uniform(0.4, 1.0), out_y * drng.uniform(0.6, 1.2), sz * drng.uniform(0.3, 1.0)),
+                                 facets=drng.randint(2, 3), spread=0.45, jitter=0.03)
+                        bm_chip(bm, drng, drng.randint(1, 2), (0.05, 0.1))
                     stone_blk(bm, rng, chips, (0.02, 0.07), 0.014)
                     R_ = TR((cx, cy, cz), (R(rng.uniform(-0.7, 0.7)), R(rng.uniform(-0.5, 0.5)), R(rng.uniform(-0.6, 0.6))))
                     acc.add(bm, (M @ R_) if M is not None else R_)
@@ -1238,7 +1250,8 @@ def wall_ruin_a():
     wx, W, sill, h_s, rise, T, gap = -0.8, 0.8, 1.0, 1.72, 0.92, 0.3, 0.026      # 폭보다 높이 솟은 뾰족(랜싯) 창
     Mw = TR((wx, 0, 0))
     blocks = Acc()
-    ashlar(blocks, rng, -2.25, 2.25, zs, top, y0, y1, gap=gap, ragged=(0.28, 0.22), plinth=0.045, missing=0.03)
+    ashlar(blocks, rng, -2.25, 2.25, zs, top, y0, y1, gap=gap, ragged=(0.28, 0.22), plinth=0.045, missing=0.03,
+           damage=(0.14, random.Random(707)))       # v3b: 깨지고 이 빠진 블록 (v3 에서 너무 깨끗해 새 벽돌 같았다)
     bo = blocks.obj("wall_blocks")
     cut(bo, zone_prism(arch_outline(W, h_s, rise, grow=T + gap, z_bottom=sill - 0.16 - gap), y0, y1, Mw), voxel=0.011)
     frame = Acc()
@@ -1268,8 +1281,10 @@ def wall_ruin_a():
     body = join([bo, fo, co, fa] + rub + ext)
     # v3: 블록마다 번호(색조) → 되붙인 리메시 → STONE3(평면 끌 자국·곧은 금) / 저폴리는 잔 조각 전 바탕에서 / paint3 / cage 굽기
     base = carve(body, 0.009, *STONE3(1.25, wear=1.2, cracks=0.6), seed=21, base=True)
-    set_mat(body, paint3("wall_ruin_a_src", 'stone', h=3.2, k=1.25, moss=0.6, moss_low=0.7, moss_low_h=0.7, dirt=0.7, dirt_h=0.35,
-                         streaks=0.6, edge_w=0.009, piece_var=0.85, ao=0.45))
+    # v3b 칠: 블록마다 밝기 ±15%·따뜻한/차가운 색조, 닳은 모서리 더 밝고 넓게, 줄눈 아래 흙물·그을음, 오목한 곳 AO, 이끼 포인트
+    set_mat(body, paint3("wall_ruin_a_src", 'stone', h=3.2, k=1.25, moss=0.75, moss_patch=3.2, moss_low=0.7, moss_low_h=0.7, dirt=0.75,
+                         dirt_h=0.4, streaks=0.7, edge=1.0, edge_w=0.018, edge_gain=1.25, piece_var=1.0, piece_val=0.15, grime=0.85,
+                         grime_h=0.16, cavity=1.0, ao=0.45, stains=0.45, lichen=0.35, contrast=0.2))
     low = low_of(base, 11500)
     delete(base)
     tgt = copy(low)
@@ -1968,7 +1983,7 @@ META = {
                    "align": False, "scale": [1.0, 1.0], "cull": 0.006, "shadows": True},
     # 영혼 등불: 새장 안 수정 자리에 보랏빛 점광원
     "lantern": {"kind": "prop", "tags": ["light", "path"], "collider": "capsule", "footprint": 0.6, "sink": 0.04, "tilt": 2,
-                "align": False, "scale": [0.95, 1.05], "cull": 0.01, "shadows": True,
+                "align": False, "scale": [0.95, 1.05], "cull": 0.01, "shadows": True, "detail": "stone",   # 돌 받침이 겉넓이 약 68%
                 "light": {"offset": [0.58, 0, 2.03], "color": list(SOUL), "intensity": 9, "range": 9}},
     # 봉인의 제단: 게임 시작 지점
     "altar": {"kind": "landmark", "tags": ["landmark", "ruin", "light"], "collider": "mesh", "footprint": 4.0, "sink": 0.02,

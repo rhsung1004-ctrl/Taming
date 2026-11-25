@@ -315,6 +315,7 @@ def rock_paint(name, k=1.0, pal=ROCK_PAL, moss=0.85, **kw):
 BARK_DEAD = ((0.026, 0.021, 0.03), (0.12, 0.1, 0.115), (0.36, 0.34, 0.4))
 BARK_OLD = ((0.024, 0.02, 0.026), (0.11, 0.085, 0.085), (0.3, 0.26, 0.28))
 WOOD_PALE = (0.3, 0.29, 0.33)
+BARK_GREY = ((0.06, 0.052, 0.066), (0.27, 0.24, 0.27), (0.5, 0.47, 0.53))   # (v3b) 판 위가 밝은 회갈색, 골은 어둡게 (BARK_DEAD 보다 밝고 덜 파랗다)
 
 
 def bark_paint(name, pal=BARK_DEAD, moss=0.4, moss_color=MOSS_DEAD, pale=0.45, pale_scale=0.9, **kw):
@@ -567,14 +568,59 @@ class Tree:
             (A if kind == 'A' else Bc).add(v, f)
         return A, Bc
 
-    def guide(self, step=0.05):
+    def piece_meshes(self, split_r, r_cut=0.03, low_step=(0.08, 0.3)):
+        """(v3b) 원본 관을 조각마다 따로: [(조각 번호, 'A', 가지, Acc), ...] + 잔가지 전부 Acc 하나 (meshes(hi=True) 와 같은 관)"""
+        outA, Bc = [], Acc()
+        for pi, (pts, rads, kind, b, s0, tip) in enumerate(self.pieces(split_r, r_cut)):
+            r0 = max(rads)
+            ln = sum((pts[i] - pts[i - 1]).length for i in range(1, len(pts)))
+            if kind == 'A':
+                step = min(max(r0 * 0.25, 0.012), 0.06)
+                sides = int(min(max(2 * math.pi * r0 / 0.025, 10), 40))
+                pp, rr = respace(pts, rads, step)
+            else:
+                step = min(max(ln / 4, low_step[0]), low_step[1])
+                pp, rr = respace(pts, rads, step)
+                sides = 8
+                fp, fr = [], []
+                for i in range(len(pp) - 1):
+                    k = max(1, int(math.ceil((pp[i + 1] - pp[i]).length / 0.02)))
+                    for j in range(k):
+                        fp.append(pp[i].lerp(pp[i + 1], j / k)); fr.append(rr[i] + (rr[i + 1] - rr[i]) * j / k)
+                fp.append(pp[-1]); fr.append(rr[-1])
+                pp, rr = fp, fr
+            v, f = tube(pp, rr, sides, b['lobes'], b['lobe_amp'], b['twist'], b['bumps'] if kind == 'A' else 0.0,
+                        b['seed'], b['ell'], cap=b['cap'] or kind == 'B', tip=tip, s0=s0)
+            if kind == 'A':
+                a = Acc(); a.add(v, f)
+                outA.append((pi, b, a))
+            else:
+                Bc.add(v, f)
+        return outA, Bc
+
+    def guide_for(self, b, step=0.05):
+        """(v3b) 가지 하나만의 껍질 결 뼈대 (조각마다 따로 깎을 때: 이웃 가지 점을 집어 결이 옆으로 눕지 않게)"""
+        pts, rads = resample(b['pts'], b['rads'], step)
+        chord = pts[-1] - pts[0]
+        chord = chord.normalized() if chord.length > 1e-6 else Vector((0, 0, 1))
+        me = bpy.data.meshes.new("skel")
+        me.from_pydata([tuple(p) for p in pts], [], [])
+        a = me.attributes.new("dir", 'FLOAT_VECTOR', 'POINT')
+        for i in range(len(pts)):
+            a.data[i].vector = chord
+        return link(bpy.data.objects.new("skel", me))
+
+    def guide(self, step=0.05, only=None):
         """bark 층용 뼈대 점 (각 점에 'dir' = 가지 방향).
-        곁가지·뿌리가 부모 줄기 속을 지나는 부분은 뺀다 (안 그러면 줄기 겉면이 그 가로 방향을 집어 껍질 결이 옆으로 눕는다)"""
+        곁가지·뿌리가 부모 줄기 속을 지나는 부분은 뺀다 (안 그러면 줄기 겉면이 그 가로 방향을 집어 껍질 결이 옆으로 눕는다)
+        only: 이 가지들만 (v3b, 줄기+뿌리 한 덩어리 원본용)"""
         verts, dirs = [], []
         dense = {}
         for b in self.br:
             dense[id(b)] = resample(b['pts'], b['rads'], step)
         for b in self.br:
+            if only is not None and id(b) not in only:
+                continue
             pts, rads = dense[id(b)]
             # 가지마다 한 방향(시작→끝)만 쓴다. kit.surface 의 bark 층은 절대 위치를 방향에 투영하므로
             # 이웃한 뼈대 점의 방향이 조금만 달라도 무늬가 점 경계(5cm 간격)마다 어긋나 가로 띠가 생긴다.
@@ -809,31 +855,108 @@ def rock_a():
     return finish("rock_a", [o], [low], size=1024, extr=0.1, uv_angle=75)
 
 
+def facet_mass(rng, dims, center=(0, 0, 0), planes=16, depth=(0.1, 0.26), rz=None, chamfer=0, chamfer_depth=(0.015, 0.05)):
+    """(v3b) 각진 바위 덩어리: 20면체(구 1단계)를 늘여 깊은 평면으로 깎는다. 상자는 깎아도 상자처럼, 잘게 나눈 구는
+    둥근 덩어리로 읽힌다 — 면이 적은 20면체에서 출발하면 큰 평면이 비스듬히 만나는 깨진 돌이 된다.
+    chamfer: 얕은 평면을 더 쳐서 모서리·꼭짓점을 작은 면으로 깨뜨린다 (큰 면 하나가 통째로 남으면 보석·장난감처럼 보인다)"""
+    rot = (rng.uniform(-0.15, 0.15), rng.uniform(-0.15, 0.15), rng.uniform(0, 6.28) if rz is None else rz)
+    o = sphere(0.5, center, dims, 1, rot=rot)
+    xf_all(o)
+    slice_rock(o, rng, planes, depth)
+    if chamfer:
+        slice_rock(o, rng, chamfer, chamfer_depth)
+    return o
+
+
+def step_spalls(o, rng, n, size=(0.45, 0.8), depth=(0.05, 0.09), wall=40.0, zmin=0.3):
+    """(v3b) 모서리에서 떨어져 나간 계단 자국: 평면 spall 을 날카로운 모서리 위에 걸쳐 놓아 한쪽이 모서리로 열린 턱이 된다
+    (면 한가운데 닫힌 구덩이는 창문처럼 보인다)"""
+    cs = []
+    for p, out in edge_points(o, n, rng, 30.0, zmin):
+        sz = rng.uniform(*size)
+        # 모서리 바깥 방향(out)과 가까운 면 법선 사이: 모서리를 비스듬히 깎는다
+        cs.append(spall_flat(p - out * sz * 0.15, out, (sz, sz * rng.uniform(0.5, 0.8)), rng.uniform(*depth), rng, wall=wall, tilt=12.0))
+    if cs:
+        cut(o, cs)
+    return o
+
+
+def chip_convex(o, rng, n, size=(0.2, 0.4), zmin=-1e9, sharp_deg=25):
+    """(v3b) 모서리 깨짐: 볼록한 다면체 커터 (상자 커터는 직각으로 파인 계단 이가 생겨 성벽 톱니처럼 보였다)"""
+    cs = []
+    for p, out in edge_points(o, n, rng, sharp_deg, zmin):
+        s_ = rng.uniform(*size)
+        c = sphere(1.0, (0, 0, 0), (s_, s_ * rng.uniform(0.6, 0.9), s_ * rng.uniform(0.5, 0.8)), 1,
+                   rot=(rng.uniform(0, 6.28), rng.uniform(0, 6.28), rng.uniform(0, 6.28)))
+        slice_rock(c, rng, 5, (0.1, 0.3))
+        c.data.transform(Matrix.Translation(p + out * s_ * 0.35))
+        c.data.update()
+        cs.append(c)
+    if cs:
+        cut(o, cs)
+    return o
+
+
+def spall_flat(p, n, size, depth, rng, wall=45.0, sides=7, tilt=8.0, margin=0.06):
+    """(v3b) 평면으로 떨어져 나간 자국 커터: 바닥은 평평하고(조금 기운 평면), 벽은 wall 도 경사의 각뿔대.
+    구(타원체) 커터는 테두리에서 벽이 수직이라 굽기 광선이 비스듬히 스쳐 흰 보풀·검은 톱니 테두리가 생겼다.
+    p 표면 점, n 바깥 방향, size (가로, 세로 반지름), depth 깊이"""
+    n = Vector(n).normalized()
+    q = n.to_track_quat('Z', 'Y').to_matrix().to_4x4() @ Matrix.Rotation(rng.uniform(0, 6.28), 4, 'Z')
+    angs = sorted(rng.uniform(0, 6.283) for _ in range(sides))
+    top = []
+    for a in angs:
+        r = rng.uniform(0.75, 1.0)
+        top.append(Vector((math.cos(a) * size[0] * r, math.sin(a) * size[1] * r, 0.0)))
+    cen = sum(top, Vector()) / len(top)
+    rmin = min((v - cen).length for v in top)
+    t = 1.0 / math.tan(math.radians(wall))
+    s_bot = max(0.15, 1.0 - depth * t / max(rmin, 1e-4))
+    s_top = 1.0 + margin * t / max(rmin, 1e-4)
+    ta, tb = math.radians(rng.uniform(-tilt, tilt)), math.radians(rng.uniform(-tilt, tilt))
+    vs = []
+    for v in top:                                     # 바닥 (기운 평면)
+        b = cen + (v - cen) * s_bot
+        vs.append(Vector((b.x, b.y, -depth + math.tan(ta) * b.x + math.tan(tb) * b.y)))
+    for v in top:                                     # 겉면 위로 margin 만큼
+        u = cen + (v - cen) * s_top
+        vs.append(Vector((u.x, u.y, margin)))
+    m = len(top)
+    faces = [tuple(range(m - 1, -1, -1)), tuple(range(m, 2 * m))]
+    for i in range(m):
+        j = (i + 1) % m
+        faces.append((i, j, m + j, m + i))
+    M = Matrix.Translation(Vector(p)) @ q
+    return mesh_from("spall", [M @ v for v in vs], faces)
+
+
 def rock_b():
-    """큰 바위 ~3m: 위에서부터 갈라진 큰 바위, 윗면 이끼 두껍게, 틈과 발치에 풀.
-    v3: ROCK3(큰 평면 끌 자국·곧게 꺾인 금, 둥근 굴곡 없음) + 되붙인 리메시, paint3(위 밝고 아래·틈 보라, 칸마다 색조), cage 굽기 2048"""
+    """큰 바위 ~3.5m: 정으로 쳐서 깨진 듯 각진 큰 바위, 위에서 쐐기처럼 갈라진 틈, 평평하게 떨어져 나간 자국, 윗면 이끼, 발치에 풀.
+    v3b: 상자에서 깊은 평면으로 깎은 덩어리(둥근 구 바탕을 쓰지 않는다) + 불리언 합치기(리메시 없이 깨끗한 평면) →
+    쐐기 틈·모서리 깨짐(chip)·평면 spall(벽 45도) 까지 들어간 깨끗한 형태에서 저폴리 (큰 면을 저폴리가 그대로 따라가
+    굽기 광선이 스치지 않는다) + 단단한 모서리·이음매. 원본은 되붙인 리메시 + ROCK3(큰 평면 끌 면 + 굵은 금 몇 줄)"""
     rng = random.Random(33)
-    main = rock_mass(rng, (3.6, 2.8, 2.6), (0, 0, 0.75), planes=30, depth=(0.03, 0.16), rz=R(8), base='sphere')
-    side = rock_mass(rng, (1.6, 1.5, 1.3), (1.5, 0.6, 0.25), planes=16, depth=(0.03, 0.18), base='sphere')
-    o = join([main, side])
-    remesh(o, 0.02)
+    main = facet_mass(rng, (4.3, 3.4, 3.1), (0, 0, 0.8), planes=16, depth=(0.1, 0.24), rz=R(8), chamfer=22)
+    side = facet_mass(rng, (2.0, 1.8, 1.6), (1.75, 0.75, 0.3), planes=10, depth=(0.1, 0.24), chamfer=10)
+    union(main, [side])
+    o = main
     # 위에서 아래로 좁아지는 쐐기 틈 (바닥까지는 가지 않는다)
-    wedge_ = prism([(-0.05, 0.75), (0.05, 0.75), (0.4, 2.8), (-0.36, 2.8)], -2.0, 2.0)
+    wedge_ = prism([(-0.05, 0.85), (0.05, 0.85), (0.42, 2.9), (-0.38, 2.9)], -2.0, 2.0)
     wedge_.rotation_euler = (R(3), R(-10), R(26)); wedge_.location = (0.2, 0, 0.0)
     xf_all(wedge_)
     cut(o, [wedge_])
-    chip(o, rng, 14, (0.22, 0.5), sharp_deg=25, bite=0.32)
-    # 저폴리 바탕은 얇게 떨어진 자국(spall)·조각 전의 평면 덩어리에서: 큰 끌 자국(6cm)까지 넣고 줄이면 면이 구겨져 UV 섬이 수천 개로
-    # 쪼개지고, 떨어진 자국의 벽을 저폴리로 따라가면 테두리가 톱니처럼 검게 남는다 → 둘 다 노멀맵·색으로만 옮긴다
-    base = copy(o)
-    spalls_on(o, rng, 5, (0.5, 0.9), (0.02, 0.04), center=(0, 0, 0.8))     # v3: 얕게 (깊은 벽은 굽힌 뒤 검은 톱니 테두리)
-    co, fi = ROCK3(2.0, 0.7)
-    carve(o, 0.009, (), co + fi + [{'t': 'chisel', 'scale': 15.0, 'amp': 0.003, 'tilt': 0.8, 'wall': 0.2, 'cover': 0.8}],
-          seed=5, pieces=False, relax=2)      # relax: 떨어진 자국 벽에 남는 되붙임 톱니를 편다 (굽힌 테두리가 검은 톱니로 보이던 것)
-    m = paint3("rock_b", ROCK_PAL, h=2.0, k=2.0, cells=0.8, piece_var=0.5, moss=0.9, moss_low=0.5, moss_low_h=0.35,
-               dirt=0.6, dirt_h=0.3, edge=0.85, edge_w=0.012, streaks=0.35, ao=0.5)
+    chip_convex(o, rng, 6, (0.22, 0.4), zmin=0.3)
+    # 모서리에서 평면으로 떨어져 나간 계단 자국 (바닥 평면 + 40도 벽) → 저폴리에도 넣는다
+    step_spalls(o, rng, 6, (0.45, 0.8), (0.05, 0.09))
+    origin0(o)
+    low = lowpoly(o, z=-0.05)
+    co, fi = ROCK3(1.8, 0.7)
+    carve(o, 0.005, co, fi, seed=5, pieces=False, mode='octree')
+    m = paint3("rock_b", ROCK_PAL, h=2.3, k=1.8, cells=0.7, piece_var=0.4, piece_val=0.08, facet_var=0.3, light=1.2, moss=0.9, moss_low=0.5,
+               moss_low_h=0.35, dirt=0.6, dirt_h=0.3, edge=0.6, edge_w=0.018, edge_gain=1.0, streaks=0.55, ao=0.5, grain=0.12, tooling=0.0,
+               speckle=0.4, strokes=0.8, stains=0.5, edge_mode="attr", lichen=0.7, contrast=0.2)
     set_mat(o, m)
-    low = low_from(base, 8000); delete(base)
+    print("LOW rock_b", tri_count(low))
     cards = Cards()
     grass_on_top(cards, low, rng, 9, (1.6, 1.2), zmin=0.9, h=(0.2, 0.4), w=(0.2, 0.35), nz=0.75)
     # 바닥 둘레 풀
@@ -841,7 +964,9 @@ def rock_b():
         a = rng.uniform(0, 6.28)
         p = Vector((math.cos(a) * 1.75, math.sin(a) * 1.3, 0.0))
         grass_tuft(cards, rng, p, rng.uniform(0.25, 0.45), rng.uniform(0.25, 0.4), 3, 0.4)
-    return finish3("rock_b", [o], [low], extras=[cards.obj("grass")], size=2048, cage=0.015, cage_reach=0.12, uv_angle=75)
+    down = lambda c, n: 0.55 if n.z < -0.3 else 1.0
+    return finish3("rock_b", [o], [low], extras=[cards.obj("grass")], cage=0.012, cage_reach=0.1, uv_angle=40, hard=38,
+                   uv_margin=0.002, uv_weight=down)
 
 
 def low_parts(high, tris, z=-0.05, floor=60):
@@ -1261,12 +1386,237 @@ def limb(tr, parent, t, az, elev, length, r_k=0.75, taper=1.4, gnarl=0.25, up=0.
     return b
 
 
+def _ring_dir(T, N, B, want):
+    """고리 시작 각 a0: 방향 N·cos a0 + B·sin a0 이 want(고리 평면에 투영)와 가장 가깝게 (UV 이음매를 덜 보이는 쪽으로)"""
+    w = Vector(want) - T * Vector(want).dot(T)
+    if w.length < 1e-6:
+        return 0.0
+    return math.atan2(w.dot(B), w.dot(N))
+
+
+def tree_low_uv(tree, split_r, r_cut=0.03, low_step=(0.08, 0.3), rho=None, seam=None, z_cut=-0.06, name="tree", groups=None):
+    """(v3b) 원통 전개 저폴리: 가지마다 관 하나 + 이음매 하나 (UV 섬 = 가지 하나). 굵은 부분(A)은 원본 관과 같은 고리 틀·골(lobes)을
+    따라 성기게 다시 찍고, 부모 속에 묻힌 시작 부분과 땅속(z_cut 아래) 고리는 버린다. 잔가지(B)는 예전 저폴리 관에 UV 만 붙인다.
+    rho(가지, 점, 'A'|'B') → 텍셀 배율 (줄기 밑동 1.0 … 잔가지 0.25): 섬 크기를 이것으로 정해 pack 이 같은 비율로 키운다.
+    seam(가지) → 이음매가 향할 방향 (가지 위쪽 +Z: 땅에서 올려다보면 안 보인다)
+    돌려주는 값: (A 객체, B 객체) — UV 층 'UVMap'"""
+    from mathutils.kdtree import KDTree
+    rho = rho or (lambda b, p, kind: 1.0)
+    seam = seam or (lambda b: (0, 0, 1))
+    groups = groups or {}               # 조각 번호 → 굽기 무리 ('bgrp' 면 속성, kit.finish(bake_groups))
+    dense, kds = {}, {}
+
+    def par_kd(par):
+        if id(par) not in kds:
+            pp, pr = resample(par['pts'], par['rads'], 0.02)
+            kd = KDTree(len(pp))
+            for i, q in enumerate(pp):
+                kd.insert(q, i)
+            kd.balance()
+            kds[id(par)] = (kd, pr)
+        return kds[id(par)]
+
+    accs = {'A': ([], [], [], []), 'B': ([], [], [], [])}      # verts, faces, face_uvs, face groups
+
+    def emit(kind, ring_pts, ring_uv, tip_pt, tip_uv, cap_end, grp=0, split=0.6):
+        """고리들을 관으로. 둘레(UV 폭)가 구간 시작의 split 배 아래로 줄면 거기서 UV 섬을 끊는다 (정점은 그대로 이어져 음영은 매끈하다).
+        한 섬이 뾰족한 세모(밑동이 넓게 퍼진 줄기)가 되면 배치가 성겨 텍셀이 크게 준다 (v3b 첫 판: uv_fill 0.43)"""
+        V, F, U, G = accs[kind]
+        f0 = len(F)
+        base = len(V)
+        nring = len(ring_pts)
+        sides = len(ring_pts[0])
+        for ring in ring_pts:
+            V.extend(ring)
+        width = [ring_uv[i][-1][0] - ring_uv[i][0][0] for i in range(nring)]
+        seg_v0, seg_of = [], []
+        v0, w0 = ring_uv[0][0][1], width[0]
+        for i in range(nring - 1):
+            if split and width[i] < w0 * split and i > 0:
+                v0, w0 = ring_uv[i][0][1], width[i]
+            seg_of.append(v0)
+        if not seg_of:
+            seg_of = [ring_uv[0][0][1]]
+        sh = lambda uv, off: (uv[0], uv[1] - off)
+        for i in range(nring - 1):
+            off = seg_of[i]
+            for k in range(sides):
+                k1 = (k + 1) % sides
+                a, b_, c, d = base + i * sides + k, base + i * sides + k1, base + (i + 1) * sides + k1, base + (i + 1) * sides + k
+                F.append((a, b_, c, d))
+                U.append((sh(ring_uv[i][k], off), sh(ring_uv[i][k + 1], off), sh(ring_uv[i + 1][k + 1], off), sh(ring_uv[i + 1][k], off)))
+        last = base + (nring - 1) * sides
+        off = seg_of[-1]
+        if tip_pt is not None:
+            t = len(V); V.append(tip_pt)
+            for k in range(sides):
+                F.append((last + k, last + (k + 1) % sides, t))
+                U.append((sh(ring_uv[-1][k], off), sh(ring_uv[-1][k + 1], off), sh(tip_uv, off)))
+        elif cap_end:
+            t = len(V); V.append(sum(ring_pts[-1], Vector()) / sides)
+            cu = (sum(u for u, v in ring_uv[-1][:-1]) / sides, ring_uv[-1][0][1])
+            for k in range(sides):
+                F.append((last + k, last + (k + 1) % sides, t))
+                U.append((sh(ring_uv[-1][k], off), sh(ring_uv[-1][k + 1], off), sh(cu, off)))
+        G.extend([grp] * (len(F) - f0))
+
+    nA = nB = 0
+    for pi, (pts, rads, kind, b, s0, tip) in enumerate(tree.pieces(split_r, r_cut)):
+        r0 = max(rads)
+        if kind == 'A':
+            step_hi = min(max(r0 * 0.25, 0.012), 0.06)            # 원본 관(Tree.meshes)과 같은 점·틀
+            pp, rr = respace(pts, rads, step_hi)
+            T, N, B = frames(pp)
+            sides = int(min(max(2 * math.pi * r0 / 0.11, 6), 22))
+            if b['lobes']:
+                sides = max(sides, 3 * b['lobes'] + 1)
+            step_lo = min(max(r0 * 0.9, 0.1), 0.3)
+            bumps = b['bumps']
+        else:
+            step = min(max(sum((pts[i] - pts[i - 1]).length for i in range(1, len(pts))) / 4, low_step[0]), low_step[1])
+            pp, rr = respace(pts, rads, step)
+            T, N, B = frames(pp)
+            sides = 5 if r0 > 0.02 else (4 if r0 > 0.009 else 3)
+            step_lo = 0.0
+            bumps = 0.0
+        n = len(pp)
+        S = [s0]
+        for i in range(1, n):
+            S.append(S[-1] + (pp[i] - pp[i - 1]).length)
+        # 고리 고르기: step_lo 마다 + 굵기가 15% 넘게 변하거나 10도 넘게 꺾인 곳
+        idx = [0]
+        for i in range(1, n - 1):
+            j = idx[-1]
+            if (S[i] - S[j] >= step_lo or abs(rr[i] - rr[j]) > 0.15 * max(rr[j], 1e-3) or T[i].angle(T[j], 0.0) > R(10)):
+                idx.append(i)
+        idx.append(n - 1)
+        # 부모 속에 묻힌 시작 고리 버리기 (하나는 남겨 틈이 없게)
+        par = b.get('parent')
+        if par is not None and kind == 'A':
+            kd, pr = par_kd(par)
+            first = 0
+            for m_, i in enumerate(idx):
+                q, qi, dist = kd.find(pp[i])
+                if dist > pr[qi] * 0.9:
+                    first = max(0, m_ - 1)
+                    break
+            else:
+                first = len(idx) - 2
+            idx = idx[first:]
+        off = Vector((b['seed'] * 7.13 + 3.1, b['seed'] * 3.71 - 1.7, b['seed'] * 1.37 + 0.4))
+        want = Vector(seam(b))
+        a0 = _ring_dir(T[idx[0]], N[idx[0]], B[idx[0]], want)
+        ring_pts, ring_uv = [], []
+        vcoord = 0.0
+        tip_pt = tip_uv = None
+        prev = None
+        for m_, i in enumerate(idx):
+            p, r = pp[i], rr[i]
+            w = rho(b, p, kind)
+            if prev is not None:
+                ds = S[i] - S[prev]
+                vcoord += ds * 0.5 * (w + rho(b, pp[prev], kind))
+            prev = i
+            if tip and i == n - 1:
+                tip_pt = p.copy(); tip_uv = (0.0, vcoord)
+                continue
+            # 이음매 방향을 고리마다 다시 맞춘다 (가지가 굽어도 이음매가 늘 want 쪽: 뿌리 아래·가지 위·줄기 뒤).
+            # 가지가 want 와 거의 나란하면(수직 뿌리 시작부) 앞 고리 값을 이어 쓴다. 한 번에 크게 돌지 않게 30도까지만
+            wv = want - T[i] * want.dot(T[i])
+            if wv.length > 0.35:
+                an = _ring_dir(T[i], N[i], B[i], want)
+                da = (an - a0 + math.pi) % (2 * math.pi) - math.pi
+                a0 += max(-R(30), min(R(30), da))
+            ring = []
+            for k in range(sides):
+                a = 2 * math.pi * k / sides + a0
+                f = 1.0
+                if b['lobes']:
+                    f += b['lobe_amp'] * math.sin(b['lobes'] * a + b['twist'] * S[i] + 0.0)
+                if bumps:
+                    q = Vector((math.cos(a) * 0.9, math.sin(a) * 0.9, S[i] / max(r * 3.0, 0.03))) + off
+                    f += bumps * mnoise.noise(q)
+                d = N[i] * (math.cos(a) * b['ell']) + B[i] * math.sin(a)
+                ring.append(p + d * (r * f))
+            circ = 2 * math.pi * r * w
+            ring_pts.append(ring)
+            ring_uv.append([((k / sides - 0.5) * circ, vcoord) for k in range(sides + 1)])
+        # 땅속 고리 버리기 (줄기 아래·뿌리 끝): 처음/끝에서 모든 점이 z_cut 아래인 고리
+        while len(ring_pts) > 2 and all(v.z < z_cut for v in ring_pts[0]) and all(v.z < z_cut for v in ring_pts[1]):
+            ring_pts.pop(0); ring_uv.pop(0)
+        cut_end = False
+        while len(ring_pts) > 2 and all(v.z < z_cut for v in ring_pts[-1]) and all(v.z < z_cut for v in ring_pts[-2]):
+            ring_pts.pop(); ring_uv.pop(); cut_end = True
+        if cut_end:
+            tip_pt = None
+        if len(ring_pts) < 2 and tip_pt is None:
+            continue
+        if len(ring_pts) < 1:
+            continue
+        emit(kind, ring_pts, ring_uv, tip_pt, tip_uv, cap_end=(tip_pt is None and not cut_end and kind == 'A'),
+             grp=groups.get(pi, groups.get('B', 0)) if kind == 'A' else groups.get('B', 0))
+        if kind == 'A':
+            nA += 1
+        else:
+            nB += 1
+    out = []
+    for kind in ('A', 'B'):
+        V, F, U, G = accs[kind]
+        if not F:
+            out.append(None)
+            continue
+        me = bpy.data.meshes.new(name + "_low" + kind)
+        me.from_pydata([tuple(v) for v in V], [], F)
+        me.update(calc_edges=True)
+        uvl = me.uv_layers.new(name="UVMap")
+        for poly, fu in zip(me.polygons, U):
+            for li, uv in zip(poly.loop_indices, fu):
+                uvl.data[li].uv = uv
+        me.attributes.new('bgrp', 'INT', 'FACE').data.foreach_set('value', G)
+        o = bpy.data.objects.new(name + "_low" + kind, me)
+        link(o)
+        for poly in me.polygons:
+            poly.use_smooth = True
+        out.append(o)
+    print("TREELOW", name, "A tubes", nA, "B tubes", nB, "tris A", tri_count(out[0]) if out[0] else 0, "B", tri_count(out[1]) if out[1] else 0)
+    return out[0], out[1]
+
+
+def tree_rho(b, p, kind, base=1.0, top=0.45, z0=1.2, z1=3.5, root=(0.6, 0.32), root_r=(0.6, 1.4), d1=0.42, d2=0.32, d3=0.26, twig=0.22):
+    """(v3b) 나무 텍셀 배율: 줄기 밑동(사람 눈높이까지) 1.0 → 위로 갈수록, 뿌리(줄기 가까이 → 끝), 굵은 가지·잔가지 순으로 낮게.
+    뿌리는 겉넓이가 줄기만큼 커서(죽은 나무 a: 8.8 m²) 그대로 두면 텍스처의 40% 를 먹는다"""
+    if kind == 'B':
+        return twig
+    d = b['depth']
+    if d == 0:
+        t = min(max((p.z - z0) / (z1 - z0), 0.0), 1.0)
+        return base + (top - base) * t
+    if d >= 9:
+        r = math.hypot(p.x, p.y)
+        t = min(max((r - root_r[0]) / (root_r[1] - root_r[0]), 0.0), 1.0)
+        return root[0] + (root[1] - root[0]) * t
+    return d1 if d == 1 else (d2 if d == 2 else d3)
+
+
+def tree_seam(b):
+    """이음매 방향: 줄기는 뒤(+Y), 뿌리는 아래, 가지는 위 (땅에서 올려다보는 쪽의 반대)"""
+    d = b['depth']
+    return (0, 1, 0) if d == 0 else ((0, 0, -1) if d >= 9 else (0, 0, 1))
+
+
 def tree_build(name, tree, split_r, voxel, layers_a, layers_b, mat, low_a, size, extr, extras=(), guide_step=0.05,
                lod2=None, low_sides=5, extra_highs=(), extra_lows=(), post_a=None, r_cut=0.03, mat_b=None,
-               low_step=(0.08, 0.3), uv_angle=66, extra_a=None, ivy_starts=(), fin=None):
+               low_step=(0.08, 0.3), uv_angle=66, extra_a=None, ivy_starts=(), fin=None, low_mode='remesh', rho=None):
     """뼈대 → 굵은 부분 리메시·조각, 잔가지 관 → 굽기. post_a(굵은 부분): 리메시 뒤 구멍 파기 등.
     fin: kit.finish 에 더 넘길 v3 인자 (cage, pack, margin=0 …). 없으면 예전과 같다.
-    저폴리 굵은 부분은 껍질 조각 전의 매끈한 사본에서 줄인다 (껍질은 노멀맵으로)."""
+    저폴리 굵은 부분은 껍질 조각 전의 매끈한 사본에서 줄인다 (껍질은 노멀맵으로).
+    (v3b) low_mode='tube': 저폴리를 가지마다 관 하나로 다시 찍고 원통으로 편다 (tree_low_uv, 이음매 하나·섬 = 가지 하나).
+      리메시 저폴리 + smart_project 는 섬이 수천 개로 쪼개져 텍셀이 낮고 껍질 결이 섬마다 끊겼다. rho: 텍셀 배율 (tree_rho)
+      원본도 굵은 가지마다 따로 깎고(가지 하나만의 결 뼈대), 서로 닿지 않는 가지끼리 묶어 무리마다 따로 굽는다 (bake_groups)
+      → 원본이 합쳐진 가지 이음매에서 생기던 극단 법선·검은 점이 없다. post_a·extra_a 는 이 방식에서 쓰지 않는다"""
+    if low_mode == 'tube':
+        return _tree_build_tube(name, tree, split_r, voxel, layers_a, layers_b, mat, size, extr, extras, guide_step, lod2,
+                                r_cut, mat_b, low_step, extra_highs, extra_lows, ivy_starts, fin, rho or tree_rho)
     guide = tree.guide(guide_step)
     A, Bh = tree.meshes(split_r, hi=True, r_cut=r_cut, low_step=low_step)
     if extra_a is not None:
@@ -1299,6 +1649,131 @@ def tree_build(name, tree, split_r, voxel, layers_a, layers_b, mat, low_a, size,
     print("TREE", name, "branches", len(tree.br), "lowA", tri_count(la), "lowB", tri_count(lb) if lb else 0)
     return finish(name, highs + list(extra_highs), lows + list(extra_lows), extras=extras, size=size, extr=extr, lod2=lod2,
                   uv_angle=uv_angle, **(fin or {}))
+
+
+MERGE_ROOTS = False
+
+
+def _base_piece(b):
+    """MERGE_ROOTS 이면 줄기와 뿌리를 한 덩어리 원본(리메시로 합침)으로 함께 굽는다. 기본은 끔: 시험해 보니 줄기 저폴리 위를
+    뿌리 원본이 덮어 광선이 비스듬히 스쳐 steep 이 1.6% → 11.8% 로 늘었다. 가지·뿌리는 따로 깎고 따로 굽는다"""
+    return MERGE_ROOTS and (b['depth'] == 0 or b['depth'] >= 9)
+
+
+def _tree_groups(tree, split_r, r_cut):
+    """굵은 조각(A)을 서로 닿지 않는 무리로 나눈다 (부모·자식이거나 축 사이가 두 반지름 + 5cm 안이면 같은 무리 금지).
+    줄기·뿌리 조각은 모두 무리 0 (한 덩어리 원본)"""
+    from mathutils.kdtree import KDTree
+    info = []
+    for pi, (pts, rads, kind, b, s0, tip) in enumerate(tree.pieces(split_r, r_cut)):
+        if kind != 'A':
+            continue
+        pp, rr = respace(pts, rads, 0.05)
+        kd = KDTree(len(pp))
+        for i, q in enumerate(pp):
+            kd.insert(q, i)
+        kd.balance()
+        info.append((pi, b, pp, rr, kd))
+    clash = {x[0]: set() for x in info}
+    for i, (pa, ba, ppa, rra, kda) in enumerate(info):
+        for pb, bb, ppb, rrb, kdb in info[i + 1:]:
+            hit = ba.get('parent') is bb or bb.get('parent') is ba
+            if not hit:
+                for q, r in zip(ppb, rrb):
+                    c, ci, d = kda.find(q)
+                    if d < r + rra[ci] + 0.05:
+                        hit = True
+                        break
+            if hit:
+                clash[pa].add(pb); clash[pb].add(pa)
+    base = {x[0] for x in info if _base_piece(x[1])}
+    grp = {pi: 0 for pi in base}
+    for pi, *_ in info:
+        if pi in base:
+            continue
+        used = {grp[o] for o in clash[pi] if o in grp}
+        if clash[pi] & base:
+            used.add(0)
+        g = 0
+        while g in used:
+            g += 1
+        grp[pi] = g
+    ng = max(grp.values()) + 1 if grp else 0
+    grp['B'] = ng
+    return grp, ng + 1
+
+
+def _tree_build_tube(name, tree, split_r, voxel, layers_a, layers_b, mat, size, extr, extras, guide_step, lod2,
+                     r_cut, mat_b, low_step, extra_highs, extra_lows, ivy_starts, fin, rho):
+    """tree_build(low_mode='tube') 본체: 가지마다 원본·저폴리 관, 무리별 굽기"""
+    grp, ng = _tree_groups(tree, split_r, r_cut)
+    pieces = list(tree.pieces(split_r, r_cut))
+    highsA, Bh = tree.piece_meshes(split_r, r_cut, low_step)
+    bake_groups = [[] for _ in range(ng)]
+    highs = []
+    base_acc, base_ids = Acc(), set()
+    for pi, b, acc in highsA:
+        if _base_piece(b):                   # 줄기 + 뿌리: 한 덩어리로 리메시 (만나는 곳이 매끈하게)
+            base_acc.add(acc.v, acc.f)
+            base_ids.add(id(b))
+            continue
+        h = acc.obj("%s_hA%d" % (name, pi))
+        remesh(h, voxel)
+        gd = tree.guide_for(b, guide_step)
+        surface(h, layers_a, seed=BARK_SEEDS[0], guide=gd)
+        delete(gd)
+        set_mat(h, mat)
+        bake_groups[grp[pi]].append(h)
+        highs.append(h)
+    if base_acc.f:
+        h = base_acc.obj("%s_hBase" % name)
+        remesh(h, voxel)
+        gd = tree.guide(guide_step, only=base_ids)
+        surface(h, layers_a, seed=BARK_SEEDS[0], guide=gd)
+        delete(gd)
+        set_mat(h, mat)
+        bake_groups[0].append(h)
+        highs.append(h)
+    hb = Bh.obj(name + "_hB")
+    if hb is not None:
+        gd = tree.guide(guide_step)
+        surface(hb, layers_b, seed=BARK_SEEDS[1], guide=gd)
+        delete(gd)
+        set_mat(hb, mat_b or mat)
+        bake_groups[grp['B']].append(hb)
+        highs.append(hb)
+    la, lb = tree_low_uv(tree, split_r, r_cut, low_step, rho, tree_seam, name=name, groups=grp)
+    lows = [x for x in (la, lb) if x is not None]
+    extras = list(extras)
+    for p, sd, ln in ivy_starts:
+        extras += ivy_light(la, p, sd, ln, leaf=0.06, gravity=-0.2, adhesion=0.9)
+    trunk_pi = next((pi for pi, (pts, rads, kind, b, s0, tip) in enumerate(pieces) if kind == 'A' and b['depth'] == 0), None)
+
+    def probe(low, size_):
+        # 줄기 밑동(높이 1.5 m 아래, 줄기 조각) 텍셀
+        me = low.data
+        at = me.attributes.get('bgrp')
+        if at is None or trunk_pi is None:
+            return
+        g = grp[trunk_pi]
+        uv = me.uv_layers.active.data
+        a2 = a3 = 0.0
+        for p in me.polygons:
+            if at.data[p.index].value != g or p.center.z > 1.5:
+                continue
+            pts = [uv[i].uv for i in p.loop_indices]
+            ss = 0.0
+            for i in range(len(pts)):
+                x0, y0 = pts[i]; x1, y1 = pts[(i + 1) % len(pts)]
+                ss += x0 * y1 - x1 * y0
+            a2 += abs(ss) * 0.5; a3 += p.area
+        print("TEXEL_TRUNK", name, "base px/m", round(size_ * math.sqrt(a2 / max(a3, 1e-9))), "(무리 %d, 같은 무리 다른 가지 포함)" % g)
+
+    print("TREE", name, "branches", len(tree.br), "lowA", tri_count(la) if la else 0, "lowB", tri_count(lb) if lb else 0,
+          "bake_groups", ng, "highs", len(highs))
+    fin = dict(fin or {}); fin['uv'] = 'keep'; fin.setdefault('pack', True)
+    return finish(name, highs + list(extra_highs), lows + list(extra_lows), extras=extras, size=size, extr=extr, lod2=lod2,
+                  bake_groups=bake_groups if not extra_highs else None, probe=probe, **fin)
 
 
 def bcut(o, cutters, solver='EXACT'):
@@ -1568,19 +2043,21 @@ def dead_tree_a():
     tr.grow(tk, [dict(CLAW_LEVELS[0], kids=(2, 3), t=(0.86, 0.97), len=(0.4, 0.6), r=(0.6, 0.8))] + CLAW_LEVELS[1:])
     cards = Cards()
     hang_moss_on(tr, cards, rng, 6, length=(0.4, 0.95), width=(0.16, 0.26))
-    m = paint3("dead_tree_a", BARK_DEAD, h=6.6, k=1.0, moss=0.3, moss_color=MOSS_DEAD, moss_low=0.5, moss_low_h=0.9,
-               piece_var=0.0, hue_var=0.45, edge=0.7, edge_w=0.01, cavity=1.0, ao=0.35, strokes=0.25, tooling=0.0,
-               streaks=0.0, stains=0.3, dirt=0.5, dirt_h=0.5, light=1.0)
-    blotch(m, WOOD_PALE, 0.9, 0.45, 0.5, 0.6)             # 껍질이 벗겨져 하얗게 바랜 나무
-    grad_dark(m, 0.0, 1.2, 0.5)
+    # v3b: 껍질판 사이 골이 어둡고(좁은 AO) 판 가장자리는 밝게(베벨), 껍질이 벗겨진 맨나무는 작고 경계가 또렷한 조각,
+    # 이끼·지의류도 작게 (v3 의 회색 솜뭉치 얼룩 blotch(0.9, 0.5~0.6) 은 뺐다)
+    m = paint3("dead_tree_a", BARK_GREY, h=2.5, k=1.0, moss=0.3, moss_color=MOSS_DEAD, moss_patch=5.5, moss_low=0.25, moss_low_h=0.6,
+               piece_var=0.0, hue_var=0.2, edge=1.0, edge_w=0.014, edge_gain=1.1, cavity=0.75, ao=0.16, strokes=0.15, tooling=0.0,
+               streaks=0.2, stains=0.2, dirt=0.45, dirt_h=0.45, light=1.1, lichen=0.3, lichen_color=(0.3, 0.32, 0.28), grain=0.25,
+               contrast=0.2, pivot=0.06, gain=1.0)
+    blotch(m, (0.2, 0.19, 0.22), 2.6, 0.45, 0.62, 0.63)   # 껍질이 벗겨진 맨나무 (작고 또렷하게, 흰 물감 같지 않게 어둡게)
+    grad_dark(m, 0.0, 1.0, 0.45)
     # 잔가지는 밝게 (어두운 하늘에 실루엣이 읽히게)
     mb = paint3("dead_tree_a_tw", 'bark_pale', h=6.6, k=0.5, moss=0.1, moss_color=MOSS_DEAD, piece_var=0.0, edge=0.3,
                 cavity=0.5, ao=0.1, strokes=0.2, tooling=0.0, streaks=0.0, stains=0.0, dirt=0.0, light=0.8)
-    blotch(mb, WOOD_PALE, 1.6, 0.3, 0.5, 0.6)
     co, fi = BARK3(1.0)
-    return tree_build("dead_tree_a", tr, 0.045, 0.0075, co + fi, twig_layers(), m, 5000, 2048, 0.06,
-                      extras=[cards.obj("moss")], mat_b=mb,
-                      fin=dict(cage=0.006, cage_reach=0.03, pack=True, samples=8, margin=0, uv_margin=0.001))
+    return tree_build("dead_tree_a", tr, 0.045, 0.006, co + fi, twig_layers(), m, 5000, 2048, 0.06,
+                      extras=[cards.obj("moss")], mat_b=mb, low_mode='tube', rho=tree_rho,
+                      fin=dict(cage=0.006, cage_reach=0.06, samples=8, margin=0, uv_margin=0.002))
 
 
 def arch_root(rng, ang, r_trunk, reach, height):

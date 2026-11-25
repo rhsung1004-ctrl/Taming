@@ -878,6 +878,11 @@ def grave_slab_a():
     st += text_strokes(rng, 0.0, 0.445, 0.3, 0.03, yf, jitter=0.002)
     st += crack_strokes(rng, (0.27, yf, 0.32), (-1, 0, 0.4), 0.22, 5, 0.5, yf)     # 아래 오른쪽에서 들어온 금
     engrave_v(slab, st, (0, -1, 0), 0.011, 0.007, floor=0.3)       # V 자 홈 (끌로 판 글자)
+    # v3b: 다듬은 앞면의 긴 금 두 줄 더 (거북등 같은 끌 자국 칸 대신). 따로 받은 난수라 뒤의 형태는 그대로
+    crng = random.Random(55)
+    ck = crack_strokes(crng, (-0.27, yf, 0.97), (0.35, 0, -1), 0.3, 6, 0.45, yf)
+    ck += crack_strokes(crng, (-0.275, yf, 0.42), (1, 0, -0.35), 0.24, 5, 0.4, yf)
+    engrave_v(slab, ck, (0, -1, 0), 0.0075, 0.005, floor=0.25)
     # 앞·옆면이 얇게 떨어져 나간 자국
     cut(slab, [spall((0.2, y0, 0.3), (0, -1, 0), (0.09, 0.06), 0.01, rng),
                spall((-0.24, y0, 0.98), (0, -1, 0.2), (0.07, 0.05), 0.008, rng),
@@ -895,8 +900,15 @@ def grave_slab_a():
     low = lowpoly(slab_low, z=-0.015)
     delete(slab_low)
     body = join([slab, plinth])
-    carve(body, 0.0025, *STONE3(1.0, wear=1.1, cracks=0.45), seed=11)
-    m = paint3("slab_a", 'stone', h=1.1, k=1.0, moss=0.45, moss_low=0.85, moss_low_h=0.4, dirt=0.6, dirt_h=0.18)
+    # v3b: 앞면은 다듬어 매끈하게(끌 자국 칸 = 거북등 선 없이, 결은 칠의 tooling), 뒷면만 거칠게 쪼아 다듬은 자국 + 잔 구멍
+    back = {'face': (0, 1, 0), 'face_lo': 0.3, 'face_hi': 0.7}
+    fine = [dict(back, t='chisel', scale=5.5, amp=0.0045, tilt=0.8, jitter=0.6, wall=0.14),
+            dict(back, t='chisel', scale=16.0, amp=0.0018, tilt=0.8, jitter=0.6, wall=0.18, cover=0.7),
+            dict(back, t='pits', scale=40.0, depth=0.0016, cover=0.7),
+            {'t': 'cracks', 'scale': 2.2, 'width': 0.02, 'depth': 0.004, 'warp': 0.08, 'cover': 0.08, 'cover_scale': 0.8}]
+    carve(body, 0.0025, [{'t': 'lumps', 'scale': 0.7, 'amp': 0.0009}], fine, seed=11)
+    m = paint3("slab_a", 'stone', h=1.1, k=1.0, moss=0.45, moss_low=0.85, moss_low_h=0.4, dirt=0.6, dirt_h=0.18, tooling=0.45,
+               streaks=0.5, stains=0.4, lichen=0.45, edge=0.9, edge_w=0.012, edge_mode='attr', piece_val=0.06)
     set_mat(body, m)
     print("LOW grave_slab_a", tri_count(low))
     # 왼쪽 뒤 받침에서 기어오르는 덩굴 (조금)
@@ -905,7 +917,14 @@ def grave_slab_a():
     ivy_grow(v, tgt, (-0.36, 0.12, 0.02), seed=4, length=1.0, step=0.025, max_roots=6, gravity=0.4, adhesion=0.8, zmax=0.85)
     ivy_grow(v, tgt, (0.3, 0.17, 0.02), seed=9, length=0.5, step=0.025, max_roots=4, gravity=0.4, adhesion=0.8, zmax=0.45)
     delete(tgt)
-    return finish3("grave_slab_a", [body], [low], extras=v.objects(), size=2048, cage=0.006, hard=55)
+    # v3b: 텍스처 1024 (가장 긴 변 1.1 m < 1.5 m, 저장소 용량 규칙). 글자 앞면에 텍셀을 몰아 준다 (뒷면·받침은 덜)
+    def weight(c, n):
+        if n.y < -0.7 and c.z > 0.15:
+            return 1.0
+        if c.z < 0.15:
+            return 0.7
+        return 0.65 if n.y > 0.7 else 0.8
+    return finish3("grave_slab_a", [body], [low], extras=v.objects(), cage=0.006, hard=55, uv_weight=weight)
 
 def daisy_strokes(cx, cz, r, y, n=8):
     """여섯 꽃잎 원 문양 (컴퍼스로 그린 옛 묘비 장식): 바깥 원 위 여섯 점을 중심으로 한 호"""

@@ -8,6 +8,8 @@ namespace Necro
     // 멀리 있는 광원도 안개에 묻히지 않는다. 그냥 끄면 빛 웅덩이가 툭 사라지므로, 경계에서 세기를 서서히 줄여 끈다.
     //  - 광원마다 끄는 거리를 따로 둔다: 끄는 거리 = 빛 범위(range) × rangeFactor (minRadius ~ maxRadius).
     //    범위가 큰 제단·등불은 멀리까지 켜 두고, 범위가 작은 버섯·연꽃·초는 가까이에서만 켠다.
+    //  - LightCullDistance 가 붙은 광원(장면·장소의 '등대 빛')은 그 far 거리에서 끈다 (range 는 그대로라 그리기 비용은 같다).
+    //    멀리서 보이는 것이 목적이라 줄이는 구간은 farFadeFraction (기본 0.2: 140 m 면 112 m 부터 줄어 140 m 에서 0).
     //  - 끄는 거리 바깥쪽 구간(fadeFraction)에서 세기를 1 → 0 으로 줄인다. 켤 때도 0 에서 시작하므로 툭 나타나지 않는다.
     //    끄는 것은 끄는 거리 + hysteresis 를 벗어난 뒤 (이미 세기 0) 라서 보이지 않는다.
     //  - 동시에 켜 둘 개수(maxActive)를 넘으면 (거리 / 끄는 거리) 비율이 작은 순으로 남긴다.
@@ -26,7 +28,8 @@ namespace Necro
         [Header("컬링")]
         [Tooltip("켜고 끌 광원을 고르는 간격 (초). 세기를 서서히 바꾸는 것은 매 프레임 한다")]
         [Range(0.1f, 3f)] public float interval = 0.5f;
-        [Tooltip("동시에 켜 둘 최대 개수 ((거리 / 끄는 거리) 비율이 작은 순). 밀려난 광원이 줄어드는 동안은 잠깐 넘을 수 있다")]
+        [Tooltip("동시에 켜 둘 최대 개수 ((거리 / 끄는 거리) 비율이 작은 순). 밀려난 광원이 줄어드는 동안은 잠깐 넘을 수 있다.\n" +
+                 "1장 월드는 생성기가 어디서도 켜 둘 후보(끄는 거리 안의 광원)가 44 개를 넘지 않게 맞춘다 (등대 빛 포함)")]
         [Range(4, 256)] public int maxActive = 48;
 
         [Header("광원별 끄는 거리")]
@@ -42,6 +45,8 @@ namespace Necro
         [Header("서서히 줄이기")]
         [Tooltip("끄는 거리 안쪽의 이 비율 구간에서 세기를 1 → 0 으로 줄인다 (0.3 이면 끄는 거리의 70% 지점부터 줄기 시작한다)")]
         [Range(0.05f, 1f)] public float fadeFraction = 0.3f;
+        [Tooltip("LightCullDistance 로 끄는 거리를 덮어쓴 등대 빛의 줄이는 구간 비율 (0.2 면 140 m 등대 빛은 112 m 부터 줄어든다)")]
+        [Range(0.05f, 1f)] public float farFadeFraction = 0.2f;
         [Tooltip("개수 제한에 밀려 끄거나 새로 켤 때 세기를 바꾸는 데 걸리는 시간 (초). 0 이면 바로 바뀐다")]
         [Range(0f, 2f)] public float fadeSeconds = 0.4f;
 
@@ -133,10 +138,13 @@ namespace Necro
                 var f = l.GetComponent<SoulFlicker>();
                 flickers[i] = (f != null && f.enabled) ? f : null;   // 일부러 꺼 둔 일렁임은 켜지 않는다 (세기는 컬러가 직접 쓴다)
                 baseIntensity[i] = l.intensity;
-                float r = Mathf.Clamp(l.range * rangeFactor, lo, hi);
+                // 등대 빛: LightCullDistance 의 far 에서 끈다 (Refresh 에서 한 번만 읽는다)
+                var o = l.GetComponent<LightCullDistance>();
+                bool far = o != null && o.enabled && o.far > 0f;
+                float r = Mathf.Clamp(far ? o.far : l.range * rangeFactor, lo, hi);
                 cullR[i] = r;
                 keepR2[i] = (r + hysteresis) * (r + hysteresis);
-                invBand[i] = 1f / Mathf.Max(0.5f, r * fadeFraction);
+                invBand[i] = 1f / Mathf.Max(0.5f, r * (far ? farFadeFraction : fadeFraction));
                 timeFade[i] = 1f;
                 applied[i] = 1f;
             }

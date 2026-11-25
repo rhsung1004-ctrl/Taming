@@ -1,6 +1,11 @@
 # 월드 데이터를 Blender 로 그려 보는 확인 렌더 (Unity 화면과 같지는 않다: 조명·안개·풀 모양을 가늠하는 용도)
 #   blender -b --python-exit-code 1 -P render_world.py -- <월드 폴더(Ch1)> <소품 폴더(kit_out)> <출력 접두어> [보기,보기] [samples]
-# 보기: overview, spawn, graveyard, swamp, cathedral, dragon, tree, bridge, gate, village, fields (생략하면 전부)
+# 보기: overview, spawn, graveyard, swamp, cathedral, dragon, tree, bridge, gate, village (장소),
+#       fields, roadside, ne_field, hamlet, pair, quiet (v3 눈높이 1.7 m 보기: 장면이 지형에 가리지 않고 보이는 자리),
+#       scene_<틀> (예: scene_barrow — <월드>/_scenes.json 에서 그 틀의 첫 장면을 앞 24 m 눈높이에서),
+#       eye_<x>_<z>_<방향> (v3 채움: 좌표 눈높이 보기. 땅 + 1.7 m, 세로 시야 60°, 방향 = Unity Y 회전 도(0 북쪽, 90 동쪽), 수평에서 3° 아래를 본다.
+#       예: eye_1395_1440_265). 생략하면 장소·눈높이 보기 전부
+# 눈높이 보기(fields … quiet, scene_*, eye_*)는 카메라 둘레 260 m 를 1 m 격자 지형으로 그린다 (Unity 높이맵과 같은 해상도. 작은 둔덕·턱·도랑이 보이게)
 import sys, os, json, math, random
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "BlenderKit"))
@@ -65,16 +70,27 @@ def hsample(x, z):
 
 
 # ───────────────────────── 지형 ─────────────────────────
-def terrain(step=2):
-    n = (RES - 1) // step + 1
-    hs = H[::step, ::step]
+_TMAT = []
+
+
+def terrain(step=2, hole=None, x0=0, z0=0, n=None, name="Terrain"):
+    """지형 격자 메쉬. hole = (x0, z0, x1, z1) 이면 그 상자 안 칸을 뺀다 (고운 패치 자리).
+    x0, z0, n: 부분 격자 (고운 패치: step 1, 시작 좌표, 한 변 점 수)"""
+    if n is None:
+        n = (RES - 1) // step + 1
+    hs = H[z0:z0 + (n - 1) * step + 1:step, x0:x0 + (n - 1) * step + 1:step]
     xs = np.arange(n, dtype=np.float32) * step
-    X, Y = np.meshgrid(xs, xs)
+    X, Y = np.meshgrid(xs + x0, xs + z0)
     verts = np.stack([X.ravel(), Y.ravel(), hs.ravel()], 1).astype(np.float32)
     r = np.arange(n - 1)
     a = (r[:, None] * n + r[None, :]).ravel()
     quads = np.stack([a, a + 1, a + n + 1, a + n], 1).astype(np.int32)
-    me = bpy.data.meshes.new("Terrain")
+    if hole is not None:
+        qx = verts[a, 0]
+        qz = verts[a, 1]
+        inside = (qx >= hole[0]) & (qx + step <= hole[2]) & (qz >= hole[1]) & (qz + step <= hole[3])
+        quads = quads[~inside]
+    me = bpy.data.meshes.new(name)
     me.vertices.add(len(verts))
     me.vertices.foreach_set("co", verts.ravel())
     me.loops.add(quads.size)
@@ -87,10 +103,30 @@ def terrain(step=2):
     vi = quads.ravel()
     uvs = np.stack([verts[vi, 0] / W["size"], verts[vi, 1] / W["size"]], 1).astype(np.float32)
     uv.data.foreach_set("uv", uvs.ravel())
-    o = bpy.data.objects.new("Terrain", me)
+    o = bpy.data.objects.new(name, me)
     sc.collection.objects.link(o)
-    o.data.materials.append(terrain_mat())
+    if not _TMAT:
+        _TMAT.append(terrain_mat())
+    o.data.materials.append(_TMAT[0])
     return o
+
+
+def terrain_for(cam_u, fine_r=260):
+    """눈높이 보기: 카메라 둘레 fine_r m 는 1 m 격자, 나머지는 2 m 격자 (구멍을 맞춘다)"""
+    for o in list(sc.objects):
+        if o.name.startswith("Terrain"):
+            me = o.data
+            bpy.data.objects.remove(o, do_unlink=True)
+            bpy.data.meshes.remove(me)
+    if cam_u is None:
+        terrain(2)
+        return
+    cx, cz = cam_u[0], cam_u[2]
+    x0 = int(max(0, min(RES - 1 - 2 * fine_r, cx - fine_r)) // 2 * 2)
+    z0 = int(max(0, min(RES - 1 - 2 * fine_r, cz - fine_r)) // 2 * 2)
+    n = 2 * fine_r + 1
+    terrain(2, hole=(x0, z0, x0 + n - 1, z0 + n - 1))
+    terrain(1, x0=x0, z0=z0, n=n, name="TerrainFine")
 
 
 def terrain_mat():
@@ -217,6 +253,11 @@ def instancer(name, pts, rots, scl):
     return ob
 
 
+def cull_r(rng_, far):
+    """LightCuller 기본 규칙: far 가 있으면 그 거리, 없으면 clamp(range × 12, 30, 200) m 에서 꺼진다 (Unity 화면과 같게)"""
+    return float(min(max(far, 30.0), 200.0)) if far else float(min(max(rng_ * 12.0, 30.0), 200.0))
+
+
 def props(cam_u, radius=None):
     """objects.json 의 소품과 trees.json 의 나무. radius 가 있으면 카메라 둘레만"""
     groups = {}
@@ -230,7 +271,7 @@ def props(cam_u, radius=None):
         g = groups.setdefault(d["a"], ([], [], []))
         g[0].append(tuple(u2b(p))); g[1].append(tuple(Mb.to_euler('XYZ'))); g[2].append(d["s"])
         li = MAN.get(d["a"], {}).get("light")
-        if li and (p[0] - cx) ** 2 + (p[2] - cz) ** 2 < 140 ** 2:
+        if li and (p[0] - cx) ** 2 + (p[2] - cz) ** 2 < cull_r(li.get("range", 8.0), li.get("far")) ** 2:
             off = Mb @ (Vector(li["offset"]) * d["s"])
             lights.append((u2b(p) + off, li["color"], li["intensity"], li["range"]))
     protos = TREES["prototypes"]
@@ -246,7 +287,7 @@ def props(cam_u, radius=None):
     for a, (p, r, s) in groups.items():
         instancer(a, p, r, s)
     for p in OBJ.get("lights", []):
-        if (p["p"][0] - cx) ** 2 + (p["p"][2] - cz) ** 2 < 200 ** 2:
+        if (p["p"][0] - cx) ** 2 + (p["p"][2] - cz) ** 2 < cull_r(p["r"], p.get("far")) ** 2:
             lights.append((u2b(p["p"]), p["c"], p["i"], p["r"]))
     for i, (p, c, inten, rng) in enumerate(lights):
         ld = bpy.data.lights.new("L%d" % i, 'POINT')
@@ -401,8 +442,34 @@ VIEW_DEFS = {
     "bridge": ((826, 991, 2.2), (788, 1013, 0.0), 55, 700),
     "gate": ((1014, 1547, 2.4), (1012, 1634, 6.0), 55, 700),
     "village": ((1245, 527, 3.0), (1305, 562, 1.5), 60, 700),
-    "fields": ((1012, 700, 2.4), (860, 760, 2.0), 60, 900),        # 제단 북쪽 길에서 서쪽 들판의 작은 장면들
+    # v3 눈높이(1.7 m) 보기. 자리는 지형 시선으로 장면이 보이는 곳을 골랐다 (scratchpad world_v3_qa/pick_views.py, 장면 좌표가 바뀌면 다시 고른다)
+    "fields": ((1000, 496, 1.7), (922, 516, 1.6), 60, 900),        # 제단 남쪽 들판(길에서 45 m 넘게)에서 서쪽: 야영지·초소·사당·농가·무덤·둔덕
+    "roadside": ((1030, 1176, 1.7), (1063, 1104, 1.6), 60, 900),   # 납골당 → 대성당 길 위에서 남동쪽: 처형터·사당·가족 묘역·예배당
+    "ne_field": ((1395, 1440, 1.7), (1316, 1426, 1.6), 60, 900),   # 북동쪽 들판 (v2 검토 자리): 전장·사당·야영지·초소
+    "hamlet": ((843, 916, 1.7), (767, 943, 1.6), 60, 900),         # 묘지 서쪽 길에서 다리 쪽 무리 (처형터·예배당, 묘지·납골당·다리가 보이는 무리)
+    "pair": ((1372, 1307, 1.7), (1365, 1228, 1.6), 60, 900),       # 영혼의 고목 남쪽 길: 둔덕·농가·무덤·야영지
+    "quiet": ((422, 1378, 1.7), (422, 1458, 1.6), 60, 900),        # 가장 큰 조용한 구역 Q0 가운데 (다음 단계 채움 자리. 남은 휑한 곳 확인)
 }
+EYE_VIEWS = ["fields", "roadside", "ne_field", "hamlet", "pair", "quiet"]
+
+
+def eye_view(name):
+    """eye_<x>_<z>_<방향>: 땅 + 1.7 m 에서 방향(Unity Y 회전 도)으로, 수평에서 3° 아래"""
+    _, x, z, yw = name.split("_")
+    x, z, yw = float(x), float(z), math.radians(float(yw))
+    d = 100.0
+    tx, tz = x + math.sin(yw) * d, z + math.cos(yw) * d
+    return ((x, z, 1.7), (tx, tz, None), 70, 900)
+
+
+def scene_view(kind):
+    """scene_<틀>: _scenes.json 에서 그 틀의 첫 장면, 앞(길 쪽) 24 m 눈높이에서 장면 가운데 + 1.5 m 를 본다"""
+    sc = json.load(open(os.path.join(WORLD, "_scenes.json")))
+    s = next(x for x in sc if x["type"] == kind)
+    yw = math.radians(s.get("yaw", 0.0))
+    cx, cz = s["p"][0] + math.sin(yw) * 24, s["p"][1] + math.cos(yw) * 24
+    print("장면 보기", kind, s["p"], "카메라", (round(cx, 1), round(cz, 1)))
+    return ((cx, cz, 1.7), (s["p"][0], s["p"][1], 1.5), 45, 400)
 
 
 def fog(start, depth, amount):
@@ -412,7 +479,10 @@ def fog(start, depth, amount):
 
 
 def build_view(name):
-    cpos, cl, grass_r, prop_r = VIEW_DEFS[name]
+    if name.startswith("eye_"):
+        cpos, cl, grass_r, prop_r = eye_view(name)
+    else:
+        cpos, cl, grass_r, prop_r = scene_view(name[6:]) if name.startswith("scene_") else VIEW_DEFS[name]
     if name == "overview":
         fog(900, 2600, 0.5)
     else:
@@ -429,9 +499,14 @@ def build_view(name):
             cl = (bp[0], bp[2], cl[2])
             cpos = (bp[0] + 30, bp[2] - 22, cpos[2])
         pos = eye(cpos[0], cpos[1], cpos[2])
-        look = eye(cl[0], cl[1], cl[2])
+        if cl[2] is None:                     # eye_*: 수평에서 3° 아래 (100 m 앞 5.2 m 아래)
+            look = (cl[0], pos[1] - 100.0 * math.tan(math.radians(3.0)), cl[1])
+        else:
+            look = eye(cl[0], cl[1], cl[2])
         res = (1280, 720)
-        fov = 52
+        fov = 60 if name.startswith("eye_") else 52
+    eye_like = name.startswith(("eye_", "scene_")) or name in EYE_VIEWS
+    terrain_for(pos if eye_like else None)
     camera(pos, look, fov, res)
     props(pos, prop_r)
     if grass_r:
@@ -445,7 +520,6 @@ def clear_dynamic():
             bpy.data.objects.remove(o, do_unlink=True)
 
 
-terrain(2)
 water()
 sky_and_light()
 for v in (VIEWS or list(VIEW_DEFS)):

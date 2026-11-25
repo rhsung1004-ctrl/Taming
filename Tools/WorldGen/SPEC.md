@@ -54,6 +54,8 @@ Assets/_Necro/Art/World/Ch1/
   ],
   "fog": {"color": [r, g, b], "density": 0.006},     // 월드 규모 안개 (선택)
   "bounds": {"min": [x, z], "max": [x, z]},          // 걸어 다닐 수 있는 범위 (바깥은 산)
+  "map": {"min": [x, z], "max": [x, z]},             // 게임 안 지도(map.png)가 덮는 월드 범위 (선택. 정사각형, 걸어 다니는 범위 + 여유 약 60 m).
+                                                     // 없으면 지형 전체 (0, 0) ~ (size, size). Unity 도구는 이 값을 PoiDiscovery 의 worldMin·worldSize 로 넘긴다
   "levels": {"swamp": 30.9, "lake": 28.1, "creekPool": 44.7}   // 수면 높이 (참고·확인 렌더용, Unity 도구는 읽지 않음. objects.json 의 water y 와 같다)
 }
 ```
@@ -72,7 +74,7 @@ Assets/_Necro/Art/World/Ch1/
 ```json
 {
   "objects": [{"a": "crypt", "p": [x, y, z], "q": [qx, qy, qz, qw], "s": 1.0}],   // Unity 좌표·쿼터니언. y 는 묻는 깊이(sink)까지 반영한 최종 높이
-  "lights":  [{"p": [x, y, z], "c": [r, g, b], "i": 6.0, "r": 10.0, "flicker": true}],
+  "lights":  [{"p": [x, y, z], "c": [r, g, b], "i": 6.0, "r": 10.0, "flicker": true, "far": 140}],   // far 는 선택 (아래)
   "water":   [{"p": [x, y, z], "size": [sx, sz], "yaw": 0}],                       // 물 평면 (y = 수면 높이)
   "fx":      [{"type": "mist" | "wisps" | "soulfire" | "fireflies", "p": [x, y, z], "r": 20}]
 }
@@ -80,6 +82,9 @@ Assets/_Necro/Art/World/Ch1/
 
 - 소품에 META.light 가 있으면 Unity 도구가 프리팹 안에 광원을 넣으므로 lights 에 다시 넣지 않는다
 - lights 는 소품과 상관없는 광원 (예: 늪 위의 도깨비불, 장면을 떠도는 영혼 빛)
+- `far` (선택, m): 멀리서 보여야 하는 '등대 빛' 의 끄는 거리. Unity 도구가 그 광원 오브젝트에 `LightCullDistance` (far) 를 붙이고,
+  `LightCuller` 는 range × rangeFactor 대신 이 거리에서 끈다 (minRadius ~ maxRadius 안으로 자름). `Light.range` 는 그대로라 비추는 넓이·그리기 비용은 같다.
+  없거나 0 이면 LightCuller 기본 규칙 (range × 12). 장면·장소마다 하나 이상 (지금 140 m)
 - 아직 manifest 에 없는 장면용 새 소품(worldgen `NEW_PROPS`)을 대체 소품으로 놓았을 때, 예상 META 에 광원이 있는데 대체 소품에 없으면 그 광원도 lights 에 들어간다 (진짜 소품이 생기면 다음 생성부터 빠진다)
 
 ## 소품 목록 (manifest)
@@ -88,6 +93,8 @@ Assets/_Necro/Art/World/Ch1/
 `python3 Tools/BlenderKit/publish.py <빌드 출력 폴더>` 가 manifest_<묶음>.json 을 합쳐 manifest.json 으로 쓰고, 모델·텍스처·foliage_atlas.png 를 이 폴더로 복사한다.
 `{ "이름": {"name", "group", "size": [x, y, z] (Blender 축), "tris_lod0", "meta": {kind, tags, collider, footprint, sink, tilt, align, scale, cull, shadows, light}} }`
 META 항목은 `Tools/BlenderKit/README.md` 참고. 단 `kind` 는 다섯 가지다 (BlenderKit README 에는 scatter 가 빠져 있다):
+`light` 에는 선택 키 `far` (m) 가 있다: `{"offset", "color", "intensity", "range", "far": 140}`. 있으면 프리팹의 광원(Glow Light)에
+`LightCullDistance` 가 붙어 LightCuller 가 그 거리에서 끈다 (objects.json lights 의 far 와 같은 뜻. 화로·영혼 수정·모닥불·길가 사당·작은 납골당).
 
 | kind | 월드 데이터 | Unity |
 | --- | --- | --- |
@@ -103,3 +110,21 @@ META 항목은 `Tools/BlenderKit/README.md` 참고. 단 `kind` 는 다섯 가지
 - splat/detail PNG 는 `ImageConversion.LoadImage` 로 읽는다. `Texture2D.GetPixels32()` 는 아래 줄부터 → 행 0 = 남쪽 = Z 0 (PNG 맨 윗줄 = 북쪽 규칙과 맞다)
 - 풀: 인스턴스 수 모드(InstanceCountMode, Unity 2022.2+), 인스턴싱 메쉬 (`Necro/Foliage` 셰이더, 거리 축소가 켜진 지형 풀 전용 재질 `Foliage_Detail`)
 - 소품: 프리팹으로 만들어 `PrefabUtility.InstantiatePrefab`, 256m 칸마다 부모 오브젝트로 묶는다
+- 광원 끄는 거리 덮어쓰기: objects.json lights 의 `far`, META.light 의 `far` → 광원 오브젝트에 `LightCullDistance.far`
+- 지도: world.json `map` 이 있으면 PoiDiscovery.worldMin = map.min, worldSize = map.max − map.min (map.png 도 그 범위로 그린다)
+
+## 확인용 파일 (생성기 출력 폴더, Unity 는 읽지 않는다)
+
+- `_scenes.json`: 작은 장면 목록. 틀(type), 자리(p), 반지름(r), 방향(yaw), 소품 수(props), 자리 특징(feature: junction·bend·crest·bridge·forest_entry·
+  hilltop·ridge·creek·forest_edge·hollow …), 길까지 거리(road_d), 무리 번호(hamlet, 없으면 −1), 가장 키 큰 세로 요소 꼭대기(top [x, y, z], 높이 tall),
+  등대 빛(beacon [x, y, z, far])
+- `_zones.json`: 구역 표시. `hamlets` (장면 2~3 개 + 장소가 서로 보이는 조밀한 무리: 가운데, 반지름, 장면 번호, 보이는 장소),
+  `quiet` (조용한 구역: 장면에서 70 m 넘게 떨어진 걸을 수 있는 땅 덩어리. 16 m 칸 목록 cells, 가운데, 넓이 ha, 가장 가까운 장면·장소).
+  다음 단계(채움: 밭 경계 돌담·나무 무리·노두·둔덕)가 이 구역을 쓴다
+- `_roads.json`: 길 중심선 (점 목록, 반폭, 이름). 시선 검사가 읽는다
+- `_boxground.json`: 바닥 상자 접지로 놓은 소품 번호 (objects 순서)와 의도된 묻힘 여부. 묻힘·뜸 검사가 읽는다
+- `_fill.json` (v3 채움): `counts` (줄 소품 수), `lines` (밭 경계·길가 줄의 구간. `t` = 모양 wall/fence/hedge/stones/scarp/ditch,
+  `src` = field(밭 턱·둑)/cross(가로 줄)/road(길가)/spur(길에서 뻗는 줄)/relief(도랑), `kind` = 줄 성격, `pts` = 놓인 소품 자리 [x, z] (scarp·ditch 는 줄 점)),
+  `items` (grove 나무 무리, outcrop 바위 노두, boulders/thicket/deadwood 작은 덩이, barrow 작은 무덤 둔덕, stone 외딴 선돌, stone_row 선돌 줄,
+  milestone 이정표, shrine 길가 사당, cart 부서진 수레: `p` [x, z] 와 크기 정보). 눈높이 지표·렌더 확인이 읽는다. 데이터 규격(Unity 가 읽는 파일)은 바뀌지 않았다:
+  밭 턱·도랑·둔덕은 height.r16 에, 줄·무리는 objects.json·trees.json 에 들어간다

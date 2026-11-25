@@ -63,6 +63,7 @@ namespace Necro.EditorTools
         public Color lightColor = new Color(0.62f, 0.35f, 1f);
         public float lightIntensity = 6f;
         public float lightRange = 8f;
+        public float lightFar;                       // 끄는 거리 덮어쓰기 (m, 0 = 없음). 프리팹 광원에 LightCullDistance 로 붙는다
         public Vector3 sizeBlender;
         public bool fromManifest;
         public string detail;                        // 근접 디테일 재질: stone / wood / bone / metal / none. 비면 이름·tags 로 정한다
@@ -293,6 +294,7 @@ namespace Necro.EditorTools
                         m.lightColor = ctx.Col(light, "color", where + ".light", m.lightColor, false);
                         m.lightIntensity = (float)ctx.Num(light, "intensity", where + ".light", m.lightIntensity, false);
                         m.lightRange = (float)ctx.Num(light, "range", where + ".light", m.lightRange, false);
+                        m.lightFar = Mathf.Max(0f, (float)ctx.Num(light, "far", where + ".light", 0, false));
                     }
                 }
                 m.ApplyKindDefaults(meta);
@@ -915,6 +917,7 @@ namespace Necro.EditorTools
                     l.intensity = meta.lightIntensity;
                     l.range = meta.lightRange;
                     l.shadows = LightShadows.None;
+                    if (meta.lightFar > 0f) lgo.AddComponent<LightCullDistance>().far = meta.lightFar;   // 등대 빛
                     lgo.AddComponent<SoulFlicker>();
                     hasLight = true;
                 }
