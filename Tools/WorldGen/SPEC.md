@@ -95,8 +95,8 @@ Assets/_Necro/Art/World/Ch1/
 - objects 의 `cull` (선택, 0~0.5, w4): 그 소품이 사라지는 화면 높이 (LODGroup 마지막 전환 높이) 덮어쓰기. 프리팹 값(META.cull)보다 클 때만
   Unity 도구가 그 놓인 소품의 LODGroup 을 고친다 (`NecroWorldBuilder.RaiseCull`: 마지막 LOD 를 cull 로, 앞 LOD 는 바로 뒤 LOD 보다 0.002 크게).
   사라지는 거리 ≈ 크기 × 배율 / (1.04 × cull). 생성기는 들판에 많이 놓는 돌담·깃발·선돌·쓰러진 나무·큰 바위·낮은 기둥에 쓴다
-  (worldgen `WORLD_CULL`: 돌담 0.012 ≈ 330 m, 깃발 0.008 ≈ 510 m, 선돌 0.007 ≈ 435 m. 들판 낱개의 밝은 돌·움막 터 돌담 토막은 `SINGLE_CULL` 0.016,
-  110~240 m). META.cull 로는 700~1,000 m 까지 그려져
+  (worldgen `WORLD_CULL`: 돌담 0.012 ≈ 330 m, 깃발 0.008 ≈ 510 m, 선돌 0.007 ≈ 435 m, 산기슭 절벽 바위 0.015 ≈ 1 km. 들판 낱개의 밝은 돌·움막 터 돌담 토막은
+  `SINGLE_CULL` 0.016, 120~250 m). META.cull 로는 700~3,000 m 까지 그려져
   몇 화소로만 보이면서 그리는 물체 수 예산(2,000)을 넘겼다
 
 ## 소품 목록 (manifest)
