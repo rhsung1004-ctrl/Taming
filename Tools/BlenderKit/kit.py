@@ -248,7 +248,7 @@ def remesh(o, voxel):
 def _ng_link(ng, a, b):
     ng.links.new(a, b)
 
-def surface(o, layers, seed=0, guide=None):
+def surface(o, layers, seed=0, guide=None, store=None):
     """지오메트리 노드로 표면을 실제로 조각한다 (법선 방향으로 밀고 당김).
     layers: dict 목록
       {'t':'lumps',  'scale':1.5, 'amp':0.02}                         완만한 굴곡
@@ -262,7 +262,9 @@ def surface(o, layers, seed=0, guide=None):
       {'t':'chisel', 'scale':9,   'amp':0.003, 'tilt':0.9, 'jitter':0.7}  (v3) 평면 끌 자국: 칸마다 기울기가 다른 평면으로 얕게 깎은 면
       terrace 에 'soft' (기본 0.35): 턱 위를 굴리는 정도. v3 는 0.08~0.12 로 또렷하게
       (v3b) 어느 층이든 'face': (x,y,z) 를 주면 그 방향을 향한 면에만 (face_lo~face_hi 로 부드럽게)
-    guide: 나무 뼈대 메쉬 (각 점에 'dir' 속성 = 가지 방향). 껍질 결을 가지 방향으로 늘이는 데 쓴다."""
+    guide: 나무 뼈대 메쉬 (각 점에 'dir' 속성 = 가지 방향). 껍질 결을 가지 방향으로 늘이는 데 쓴다.
+    store (k6): 이름을 주면 이 층들의 밀고 당긴 양(m, 음수 = 파인 곳)을 정점 속성으로 남긴다 → paint3(hcav=...) 가
+      금·껍질 골을 AO 표본 잡음 없이 정확히 어둡게 칠한다 (결 따라 어두운 금)"""
     ng = bpy.data.node_groups.new("surface", 'GeometryNodeTree')
     ng.interface.new_socket("Geometry", in_out='INPUT', socket_type='NodeSocketGeometry')
     ng.interface.new_socket("Geometry", in_out='OUTPUT', socket_type='NodeSocketGeometry')
@@ -449,6 +451,14 @@ def surface(o, layers, seed=0, guide=None):
 
     setp = N.new('GeometryNodeSetPosition')
     _ng_link(ng, gin.outputs[0], setp.inputs['Geometry'])
+    if store and total is not None:
+        # (k6) 밀고 당긴 양을 속성으로 (위치를 바꾸기 전 값)
+        sna = N.new('GeometryNodeStoreNamedAttribute'); sna.data_type = 'FLOAT'; sna.domain = 'POINT'
+        _ng_link(ng, gin.outputs[0], sna.inputs['Geometry'])
+        sna.inputs['Name'].default_value = store
+        vin = [i for i in sna.inputs if i.name == 'Value' and i.type == 'VALUE' and i.enabled]
+        _ng_link(ng, total, (vin[0] if vin else sna.inputs['Value']))
+        _ng_link(ng, sna.outputs['Geometry'], setp.inputs['Geometry'])
     if total is not None:
         sca = N.new('ShaderNodeVectorMath'); sca.operation = 'SCALE'
         _ng_link(ng, nrm.outputs[0], sca.inputs[0]); _ng_link(ng, total, sca.inputs['Scale'])
@@ -1065,11 +1075,13 @@ def clamp_normals(img, zmin=0.35):
         img.pixels.foreach_set(a.ravel())
     return float(bad.mean())
 
-def regrow_hard_band(img, segs, px, sent, normal=False):
+def regrow_hard_band(img, segs, px, sent, normal=False, smooth=0):
     """(v3c) 단단한 모서리(= UV 이음매) 둘레 px 화소 띠를 그 섬 안쪽 색으로 다시 메운다.
     원본의 둥근 모서리를 광선이 비스듬히 스쳐 띠 안에 빗살(밝은 보풀 + 검은 톱니)이 생긴다. 저폴리는 단단한 모서리라
     띠를 안쪽 값으로 바꿔도 모서리는 또렷하다. 키우기는 띠 화소로만 번지고(빈 곳 sent 는 건너지 않는다) 이웃 섬 색이 섞이지 않는다.
     섬 전체가 띠인 좁은 섬은 노멀은 평평하게, 색은 그 섬 안에서 평균 낸 고른 톤으로. normal: 노멀맵이면 바꾼 화소의 법선 길이를 1 로.
+    smooth (k6): 다시 메운 띠를 3x3 평균으로 그만큼 더 고른다 (안쪽 값을 한 화소씩 밀어 넓히면 비스듬한 섬 경계를 따라
+      잔 무늬가 계단 빗살로 번진다 — k1r '섬 테두리 빗살'). 빈 곳(sent)은 섞지 않는다
     돌려주는 값: 바꾼 비율(덮인 화소 대비)"""
     import numpy as np
     try:
@@ -1105,6 +1117,19 @@ def regrow_hard_band(img, segs, px, sent, normal=False):
         c[new] = cs[new] / ws[new][:, None]
         v = v | new
     sel = band & v
+    if smooth:
+        okf = (~sent).astype(np.float32)
+        cur = np.where(sel[..., None], c, rgb).astype(np.float32)
+        for _ in range(smooth):
+            cs = np.zeros_like(cur); ws = np.zeros(sel.shape, np.float32)
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    ys, yd = (slice(0, -dy or None), slice(dy, None)) if dy >= 0 else (slice(-dy, None), slice(0, dy))
+                    xs, xd = (slice(0, -dx or None), slice(dx, None)) if dx >= 0 else (slice(-dx, None), slice(0, dx))
+                    cs[yd, xd] += cur[ys, xs] * okf[ys, xs, None]
+                    ws[yd, xd] += okf[ys, xs]
+            cur[sel] = cs[sel] / np.maximum(ws[sel], 1e-6)[:, None]
+        c[sel] = cur[sel]
     if normal:
         n = c[sel] * 2.0 - 1.0
         n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-6)
@@ -1130,6 +1155,63 @@ def regrow_hard_band(img, segs, px, sent, normal=False):
     a[..., :3] = rgb
     img.pixels.foreach_set(a.ravel())
     return float(band.sum()) / max(1, int((~sent).sum()))
+
+def repair_blobs(img_a, img_n, sent, ratio=0.45, med=15, max_px=400):
+    """(k6) albedo 가 둘레(med x med 중앙값)의 ratio 배보다 어두운 작은 덩어리(max_px 화소 이하, 한 화소 넓힌 것)를
+    albedo·노멀 두 그림 모두 둘레 값으로 메운다 (빈 곳 sent 는 건드리지 않는다). 긴 골처럼 넓게 이어진 어두운 곳은 덩어리가 커서 남는다.
+    돌려주는 값: (덩어리 수, 화소 수)"""
+    import numpy as np
+    try:
+        from PIL import Image, ImageFilter
+    except ImportError:
+        return 0, 0
+    w, h = img_a.size
+    a = np.empty(w * h * 4, np.float32); img_a.pixels.foreach_get(a); a = a.reshape(h, w, 4)
+    L = (a[..., :3] @ np.array([0.2126, 0.7152, 0.0722], np.float32))
+    Li = Image.fromarray((np.clip(L, 0, 1) * 255).astype(np.uint8))
+    M = np.asarray(Li.filter(ImageFilter.MedianFilter(med))).astype(np.float32) / 255.0
+    bad = (L < M * ratio) & (M > 0.08) & ~sent
+    if not bad.any():
+        return 0, 0
+    g = bad.copy()
+    g[1:] |= bad[:-1]; g[:-1] |= bad[1:]; g[:, 1:] |= bad[:, :-1]; g[:, :-1] |= bad[:, 1:]
+    g &= ~sent
+    # 연결 성분 (4 이웃) — 작은 것만
+    lab = np.zeros(g.shape, np.int32)
+    keep = np.zeros(g.shape, bool)
+    ys, xs = np.nonzero(g)
+    nb = 0
+    cur = 0
+    for y0, x0 in zip(ys, xs):
+        if lab[y0, x0]:
+            continue
+        cur += 1
+        st = [(y0, x0)]; lab[y0, x0] = cur; comp = []
+        while st:
+            y, x = st.pop(); comp.append((y, x))
+            for yy, xx in ((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)):
+                if 0 <= yy < h and 0 <= xx < w and g[yy, xx] and not lab[yy, xx]:
+                    lab[yy, xx] = cur; st.append((yy, xx))
+        if len(comp) <= max_px:
+            nb += 1
+            cy, cx = zip(*comp)
+            keep[list(cy), list(cx)] = True
+    if not keep.any():
+        return 0, 0
+    for img, is_n in ((img_a, False), (img_n, True)):
+        b = np.empty(w * h * 4, np.float32); img.pixels.foreach_get(b); b = b.reshape(h, w, 4)
+        rgb = b[..., :3]
+        valid = ~(keep | sent)
+        grown, gv = _grow_fill(rgb, valid, 24)
+        sel = keep & gv
+        if is_n:
+            n = grown[sel] * 2.0 - 1.0
+            n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-6)
+            grown[sel] = n * 0.5 + 0.5
+        rgb[sel] = grown[sel]
+        b[..., :3] = rgb
+        img.pixels.foreach_set(b.ravel())
+    return nb, int(keep.sum())
 
 def despeckle_normal(img, thr=0.18, k=5, passes=3):
     """(v3c) 노멀맵의 외딴 점·가는 줄(깊고 좁은 골 바닥에서 광선이 벽을 번갈아 맞아 생긴 1~2 화소 포화 점)을 둘레 k x k 의
@@ -1305,7 +1387,7 @@ def _hard_edges(o, angle):
 def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, lod2=None, uv_angle=66,
            cage=None, cage_reach=0.2, hard=None, pack=False, samples=None, margin=16, margin_type='EXTEND', uv_margin=0.003,
            uv='smart', uv_weight=None, lod_rule=False, bake_groups=None, probe=None, split_cage=False, despeck=False,
-           flat_hard=None, despeck_n=None):
+           flat_hard=None, despeck_n=None, flat_smooth=0, blob_fix=None):
     """highs: 굽기 원본 / low_parts: 저폴리 조각 (하나로 합쳐 UV를 펴고 Main 재질)
     extras: 굽지 않고 그대로 붙이는 부품 (Glow_* 재질, Foliage 재질을 미리 입힌 것)
     lod1, lod2: LOD 비율 (Main 부분만 줄인다). None 이면 만들지 않는다.
@@ -1331,7 +1413,11 @@ def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, l
         (regrow_hard_band, 로그 FLATHARD). 원본 모서리가 둥근 각진 바위에서 모서리를 따라 생기는 얇은 밝은 보풀 줄을 없앤다.
         모서리를 밝게 칠한 띠(paint3 edge)도 함께 지워지므로 모서리 빛이 필요한 석물(묘비 등)에는 쓰지 않는다
       despeck_n: 문턱값(0.18 안팎). margin=0 일 때 노멀맵의 외딴 점·가는 포화 줄을 중앙값으로 (despeckle_normal, 로그 DESPECKN).
-        깊고 좁은 골(나무껍질)의 바닥에서 생기는 흰 보풀 줄·검은 점"""
+        깊고 좁은 골(나무껍질)의 바닥에서 생기는 흰 보풀 줄·검은 점
+    (k6) flat_smooth: flat_hard 로 다시 메운 띠를 3x3 평균으로 그만큼 고른다 (비스듬한 섬 경계의 계단 빗살 방지, 바위 2)
+    (k6) blob_fix: 비율(0.45 안팎). margin=0 일 때 albedo 가 둘레(15x15 중앙값)의 그 비율보다 어두운 작은 덩어리(400 화소 이하)를
+      두 그림 모두 둘레 값으로 메운다 (repair_blobs, 로그 BLOBFIX). 깊은 껍질 골 안에서 광선이 골 벽을 뚫고 반대쪽을 맞아
+      생긴 경계 또렷한 검은 렌즈·구멍 점 (k1r: 고목 뿌리의 검은 구멍 점)"""
     t0 = __import__('time').time()
     low = join(low_parts)
     origin0(low)
@@ -1473,6 +1559,12 @@ def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, l
         # v3b: 메우기 전에 법선 통계 — rim(섬 경계 띠의 누운 법선) 은 비스듬히 스친 광선의 흰·검은 테두리를 잡는다
         rim, rim_s, steep, _cov, inner = normal_stats(img_n, hard_segs)
         sent_mask = None
+        if blob_fix:
+            import numpy as np
+            _b = np.empty(size * size * 4, np.float32); img_n.pixels.foreach_get(_b)
+            _b = _b.reshape(size, size, 4)
+            blob_sent = (_b[..., 0] > 0.995) & (_b[..., 1] < 0.005) & (_b[..., 2] > 0.995)
+            del _b
         if flat_hard and hard_segs:
             import numpy as np
             _a = np.empty(size * size * 4, np.float32); img_n.pixels.foreach_get(_a)
@@ -1484,9 +1576,12 @@ def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, l
         if despeck_n:
             print("DESPECKN", name, "%.3f%%" % (despeckle_normal(img_n, despeck_n) * 100))
         if sent_mask is not None:
-            fa = regrow_hard_band(img_a, hard_segs, flat_hard, sent_mask)
-            fn = regrow_hard_band(img_n, hard_segs, flat_hard, sent_mask, normal=True)
+            fa = regrow_hard_band(img_a, hard_segs, flat_hard, sent_mask, smooth=flat_smooth)
+            fn = regrow_hard_band(img_n, hard_segs, flat_hard, sent_mask, normal=True, smooth=flat_smooth)
             print("FLATHARD", name, "px", flat_hard, "albedo %.2f%% normal %.2f%%" % (fa * 100, fn * 100))
+        if blob_fix:
+            nb, npx = repair_blobs(img_a, img_n, blob_sent, blob_fix)
+            print("BLOBFIX", name, "blobs", nb, "px", npx)
     print("BAKE", name, "miss %.3f%%" % (miss * 100), "steep %.2f%%" % (steep * 100),
           ("rim %.2f%% rim_soft %.2f%% inner %.2f%%" % (rim * 100, rim_s * 100, inner * 100)) if rim is not None else "rim -",
           ("despeck %.3f%%" % (dsp * 100)) if dsp is not None else "",
@@ -1783,7 +1878,7 @@ def _edge_put(o, kd, cap=0.2):
     me.attributes.new('edist', 'FLOAT', 'POINT').data.foreach_set('value', out)
 
 def carve(o, voxel, coarse=(), fine=(), seed=0, snap=True, pieces=True, base=False, relax=0, mode='voxel', edges=True,
-          edge_from=None):
+          edge_from=None, store=None):
     """v3 조각: [조각 번호] → 리메시(+snap: 원래 표면에 되붙임, relax: 되붙인 톱니 펴기) → 큰 형태 층(coarse) → 잔 조각 층(fine).
     voxel: 작은 소품 0.0025~0.0035, 중간 0.005~0.009, 큰 것 0.01~0.02 (snap 덕에 예전보다 조금 커도 모서리가 산다)
     mode='octree' (v3b): 복셀 + 되붙이기 대신 옥트리(SHARP) 리메시 — 모서리가 곧다 (바위처럼 깨끗한 덩어리)
@@ -1791,7 +1886,8 @@ def carve(o, voxel, coarse=(), fine=(), seed=0, snap=True, pieces=True, base=Fal
     edge_from (v3b): 닳은 모서리를 찾을 형태 (기본 o). 글자·금을 새기기 전 사본을 주면 글자·금 입술이 밝게 빛나지 않는다
       (금 둘레에 흰 외곽선이 생기면 장난감 같다). 쓰고 나면 지운다
     base=True 면 저폴리 바탕(되붙이지 않은 리메시 + coarse)을 돌려준다 (리메시 형태에서 저폴리를 줄일 때.
-    다 새긴 것·되붙인 것에서 줄이면 면이 구겨지거나 접힌 잔 삼각형 때문에 UV 섬이 수천 개로 쪼개진다)"""
+    다 새긴 것·되붙인 것에서 줄이면 면이 구겨지거나 접힌 잔 삼각형 때문에 UV 섬이 수천 개로 쪼개진다)
+    store (k6): 잔 조각 층(fine)의 밀고 당긴 양을 이 이름의 정점 속성으로 (surface 참고, paint3(hcav=...) 로 금을 어둡게)"""
     origin0(o)
     src = _piece_src(o, seed) if pieces else None
     ekd = _edge_src(edge_from or o, step=max(0.002, voxel * 0.5)) if edges else None
@@ -1817,7 +1913,7 @@ def carve(o, voxel, coarse=(), fine=(), seed=0, snap=True, pieces=True, base=Fal
     if coarse:
         surface(o, list(coarse), seed)
     if fine:
-        surface(o, list(fine), seed + 1)
+        surface(o, list(fine), seed + 1, store=store)
     return b
 
 def lowpoly(o, tris=None, z=None):
@@ -1966,7 +2062,9 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
            piece_val=0.0, grime=0.0, grime_h=None, edge_gain=1.0, contrast=0.15, gain=1.1, pivot=0.1, moss_patch=2.4,
            facet_var=0.0, facet_scale=2.5, edge_mode='bevel', lichen=0.0, lichen_color=(0.42, 0.45, 0.36), lichen_scale=11.0,
            strata=0.0, strata_scale=2.2, strata_tilt=(0.35, 0.15), rain=0.0, rain_h=None, rain_color=(0.3, 0.34, 0.3),
-           splash=0.0, splash_z=0.0, splash_h=0.12, cavity_s=None):
+           splash=0.0, splash_z=0.0, splash_h=0.12, cavity_s=None, edge_break=0.0, edge_break_scale=2.5, hcav=0.0,
+           hcav_attr='hgt', hcav_d=0.01, hcav_color=None, grit=0.0, grit_scale=240.0, veins=0.0, vein_scale=2.5,
+           vein_tilt=(0.35, 0.15), vein_cover=0.5, pocks=0.0, pock_scale=9.0, pock_depth=0.004, facet_hue=None):
     """v3 손칠 재질 (굽기 원본용). 색 → Base Color(DIFFUSE 굽기), 잔 결 → Normal(NORMAL 굽기).
     pal: PAL 이름 또는 (어두운, 밝은, 모서리) / h: 물체 높이(m) — 위→아래 밝기 / k: 무늬 크기 배율 (1 = 사람 키)
     light: 위에서 비친 듯한 밝기 차이 / hue_var: 큰 얼룩으로 차가운 청색 ↔ 보랏빛 / piece_var: 블록(carve 의 'piece')마다 색조·밝기 차이 / cells: 블록 번호가 없을 때
@@ -1988,7 +2086,14 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
       strata_scale: 띠 간격 주파수 (k 로 나눈 좌표, 2.2 = 띠 하나 0.45k m 안팎) / strata_tilt: 층의 기울기 (x, y 성분, 라디안 근사)
     rain: 위에서 흘러내린 빗물 때 (물체 꼭대기 h 에서 rain_h 아래까지, 줄마다 길이가 다른 세로 줄, 옆면만, 곱하기)
     splash: 받침·땅과 만나는 곳 위로 튄 흙물 띠 (z = splash_z 에서 splash_h 위까지, 그 아래는 건드리지 않는다)
-    cavity_s: 좁은 AO(틈·골) 그늘 세기 (기본 = cavity). 깊은 골 입술의 AO 표본 잡음이 검은 점이 되면 낮춘다 (나무 껍질)"""
+    cavity_s: 좁은 AO(틈·골) 그늘 세기 (기본 = cavity). 깊은 골 입술의 AO 표본 잡음이 검은 점이 되면 낮춘다 (나무 껍질)
+    (k6 선택 인자, 기본값이면 예전과 같다)
+    edge_break: 닳은 모서리 빛을 통째로 끊는 비율 (0.4 = 모서리 길이의 40% 는 빛이 없다, edge_break_scale 무늬 크기) — 끊김 없는 흰 외곽선 방지
+    hcav: carve/surface(store=hcav_attr) 가 남긴 '밀고 당긴 양'이 hcav_d(m) 만큼 파인 곳을 hcav_color 로 (금·껍질 골을 AO 잡음 없이 어둡게)
+    grit: 아주 잔 광물 알갱이 점 (grit_scale, 3~6 m 에서 면이 비닐처럼 비지 않게. 구름 잡음과 달리 고르게 잘다)
+    veins: 결(vein_tilt 로 기운 층) 따라 가늘고 어두운 금 (vein_scale 간격 주파수, vein_cover 보이는 비율)
+    pocks: 정 자국 — 칸(보로노이)마다 얕은 오목 면을 노멀에 (pock_scale 칸 주파수(k 로 나눈 좌표), pock_depth 깊이 m)
+    facet_hue: 면 방향마다 색조를 바꾸는 세기 (기본 = facet_var × 1.6). 0 이면 밝기만 바꾼다 (채도·파랑 치우침을 늘리지 않게)"""
     dark, lightc, edgec = PAL[pal] if isinstance(pal, str) else pal
     edge_w = edge_w if edge_w is not None else 0.006 * k
     ao = ao if ao is not None else 0.3 * k
@@ -2045,7 +2150,9 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
         f1 = _noise(nt, fN, facet_scale, 0.0, 0.5)
         col = _vscale(nt, col, _maprange(nt, f1, 0.3, 0.7, 1.0 - facet_var, 1.0 + facet_var))
         f2 = _noise(nt, _vmath(nt, 'ADD', fN, (3.7, 1.3, 5.1)), facet_scale * 0.8, 0.0, 0.5)
-        col = _mix(nt, 'OVERLAY', facet_var * 1.6, col, _ramp_n(nt, f2, [(0.3, (0.42, 0.46, 0.6)), (0.5, (0.5, 0.5, 0.5)), (0.7, (0.58, 0.5, 0.47))]))
+        fh = facet_var * 1.6 if facet_hue is None else facet_hue
+        if fh > 0:
+            col = _mix(nt, 'OVERLAY', fh, col, _ramp_n(nt, f2, [(0.3, (0.42, 0.46, 0.6)), (0.5, (0.5, 0.5, 0.5)), (0.7, (0.58, 0.5, 0.47))]))
 
     # 2c. (v3c) 돌 결 줄무늬: 기운 층을 따라 굽이치는 밝고 어두운 띠 (큰 잡음으로 짙어졌다 옅어졌다 — 온 면에 같은 띠가 깔리지 않게)
     if strata > 0:
@@ -2059,6 +2166,20 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
         sfade = _maprange(nt, _noise(nt, Pk, 0.8, 2, 0.5), 0.35, 0.65, 0.25, 1.0)
         col = _mix(nt, 'OVERLAY', _mul(nt, sfade, strata), col, sb)
 
+    # 2d. (k6) 결 따라 가늘고 어두운 금: 기운 층을 따라 굽이치는 가는 선, 보이는 곳만 (구름 잡음이 아닌 방향 있는 무늬)
+    if veins > 0:
+        mpv = nt.nodes.new('ShaderNodeMapping'); mpv.inputs['Rotation'].default_value = (vein_tilt[0], vein_tilt[1], 0.0)
+        nt.links.new(Pk, mpv.inputs['Vector'])
+        wvv = nt.nodes.new('ShaderNodeTexWave'); wvv.wave_type = 'BANDS'; wvv.bands_direction = 'Z'; wvv.wave_profile = 'SIN'
+        wvv.inputs['Scale'].default_value = vein_scale; wvv.inputs['Distortion'].default_value = 5.0
+        wvv.inputs['Detail'].default_value = 3.0; wvv.inputs['Detail Scale'].default_value = 1.5
+        nt.links.new(mpv.outputs['Vector'], wvv.inputs['Vector'])
+        vl = _maprange(nt, wvv.outputs['Fac'], 0.958, 0.992)
+        vth = 0.5 - (vein_cover - 0.5) * 0.3
+        vcov = _maprange(nt, _noise(nt, Pk, 1.4, 2, 0.5), vth - 0.03, vth + 0.03)
+        vbrk = _maprange(nt, _noise(nt, Pk, 9.0, 2, 0.5), 0.38, 0.48)          # 선이 군데군데 끊긴다
+        col = _mix(nt, 'MULTIPLY', _mul(nt, _mul(nt, _mul(nt, vl, vcov), vbrk), veins), col, W(lerp(dark, (0.0, 0.0, 0.0), 0.2)))
+
     # 3. 붓 자국: 방향이 다른 두 갈래로 늘인 잡음 (낮은 대비)
     if strokes > 0:
         for sc_, sca in (((1.0, 1.0, 7.0), 3.0), ((6.0, 1.0, 1.0), 5.0)):
@@ -2070,6 +2191,9 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
     if speckle > 0:   # 잔 점 (붓끝으로 찍은 듯)
         spk = _ramp_n(nt, _noise(nt, Pk, 38.0, 2, 0.5), [(0.36, (0.4, 0.4, 0.43)), (0.64, (0.6, 0.6, 0.6))])
         col = _mix(nt, 'OVERLAY', speckle, col, spk)
+    if grit > 0:      # (k6) 아주 잔 광물 알갱이 (고르게 잘아 구름처럼 뭉치지 않는다)
+        gspk = _ramp_n(nt, _noise(nt, Pk, grit_scale, 1, 0.5), [(0.38, (0.36, 0.36, 0.37)), (0.62, (0.64, 0.64, 0.63))])
+        col = _mix(nt, 'OVERLAY', grit, col, gspk)
     if stains > 0:    # 삭아서 어두워진 얼룩 (드문드문, 가장자리 또렷). 바탕색에 곱한다 (어두운 색 묶음에서 새까만 점이 되지 않게)
         stm = _maprange(nt, _noise(nt, Pk, 4.5, 5, 0.65), 0.6, 0.67)
         col = _mix(nt, 'MULTIPLY', _mul(nt, stm, stains), col, W((0.55, 0.5, 0.62)))
@@ -2122,6 +2246,11 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
     aoS = _ao(nt, ao * 0.1, 16)          # v3b: 10 → 16 (틈 입술의 소금·후추 점)
     cs_ = cavity if cavity_s is None else cavity_s
     col = _mix(nt, 'MULTIPLY', cs_ * 0.85, col, _ramp_n(nt, aoS, [(0.35, lerp(shadow, (0, 0, 0), 0.15)), (0.9, (1, 1, 1))]))
+    if hcav > 0:     # (k6) 조각 층이 판 깊이로 금·골을 어둡게 (표본 잡음 없음)
+        atH = nt.nodes.new('ShaderNodeAttribute'); atH.attribute_type = 'GEOMETRY'; atH.attribute_name = hcav_attr
+        hm = _maprange(nt, atH.outputs['Fac'], -0.15 * hcav_d, -hcav_d)
+        hc = hcav_color if hcav_color is not None else lerp(dark, (0.0, 0.0, 0.0), 0.35)
+        col = _mix(nt, 'MIX', _mul(nt, hm, hcav), col, W(hc))
 
     # 6. 닳은 모서리: 베벨 법선과 실제 법선의 차이(모서리) × 좁은 AO 가 밝은 곳(볼록) — 폭이 고르고 또렷한 선
     if edge > 0 and edge_mode == 'attr':
@@ -2140,6 +2269,9 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
         # 닳은 정도가 길게 이어지며 변한다 (v3: 잡음 9 → 점선·바느질 자국처럼 끊겨 보였다)
         brk = _ramp_n(nt, _noise(nt, Pk, 3.5, 2, 0.5), [(0.3, (0.45, 0.45, 0.45)), (0.6, (1, 1, 1))])
         em = _mul(nt, _mul(nt, _mul(nt, e1, conv), brk), edge)
+        if edge_break > 0:   # (k6) 통째로 끊긴 구간 (끊김 없는 흰 외곽선 = 선 그은 스티커)
+            eth = 0.5 + (edge_break - 0.5) * 0.3
+            em = _mul(nt, em, _maprange(nt, _noise(nt, Pk, edge_break_scale, 2, 0.5), eth - 0.025, eth + 0.025))
         col = _mix(nt, 'MIX', em, col, W(tuple(min(1.0, c * edge_gain) for c in edgec)))
 
     # 7. 이끼: 위를 향한 면에 가장자리가 또렷한 덩어리 + 위쪽 틈에 고인 것
@@ -2196,17 +2328,34 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
     if grain > 0:
         gr = _mul(nt, _mul(nt, _noise(nt, Pk, 140, 3), 0.5, 'SUBTRACT'), grain)
         hgt = gr if hgt is None else _mul(nt, hgt, gr, 'ADD')
+    nrm_out = None
     if hgt is not None and bump > 0:
         b = nt.nodes.new('ShaderNodeBump')
         b.inputs['Strength'].default_value = bump
         b.inputs['Distance'].default_value = 0.0015 * k
         nt.links.new(hgt, b.inputs['Height'])
-        nt.links.new(b.outputs['Normal'], bsdf.inputs['Normal'])
+        nrm_out = b.outputs['Normal']
+    if pocks > 0:
+        # (k6) 정 자국: 칸마다 얕은 오목 면 (가운데가 깊고 칸 경계가 능선) — 넓은 평면의 노멀에 잔 결
+        vp = nt.nodes.new('ShaderNodeTexVoronoi'); vp.feature = 'F1'; vp.inputs['Scale'].default_value = pock_scale
+        vp.inputs['Randomness'].default_value = 0.9
+        nt.links.new(Pk, vp.inputs['Vector'])
+        cup = _mul(nt, _mul(nt, vp.outputs['Distance'], vp.outputs['Distance']), 2.2)         # 0(가운데) → 1(경계 근처)
+        pk_cov = _maprange(nt, _noise(nt, Pk, 2.0, 2, 0.5), 0.36, 0.5, 0.35, 1.0)            # 덜 친 곳·많이 친 곳
+        b2 = nt.nodes.new('ShaderNodeBump')
+        b2.inputs['Strength'].default_value = min(1.0, pocks)
+        b2.inputs['Distance'].default_value = pock_depth
+        nt.links.new(_mul(nt, cup, pk_cov), b2.inputs['Height'])
+        if nrm_out is not None:
+            nt.links.new(nrm_out, b2.inputs['Normal'])
+        nrm_out = b2.outputs['Normal']
+    if nrm_out is not None:
+        nt.links.new(nrm_out, bsdf.inputs['Normal'])
     return m
 
 def finish3(name, highs, low_parts, extras=(), size='auto', cage=0.006, cage_reach=0.2, hard=None, lod1=0.35, lod2=None,
             uv_angle=66, samples=8, uv_margin=0.003, uv='smart', uv_weight=None, lod_rule=True, bake_groups=None, probe=None,
-            split_cage=True, despeck=True, flat_hard=None, despeck_n=None):
+            split_cage=True, despeck=True, flat_hard=None, despeck_n=None, flat_smooth=0, blob_fix=None):
     """v3 마무리: 굽기 우리(cage) + UV 다시 배치(pack) + 여백 없이 굽고 빈 곳을 둘레 색으로 메우기(자홍·검정 테두리 없음).
     size: 'auto' = 가장 긴 변 1.5 m 미만 1024, 그 밖 2048 (저장소 용량 규칙, 4096 금지)
     cage: 우리 여유(m), hard: 단단한 모서리 각도(도, 석물 55 안팎·각진 바위 35~40 / 나무 None)
@@ -2216,4 +2365,329 @@ def finish3(name, highs, low_parts, extras=(), size='auto', cage=0.006, cage_rea
     return finish(name, highs, low_parts, extras=extras, size=size, lod1=lod1, lod2=lod2, uv_angle=uv_angle,
                   cage=cage, cage_reach=cage_reach, hard=hard, pack=True, samples=samples, margin=0, uv_margin=uv_margin,
                   uv=uv, uv_weight=uv_weight, lod_rule=lod_rule, bake_groups=bake_groups, probe=probe, split_cage=split_cage,
-                  despeck=despeck, flat_hard=flat_hard, despeck_n=despeck_n)
+                  despeck=despeck, flat_hard=flat_hard, despeck_n=despeck_n, flat_smooth=flat_smooth, blob_fix=blob_fix)
+
+# ═════════════════════════ k6: 세월 덧칠·형태 검사 (62종 공통) ═════════════════════════
+#   drip_attr()    정점마다 '위로 물체가 끝나는 곳까지 거리' → 'dtop' (빗물 때가 윗변·깨짐 바로 아래에서 시작하게)
+#   weather3()     paint3 위에 얹는 세월: 위→아래 빗물 때, 아래→위 흙물·이끼(회갈색·올리브), 홈에 고인 때, 넓은 물때 얼룩
+#   clean_solid()  굽기 전 형태 검사: 떨어진 조각, 두께 min_thick 미만 판·날·가시를 찾아 지운다
+#   grain_steps()  결(서로 거의 직각인 균열 방향 셋) 에 맞춘 계단 깨짐 — 큰 평면 + 잔 계단의 2단 결
+
+def drip_attr(o, name='dtop', cap=1.5):
+    """(k6) 정점마다 바로 위(+Z)로 물체 표면이 끝나는 곳까지의 거리(m, cap 까지) → 정점 속성 name.
+    weather3(rain) 가 빗물 때를 '그 자리 윗변·깨진 턱 바로 아래'에서 시작하게 쓴다 (둥근 윗변·깨진 어깨에서도 맞다).
+    원본(carve 뒤)에서 부른다. 돌려주는 값: 정점 수"""
+    from mathutils.bvhtree import BVHTree
+    me = o.data
+    mw = o.matrix_world
+    bm = bmesh.new(); bm.from_mesh(me); bm.transform(mw)
+    tree = BVHTree.FromBMesh(bm)
+    bm.free()
+    nm3 = mw.to_3x3().inverted().transposed()
+    up = Vector((0, 0, 1))
+    out = []
+    for v in me.vertices:
+        p = mw @ v.co
+        n = (nm3 @ v.normal).normalized()
+        hit = tree.ray_cast(p - n * 0.002, up, cap)
+        out.append(min(cap, hit[3]) if hit[0] is not None else cap)
+    if name in me.attributes:
+        me.attributes.remove(me.attributes[name])
+    me.attributes.new(name, 'FLOAT', 'POINT').data.foreach_set('value', out)
+    return len(out)
+
+def weather3(mat, h, k=1.0, z0=0.0, rain=0.0, rain_h=None, rain_color=(0.5, 0.47, 0.42), rain_cover=0.55, rain_attr='dtop',
+             rain_w=11.0, mud=0.0, mud_h=0.25, mud_color=(0.15, 0.13, 0.1), moss=0.0, moss_h=None, moss_top=0.0,
+             moss_color=(0.075, 0.085, 0.032), groove=0.0, groove_d=0.02, groove_color=(0.42, 0.37, 0.31),
+             mottle=0.0, mottle_color=(0.2, 0.19, 0.16), mottle_scale=1.2):
+    """(k6) 세월 덧칠 — paint3(…) 로 만든 재질의 마지막 색 위에 얹는다 (색은 최종 albedo 값, 선형).
+    오래 버려진 것은 '원인과 방향이 있는' 무늬로 낡게 한다 (고르게 찍힌 반점은 위장무늬가 된다):
+    rain: 위에서 아래로 흘러내린 빗물 때 (곱하기, 회갈색). drip_attr 의 'dtop' 이 있으면 그 자리 윗변·깨짐 바로 아래에서 시작하고
+      없으면 높이 h 에서. 줄 폭·간격·길이가 들쭉날쭉하고 rain_cover 비율의 윗변에서만 흐른다 (모든 면에 같은 간격 = 커튼·나뭇결).
+      rain_h: 흘러내린 길이(m, 기본 h/2), rain_w: 줄 무늬 주파수(클수록 가는 줄)
+    mud: 땅(z0)에서 위로 튄 흙물 (mud_h 까지, 위 경계가 잡음으로 흔들림, MIX 회갈색)
+    moss: 땅에서 기어오른 이끼 덩어리 (moss_h 까지, 기본 mud_h) / moss_top: 위를 향한 면의 이끼 덩어리 (올리브)
+    groove: 홈(글자·금·줄눈)에 고인 때 (좁은 AO groove_d m, 곱하기) / mottle: 넓고 부드러운 회갈색 물때 얼룩 (고른 단색 판을 깬다)"""
+    nt = mat.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    col = bsdf.inputs['Base Color'].links[0].from_socket
+    tc = nt.nodes.new('ShaderNodeTexCoord'); P = tc.outputs['Object']
+    mp = nt.nodes.new('ShaderNodeMapping'); mp.inputs['Scale'].default_value = (1 / k, 1 / k, 1 / k)
+    nt.links.new(P, mp.inputs['Vector']); Pk = mp.outputs['Vector']
+    geo = nt.nodes.new('ShaderNodeNewGeometry')
+    sN = nt.nodes.new('ShaderNodeSeparateXYZ'); nt.links.new(geo.outputs['Normal'], sN.inputs[0])
+    sP = nt.nodes.new('ShaderNodeSeparateXYZ'); nt.links.new(P, sP.inputs[0])
+
+    def colmap(sxy, sz):
+        m_ = nt.nodes.new('ShaderNodeMapping'); m_.inputs['Scale'].default_value = (sxy / k, sxy / k, sz / k)
+        nt.links.new(P, m_.inputs['Vector'])
+        return m_.outputs['Vector']
+
+    if mottle > 0:
+        nm_ = _maprange(nt, _noise(nt, Pk, mottle_scale, 4, 0.6), 0.44, 0.62)
+        col = _mix(nt, 'MIX', _mul(nt, nm_, mottle), col, W(mottle_color))
+    if rain > 0:
+        rh = rain_h if rain_h is not None else 0.5 * h
+        at = nt.nodes.new('ShaderNodeAttribute'); at.attribute_type = 'GEOMETRY'; at.attribute_name = rain_attr
+        # 속성이 없으면 Fac = 0 → 꼭대기 h 에서 내려온 거리로 (속성 값 + (h - z) × [속성이 없을 때])
+        dt = at.outputs['Fac']
+        if rain_attr is None:
+            dt = _mul(nt, h, sP.outputs['Z'], 'SUBTRACT')
+        rlen = _maprange(nt, _noise(nt, colmap(18.0, 0.5), 1.3, 2, 0.5), 0.3, 0.7, 0.3, 1.25)       # 줄마다 흘러내린 길이
+        band = _maprange(nt, _mul(nt, dt, rlen, 'DIVIDE'), rh, rh * 0.1)
+        cn = _noise(nt, colmap(rain_w, 0.35), 1.0, 3, 0.55)                                       # 세로 줄
+        wthr = _maprange(nt, _noise(nt, colmap(2.6, 0.15), 1.0, 2, 0.5), 0.35, 0.65, 0.47, 0.63)   # 줄 폭이 들쭉날쭉 (넓은 곳·없는 곳)
+        streak = _maprange(nt, _mul(nt, cn, wthr, 'SUBTRACT'), 0.0, 0.045)
+        rth = 0.5 - (rain_cover - 0.5) * 0.3
+        src = _maprange(nt, _noise(nt, colmap(2.2, 0.0), 1.0, 2, 0.5), rth - 0.04, rth + 0.04)    # 줄이 흐르는 윗변 구간
+        rside = _maprange(nt, sN.outputs['Z'], 0.8, 0.4)
+        rm = _mul(nt, _mul(nt, _mul(nt, band, _mul(nt, _mul(nt, streak, 0.8), 0.2, 'ADD')), src), rside)
+        col = _mix(nt, 'MULTIPLY', _mul(nt, rm, rain), col, W(rain_color))
+    if groove > 0:
+        ga = _ao(nt, groove_d, 16)
+        gm = _maprange(nt, ga, 0.9, 0.5)
+        col = _mix(nt, 'MULTIPLY', _mul(nt, gm, groove), col, W(groove_color))
+    zz = _mul(nt, sP.outputs['Z'], z0, 'SUBTRACT')
+    if mud > 0:
+        wob = _mul(nt, _mul(nt, _noise(nt, Pk, 4.0, 3), 0.5, 'SUBTRACT'), mud_h * 1.1)
+        mm = _maprange(nt, _mul(nt, zz, wob, 'ADD'), mud_h, mud_h * 0.15)
+        spl = _ramp_n(nt, _noise(nt, Pk, 18.0, 3), [(0.35, (0.45, 0.45, 0.45)), (0.62, (1, 1, 1))])
+        col = _mix(nt, 'MIX', _mul(nt, _mul(nt, mm, spl), mud), col, W(mud_color))
+    mc = _ramp_n(nt, _noise(nt, Pk, 30.0, 4), [(0.3, tuple(c * 0.55 for c in moss_color)), (0.75, tuple(min(1, c * 1.35) for c in moss_color))])
+    if moss > 0:
+        mh = moss_h if moss_h is not None else mud_h
+        wob2 = _mul(nt, _mul(nt, _noise(nt, Pk, 3.0, 4), 0.5, 'SUBTRACT'), mh)
+        lowm = _maprange(nt, _mul(nt, zz, wob2, 'ADD'), mh, mh * 0.3)
+        patch = _maprange(nt, _noise(nt, Pk, 6.0, 6, 0.6), 0.49, 0.56)
+        col = _mix(nt, 'MIX', _mul(nt, _mul(nt, lowm, patch), moss), col, mc)
+    if moss_top > 0:
+        upm = _maprange(nt, sN.outputs['Z'], 0.55, 0.85)
+        patch2 = _maprange(nt, _noise(nt, Pk, 2.4, 6, 0.6), 0.47, 0.55)
+        col = _mix(nt, 'MIX', _mul(nt, _mul(nt, upm, patch2), moss_top), col, mc)
+    nt.links.new(col, bsdf.inputs['Base Color'])
+    return mat
+
+def _mesh_parts(bm):
+    """bmesh 의 연결 성분: [(면 목록, 부피 m³), ...]"""
+    seen = set()
+    parts = []
+    for f0 in bm.faces:
+        if f0.index in seen:
+            continue
+        stack = [f0]; seen.add(f0.index); fs = []
+        while stack:
+            f = stack.pop(); fs.append(f)
+            for e in f.edges:
+                for g in e.link_faces:
+                    if g.index not in seen:
+                        seen.add(g.index); stack.append(g)
+        vol = 0.0
+        for f in fs:
+            vs = [v.co for v in f.verts]
+            for i in range(1, len(vs) - 1):
+                vol += vs[0].dot(vs[i].cross(vs[i + 1])) / 6.0
+        parts.append((fs, abs(vol)))
+    return parts
+
+def _thin_samples(o, min_thick, step, plate_dot, rng):
+    """표면 점마다 안쪽 두께와 반대쪽 면 법선 → 얇은 판·날 점 [(p, q)] , 얇은 넓이, 전체 넓이"""
+    from mathutils.bvhtree import BVHTree
+    bm = bmesh.new(); bm.from_mesh(o.data); bm.transform(o.matrix_world)
+    bmesh.ops.triangulate(bm, faces=bm.faces)
+    bm.normal_update()
+    tree = BVHTree.FromBMesh(bm)
+    thin, a_thin, a_all = [], 0.0, 0.0
+    for f in bm.faces:
+        A = f.calc_area()
+        if A <= 0:
+            continue
+        a_all += A
+        ns = max(1, min(400, int(round(A / (step * step)))))
+        a, b, c = [v.co for v in f.verts]
+        n = f.normal
+        for _ in range(ns):
+            r1, r2 = rng.random(), rng.random()
+            if r1 + r2 > 1:
+                r1, r2 = 1 - r1, 1 - r2
+            p = a + (b - a) * r1 + (c - a) * r2
+            hit = tree.ray_cast(p - n * 1e-4, -n, min_thick)
+            if hit[0] is not None and hit[3] < min_thick and n.dot(hit[1]) < plate_dot:
+                thin.append((p.copy(), hit[0].copy()))
+                a_thin += A / ns
+    bm.free()
+    return thin, a_thin, a_all
+
+def clean_solid(o, min_thick=0.03, min_vol=0.002, rel_vol=0.01, step=0.02, plate_dot=-0.55, min_cluster=5, grow=0.02,
+                passes=2, seed=0, label=None, max_span=0.7):
+    """(k6) 굽기 전 형태 검사·정리 (바위·절벽·석물 공통, 불리언으로 깎은 깨끗한 형태에 — 저폴리 사본을 뜨기 전에 부른다).
+    1) 떨어진 조각: 연결 성분마다 부피를 재어 min_vol(m³) 미만이거나 가장 큰 것의 rel_vol 비율 미만이면 지운다
+       (불리언으로 깎다 몸통에서 떨어진 얇은 판·부스러기 — 실루엣에서 떠 보인다)
+    2) 얇은 판·날·가시: 표면 점(step 간격)마다 안쪽으로 광선을 쏴 두께 t 와 반대쪽 면 법선을 잰다.
+       t < min_thick 이고 두 면이 마주보면(법선 내적 < plate_dot = 사이각 57도 미만의 날) 얇은 곳. 보통 모서리(90도)는 걸리지 않는다.
+       가까운 점끼리(step×2.5) 무리 짓고, min_cluster 점 이상인 무리마다 양쪽 면 점을 감싼 볼록 껍질을 grow 만큼 키워 잘라낸다
+    3) 1) 을 다시 (잘라서 떨어진 것). passes 번 되풀이.
+    max_span: 무리 점이 이보다 넓게 퍼져 있으면(가운데에서 max_span/2 넘게) 자르지 않는다 — 두 덩어리가 맞닿은 목처럼 넓은 곳을
+      볼록 껍질로 자르면 덩어리 하나가 통째로 사라진다 (로그 skipped). 로그 vol: 정리 전·후 부피(m³)
+    로그: CLEAN 이름 parts_removed n plates_cut n thin_before % thin_after % (얇은 넓이 / 겉넓이)
+    돌려주는 값: dict"""
+    from mathutils.kdtree import KDTree
+    rng = random.Random(seed + 917)
+    name = label or o.name
+    info = {'parts_removed': 0, 'plates_cut': 0}
+
+    def volume():
+        bm = bmesh.new(); bm.from_mesh(o.data); bm.transform(o.matrix_world)
+        v = sum(x for _, x in _mesh_parts(bm)); bm.free()
+        return v
+    v0 = volume()
+
+    def drop_parts():
+        bm = bmesh.new(); bm.from_mesh(o.data); bm.transform(o.matrix_world)
+        bm.faces.ensure_lookup_table()
+        parts = _mesh_parts(bm)
+        vmax = max((v for _, v in parts), default=0.0)
+        kill = []
+        for fs, v in parts:
+            if v < min_vol or v < rel_vol * vmax:
+                kill += fs
+        n = sum(1 for fs, v in parts if v < min_vol or v < rel_vol * vmax)
+        if kill:
+            bmesh.ops.delete(bm, geom=kill, context='FACES')
+            bm.transform(o.matrix_world.inverted())
+            bm.to_mesh(o.data); o.data.update()
+        bm.free()
+        return n
+
+    info['parts_removed'] += drop_parts()
+    first = None
+    for it in range(passes):
+        thin, at, aa = _thin_samples(o, min_thick, step, plate_dot, rng)
+        if first is None:
+            first = at / max(aa, 1e-9)
+        if not thin:
+            break
+        kd = KDTree(len(thin))
+        for i, (p, q) in enumerate(thin):
+            kd.insert(p, i)
+        kd.balance()
+        lab = [-1] * len(thin)
+        groups = []
+        for i in range(len(thin)):
+            if lab[i] >= 0:
+                continue
+            g = [i]; lab[i] = len(groups); st = [i]
+            while st:
+                j = st.pop()
+                for (_, jj, _) in kd.find_range(thin[j][0], step * 2.5):
+                    if lab[jj] < 0:
+                        lab[jj] = lab[i]; g.append(jj); st.append(jj)
+            groups.append(g)
+        cutters = []
+        for g in groups:
+            if len(g) < min_cluster:
+                continue
+            pts = []
+            for j in g:
+                pts += [thin[j][0], thin[j][1]]
+            c = sum(pts, Vector()) / len(pts)
+            if max((p - c).length for p in pts) > max_span * 0.5:
+                # 넓게 퍼진 무리: 얇은 한 장(날·판)이면 1.6 m 까지 자르고, 두툼하게 퍼진 것(맞닿은 두 덩어리의 목 등)은 건너뛴다
+                import numpy as np
+                A_ = np.array([tuple(p - c) for p in pts])
+                w_, v_ = np.linalg.eigh(A_.T @ A_)
+                th_ = float(np.ptp(A_ @ v_[:, 0]))
+                if th_ > 2.5 * min_thick or max((p - c).length for p in pts) > 0.8:
+                    info['skipped'] = info.get('skipped', 0) + 1
+                    print("CLEANSKIP", name, "pts", len(g), "span %.2f" % (2 * max((p - c).length for p in pts)), "thick %.3f" % th_,
+                          "at", tuple(round(x, 2) for x in c))
+                    continue
+            pts = [c + (p - c) * (1.0 + grow / max((p - c).length, 1e-4)) for p in pts]
+            bm = bmesh.new()
+            for p in pts:
+                bm.verts.new(p)
+            try:
+                bmesh.ops.convex_hull(bm, input=bm.verts[:])
+            except Exception:
+                bm.free(); continue
+            loose = [v for v in bm.verts if not v.link_faces]
+            if loose:
+                bmesh.ops.delete(bm, geom=loose, context='VERTS')
+            if len(bm.faces) < 4:
+                bm.free(); continue
+            me = bpy.data.meshes.new("thincut"); bm.to_mesh(me); bm.free()
+            co = bpy.data.objects.new("thincut", me); link(co)
+            cutters.append(co)
+        if not cutters:
+            break
+        cut(o, cutters)
+        info['plates_cut'] += len(cutters)
+        info['parts_removed'] += drop_parts()
+    thin, at, aa = _thin_samples(o, min_thick, step, plate_dot, rng)
+    info['thin_before'] = round((first or 0.0) * 100, 3)
+    info['thin_after'] = round(at / max(aa, 1e-9) * 100, 3)
+    info['thin_left_pts'] = len(thin)
+    info['vol'] = (round(v0, 4), round(volume(), 4))
+    print("CLEAN", name, "parts_removed", info['parts_removed'], "plates_cut", info['plates_cut'], "skipped", info.get('skipped', 0),
+          "thin_before %.3f%%" % info['thin_before'], "thin_after %.3f%%" % info['thin_after'], "pts", len(thin),
+          "vol %.3f -> %.3f m3" % info['vol'])
+    return info
+
+def grain_steps(o, rng, n, joints, size=(0.15, 0.35), depth=(0.03, 0.06), wall=60.0, zmin=-1e9, sharp_deg=28.0,
+                min_dot=0.45, margin=None, tilt=4.0, spacing=None, where=None):
+    """(k6) 결에 맞춘 계단 깨짐: 날카로운 모서리 위 점마다, 균열 방향 joints(서로 거의 직각인 방향 2~3 개, ± 둘 다 본다) 가운데
+    그 자리 바깥 방향과 가장 가까운 것을 골라, 바닥이 그 결에 평행한 평면 턱(kit 의 spall 과 같은 각뿔대, 벽 wall 도)을 깎는다.
+    모든 턱이 같은 몇 방향으로 나란해 '정으로 깬 돌의 결'로 읽힌다 (방향이 제각각인 chip 은 부스러기처럼 보인다).
+    2단 결: 큰 계단(size 0.4~0.8 m, depth 0.06~0.12)은 저폴리를 뜨기 전에, 잔 계단(0.1~0.25 m, 0.02~0.045)은 뒤에 (노멀맵으로).
+    min_dot: 바깥 방향과 결 방향의 내적이 이보다 작으면 건너뛴다 (옆으로 파고든 처마·굴이 생기지 않게)
+    spacing: 턱 가운데끼리 최소 거리 (기본 size 최대값). 커터가 겹치면 사이에 얇은 판·부스러기가 남는다
+    where: f(점, 바깥 방향) → 참이면 깎는다 (깊은 틈 안쪽처럼 잘게 깨면 유리 조각처럼 보이는 곳을 뺀다)"""
+    spacing = spacing if spacing is not None else size[1]
+    js = []
+    for j in joints:
+        j = Vector(j).normalized()
+        js += [j, -j]
+    cs = []
+    used = []
+    for p, out in edge_points(o, n * 6, rng, sharp_deg, zmin):
+        if len(cs) >= n:
+            break
+        gg = max(js, key=lambda j: j.dot(out))
+        if gg.dot(out) < min_dot or any((p - u).length < spacing for u in used):
+            continue
+        if where is not None and not where(p, out):
+            continue
+        used.append(p.copy())
+        sz = rng.uniform(*size)
+        d = rng.uniform(*depth)
+        lat = out - gg * out.dot(gg)
+        c = p - (lat.normalized() * sz * 0.2 if lat.length > 1e-4 else Vector())
+        mg = margin if margin is not None else sz * 1.2
+        cs.append(_grain_cutter(c, gg, (sz, sz * rng.uniform(0.55, 0.9)), d, rng, wall, tilt, mg))
+    if cs:
+        cut(o, cs)
+    return len(cs)
+
+def _grain_cutter(p, n, size, depth, rng, wall, tilt, margin, sides=7):
+    """평평한 바닥(n 에 수직, p 아래 depth) + wall 도 벽의 각뿔대 커터 (위로 margin)"""
+    n = Vector(n).normalized()
+    q = n.to_track_quat('Z', 'Y').to_matrix().to_4x4() @ Matrix.Rotation(rng.uniform(0, 6.28), 4, 'Z')
+    angs = sorted(rng.uniform(0, 6.283) for _ in range(sides))
+    top = [Vector((math.cos(a) * size[0] * rng.uniform(0.7, 1.0), math.sin(a) * size[1] * rng.uniform(0.7, 1.0), 0.0)) for a in angs]
+    cen = sum(top, Vector()) / len(top)
+    rmin = max(min((v - cen).length for v in top), 1e-4)
+    t = 1.0 / math.tan(math.radians(wall))
+    s_top = 1.0 + (depth + margin) * t / rmin
+    ta, tb = math.radians(rng.uniform(-tilt, tilt)), math.radians(rng.uniform(-tilt, tilt))
+    vs = []
+    for v in top:
+        vs.append(Vector((v.x, v.y, -depth + math.tan(ta) * v.x + math.tan(tb) * v.y)))
+    for v in top:
+        u = cen + (v - cen) * s_top
+        vs.append(Vector((u.x, u.y, margin)))
+    m = len(top)
+    faces = [tuple(range(m - 1, -1, -1)), tuple(range(m, 2 * m))]
+    for i in range(m):
+        j = (i + 1) % m
+        faces.append((i, j, m + j, m + i))
+    M = Matrix.Translation(Vector(p)) @ q
+    return mesh_from("gstep", [M @ v for v in vs], faces)

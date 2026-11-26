@@ -1691,7 +1691,9 @@ def skeleton_remains():
 #   - 발광 부품은 Glow_* (굽지 않음), 점광원은 META.light.
 WOOD_WEATHER = ((0.034, 0.03, 0.028), (0.25, 0.215, 0.185), (0.43, 0.39, 0.35))     # 비바람에 바랜 각재 (교수대·수레·천막 장대)
 CANVAS = ((0.033, 0.029, 0.026), (0.235, 0.205, 0.165), (0.36, 0.33, 0.28))         # 때 묻은 천막 천 (바랜 아마색, 첫 시안은 종이처럼 희었다)
-OBELISK_STONE = ((0.04, 0.04, 0.05), (0.235, 0.23, 0.265), (0.47, 0.46, 0.51))      # 검은 오벨리스크 (짙은 청회색)
+TENT_LINEN = ((0.05, 0.043, 0.035), (0.3, 0.262, 0.2), (0.4, 0.365, 0.3))            # (k5fix) 천막 천: 바랜 아마색 (CANVAS + 구름 얼룩은 녹회색으로 어두웠다)
+OBELISK_STONE = ((0.042, 0.042, 0.047), (0.235, 0.232, 0.25), (0.46, 0.455, 0.475))  # 검은 오벨리스크 (짙은 회색, k5fix: 청보라 채도를 낮춤)
+IRON_RUSTY = ((0.03, 0.02, 0.018), (0.17, 0.09, 0.058), (0.31, 0.25, 0.22))          # (k5fix) 녹 갈색 쇠 (오벨리스크 목테·꺾쇠가 새까만 구멍처럼 읽히지 않게)
 # 각재 결 (guide 필요): 결을 따라 길게 갈라진 틈(폭 1.7 cm·깊이 8 mm, 벽 45도 안팎 — 더 가파르면 steep 이 오른다) + 잔 결
 WOOD_BEAM = [{'t': 'lumps', 'scale': 2.0, 'amp': 0.002},
              {'t': 'bark', 'scale': 7.0, 'width': 0.06, 'depth': 0.008, 'stretch': 0.05, 'ridge': 0.1},
@@ -2101,166 +2103,226 @@ def gallows():
 
 # ═════════════════════════ 11. 매달린 새장 ═════════════════════════
 def hanging_cage():
-    """매달린 새장: 돌무더기에 박힌 네모 쇠기둥(공 머리 + 창촉) 에서 팔이 뻗고, 팔 아래 소용돌이 받침쇠. 팔 끝 고리에서 사슬로 술통 모양
-    쇠 새장이 매달렸다 (조금 기울고 돌았다). 새장 문은 열려 바깥으로 젖혀졌고 창살 하나는 휘어 벌어졌다. 바닥에는 해골과 뼈. 갇힌 혼(Glow_Soul) 이 새장 가운데에서 희미하게 피어오른다 (광원 (0.7, 0, 1.9))"""
+    """매달린 새장 (처형 새장, k5fix 에서 다시 설계): 돌무더기에 박힌 네모 쇠기둥은 원점에 선다 (Unity 충돌이 원점 축 기준 — k5r: 기둥이
+    x −0.74 에 있어 캡슐 충돌이 빈 땅에 섰다). 꼭대기 창촉은 꺾여 부러졌고, −X 쪽으로 땅에 박은 버팀쇠가 기둥을 받친다.
+    곧은 팔(+X)과 곧은 빗장 받침 — 소용돌이 장식·공 머리를 뺐다 (k5r: '꼭지 기둥 + 소용돌이 받침 + 매달린 빛' 이 기존 등불과 실루엣이 같았다).
+    팔 갈고리에서 사슬로 사람 모양 쇠띠 새장(몸통 → 어깨 → 좁은 목 → 머리 칸, 높이 1.5 m)이 기울어 매달렸다. 문은 열려 젖혀졌고
+    안에는 주저앉은 해골 (머리 칸에 처진 해골, 등뼈·갈비, 바닥에 무너진 다리뼈, 열린 문 밖으로 늘어진 한 팔).
+    갇힌 혼(Glow_Soul)이 새장 가슴께에서 피어오른다 — 광원 (0.7, 0, 1.9) 이 새장 가슴 한가운데"""
     rng = random.Random(7702)
     acc = RU.Acc()
-    PX = -0.74
-    # 기둥 (아래 굵게) + 띠 + 공 머리 + 창촉
-    v, f = RU.bar_path([(PX, 0, -0.12), (PX, 0, 0.95)], 0.15); acc.add_raw(v, f)
-    v, f = RU.bar_path([(PX, 0, 0.9), (PX + 0.006, 0.0, 2.2), (PX + 0.016, 0.004, 3.42)], 0.12); acc.add_raw(v, f)
-    for z in (0.93, 2.02, 3.34):
-        v, f = RU.bar_path([(PX, 0, z - 0.035), (PX + 0.002, 0, z + 0.035)], 0.165 if z < 1 else 0.15); acc.add_raw(v, f)
-    v, f = RU.lathe([(0.0, 3.4), (0.05, 3.41), (0.075, 3.455), (0.07, 3.5), (0.04, 3.53), (0.0, 3.535)], 12, (PX + 0.016, 0.004, 0)); acc.add_raw(v, f)
-    v, f = RU.spear((PX + 0.016, 0.004, 3.53), (0.02, 0, 1), 0.09, 0.055, 0.016, 0.014); acc.add_raw(v, f)
-    # 팔 (끝이 아래로 말린 소용돌이) + 받침쇠 (기둥에서 팔 밑으로 휘어 오르고 안쪽으로 감긴 소용돌이)
-    arm = [(PX, 0, 3.22), (-0.2, 0, 3.235), (0.5, 0, 3.225), (0.92, 0, 3.2)]
-    v, f = RU.bar_path(arm, 0.085, 0.065); acc.add_raw(v, f)
-    sc_ = [(0.92 + 0.065 * math.sin(t) * (1 - 0.4 * t / 5), 0, 3.2 - 0.065 + 0.065 * math.cos(t) * (1 - 0.4 * t / 5)) for t in [i * 0.55 for i in range(10)]]
-    v, f = RU.bar_path([(0.9, 0, 3.2)] + sc_, 0.04, 0.05); acc.add_raw(v, f)
-    br = [(PX + 0.07, 0, 2.45)]
-    for i in range(1, 11):
-        t = i / 10
-        br.append((PX + 0.07 + 0.95 * (1 - math.cos(t * math.pi / 2)), 0, 2.45 + 0.72 * math.sin(t * math.pi / 2)))
-    v, f = RU.bar_path(br, 0.035, 0.035); acc.add_raw(v, f)
-    cx0, cz0 = PX + 0.25, 2.97
-    sp = []
-    for i in range(22):
-        t = i / 21
-        a = R(200) + t * 2.2 * math.pi
-        r_ = 0.17 * (1 - 0.8 * t)
-        sp.append((cx0 + r_ * math.cos(a), 0, cz0 + r_ * math.sin(a)))
-    v, f = RU.bar_path(sp, 0.03, 0.03); acc.add_raw(v, f)
-    # 팔 끝 고리 + 사슬
-    HX = 0.72
-    v, f = RU.torus_raw(0.04, 0.011, Matrix.Translation((HX, 0, 3.13)) @ Matrix.Rotation(R(90), 4, 'X'), 10, 4); acc.add_raw(v, f)
-    v, f = RU.bar_path([(HX, 0, 3.18), (HX, 0, 3.165)], 0.03, 0.05); acc.add_raw(v, f)
-    # 새장 (새장 기준 좌표 → 기울여 매단다)
+    px = lambda z: 0.05 * max(0.0, z) / 3.5                      # 기둥이 새장 무게 쪽(+X)으로 1도 남짓 기울었다
+    # 기둥 (아래 굵게, 땅속 0.25 m) + 띠 둘 + 꺾여 부러진 창촉
+    v, f = RU.bar_path([(0, 0, -0.15), (px(0.95), 0, 0.95)], 0.16); acc.add_raw(v, f)
+    v, f = RU.bar_path([(px(0.9), 0, 0.9), (px(2.2), 0, 2.2), (px(3.46), 0, 3.46)], 0.12); acc.add_raw(v, f)
+    for z, w_ in ((0.93, 0.18), (2.02, 0.155)):
+        v, f = RU.bar_path([(px(z), 0, z - 0.035), (px(z), 0, z + 0.035)], w_); acc.add_raw(v, f)
+    v, f = RU.bar_path([(px(3.45), 0, 3.42), (px(3.5), 0, 3.5)], 0.15); acc.add_raw(v, f)                 # 머리 쇠뭉치
+    tx = px(3.5)
+    v, f = RU.bar_path([(tx, 0, 3.48), (tx + 0.012, 0, 3.6), (tx + 0.06, 0.015, 3.69), (tx + 0.15, 0.03, 3.72)], 0.04, 0.032); acc.add_raw(v, f)   # 꺾인 촉
+    # 팔 (곧게, 끝이 아래로 꺾임) + 곧은 빗장 받침 + 못 머리
+    AZ = 3.28
+    v, f = RU.bar_path([(px(AZ), 0, AZ), (0.6, 0, AZ + 0.008), (1.08, 0, AZ - 0.01)], 0.085, 0.065); acc.add_raw(v, f)
+    v, f = RU.bar_path([(1.05, 0, AZ - 0.01), (1.13, 0, AZ - 0.03), (1.16, 0, AZ - 0.15)], 0.055, 0.05); acc.add_raw(v, f)
+    v, f = RU.bar_path([(px(2.5) + 0.04, 0, 2.5), (0.64, 0, AZ - 0.04)], 0.055, 0.04); acc.add_raw(v, f)
+    for p in ((px(2.5) + 0.07, 0, 2.53), (0.61, 0, AZ - 0.05)):
+        v, f = RU.bar_path([(p[0], -0.03, p[2]), (p[0], 0.03, p[2])], 0.03); acc.add_raw(v, f)
+    # −X 버팀쇠 (기둥 1.35 m → 땅속) + 발치 못
+    sf = Vector((-0.6, 0.04, -0.1))
+    v, f = RU.bar_path([(px(1.35) - 0.05, 0.0, 1.35), tuple(sf)], 0.07, 0.05); acc.add_raw(v, f)
+    v, f = RU.bar_path([(px(1.35) - 0.08, -0.035, 1.33), (px(1.35) - 0.08, 0.035, 1.33)], 0.035); acc.add_raw(v, f)
+    # 갈고리 고리
+    HX = 0.6
+    v, f = RU.torus_raw(0.045, 0.012, Matrix.Translation((HX, 0, AZ - 0.085)) @ Matrix.Rotation(R(90), 4, 'X'), 10, 4); acc.add_raw(v, f)
+    v, f = RU.bar_path([(HX, 0, AZ - 0.02), (HX, 0, AZ - 0.045)], 0.03, 0.05); acc.add_raw(v, f)
+    # 새장 (새장 기준 좌표: 바닥 가운데 원점, 앞 = 문 쪽). 사람 모양 윤곽: 발 0.2 → 어깨 0.33 → 목 0.18 → 머리 칸 0.165 → 둥근 정수리
     cage = RU.Acc()
-    zb, zt = 0.0, 1.16                                            # 새장 몸 (밑 0 → 어깨 1.16), 둥근 지붕 → 1.3
-    rad = lambda z: 0.27 + 0.07 * math.sin(math.pi * min(1.0, max(0.0, z / zt)))
-    NB = 10
-    door = (7, 8)                                                 # 문 창살 (오른쪽 앞)
+    prof = [(0.0, 0.2), (0.3, 0.27), (0.62, 0.31), (0.9, 0.33), (1.0, 0.29), (1.08, 0.19), (1.14, 0.166), (1.36, 0.166)]
+
+    def rad(z):
+        z = min(max(z, 0.0), prof[-1][0])
+        for (z0, r0), (z1, r1) in zip(prof, prof[1:]):
+            if z <= z1:
+                t = (z - z0) / (z1 - z0)
+                t = t * t * (3 - 2 * t)
+                return r0 + (r1 - r0) * t
+        return prof[-1][1]
+    zt = 1.36
+    NB = 9
+    door = (7, 8)                                                 # 문 쇠띠 (앞 오른쪽)
     th = [2 * math.pi * i / NB + 0.15 for i in range(NB)]
-    zd0, zd1 = 0.06, 0.92                                         # 문 높이
+    zd0, zd1 = 0.06, 0.84                                         # 문 높이 (어깨 테 0.9 아래)
     for i, a in enumerate(th):
         ca, sa = math.cos(a), math.sin(a)
         pts = []
-        for k in range(15):
-            z = zt * k / 14
+        for k in range(23):
+            z = zt * k / 22
             r_ = rad(z)
-            if i == 1:                                            # 휘어 벌어진 창살 (정면에서 오른쪽 윤곽으로 보인다)
-                r_ += 0.06 * math.sin(math.pi * min(1, max(0, (z - 0.15) / 0.75))) ** 1.5
+            if i == 2:                                            # 휘어 벌어진 쇠띠
+                r_ += 0.07 * math.sin(math.pi * min(1, max(0, (z - 0.12) / 0.7))) ** 1.5
             pts.append((r_ * ca, r_ * sa, z))
-        for k in range(1, 6):                                     # 둥근 지붕
-            t = k / 5
-            r_ = rad(zt) * math.cos(t * math.pi / 2) * 0.92 + 0.035
-            pts.append((r_ * ca, r_ * sa, zt + 0.16 * math.sin(t * math.pi / 2)))
+        for k in range(1, 5):                                     # 둥근 정수리
+            t = k / 4
+            r_ = rad(zt) * math.cos(t * math.pi / 2) * 0.9 + 0.03
+            pts.append((r_ * ca, r_ * sa, zt + 0.12 * math.sin(t * math.pi / 2)))
+        if i == 4:                                                # 끊어진 쇠띠 (뒤): 아래 절반이 없고 끝이 바깥으로 들렸다
+            pts = [p for p in pts if p[2] > 0.42]
+            pts[0] = (pts[0][0] * 1.25, pts[0][1] * 1.25, pts[0][2] + 0.02)
         if i in door:
             lo_ = [p for p in pts if p[2] < zd0 + 1e-6]
             hi_ = [p for p in pts if p[2] > zd1 - 1e-6]
             for seg_ in (lo_, hi_):
                 if len(seg_) > 1:
-                    v, f = RU.bar_path(seg_, 0.024, 0.012, ref=(ca, sa, 0)); cage.add_raw(v, f)
+                    v, f = RU.bar_path(seg_, 0.034, 0.011, ref=(ca, sa, 0)); cage.add_raw(v, f)
             continue
-        v, f = RU.bar_path(pts, 0.024, 0.012, ref=(ca, sa, 0)); cage.add_raw(v, f)
+        v, f = RU.bar_path(pts, 0.034, 0.011, ref=(ca, sa, 0)); cage.add_raw(v, f)
 
     def hoop(z, w, a0=0.0, a1=2 * math.pi, n=30, closed=True):
         pts = []
         for k in range(n + (0 if closed else 1)):
             a = a0 + (a1 - a0) * k / n
-            r_ = rad(z) + 0.006
+            r_ = rad(z) + 0.007
             pts.append((r_ * math.cos(a), r_ * math.sin(a), z))
         if closed:
             pts.append(pts[0])
         return RU.bar_path(pts, 0.012, w, ref=(0, 0, 1))
-    for z in (0.015, zt):
-        v, f = hoop(z, 0.04); cage.add_raw(v, f)
-    for z in (zd0, zd1, 0.5):
-        v, f = hoop(z, 0.03, th[door[1]] + 0.1, th[door[0]] - 0.1 + 2 * math.pi, 30, False); cage.add_raw(v, f)
-    v, f = RU.lathe([(0.0, -0.012), (0.27, -0.012), (0.275, 0.006), (0.0, 0.006)], 20); cage.add_raw(v, f)     # 바닥판
-    v, f = RU.torus_raw(0.05, 0.012, Matrix.Translation((0, 0, zt + 0.2)) @ Matrix.Rotation(R(90), 4, 'X'), 10, 4); cage.add_raw(v, f)
-    v, f = RU.lathe([(0.0, zt + 0.14), (0.06, zt + 0.14), (0.05, zt + 0.17), (0.0, zt + 0.175)], 10); cage.add_raw(v, f)
-    # 문: 창살 둘 + 가로대 셋, 경첩(창살 door[0]-1 쪽 세로선)을 축으로 바깥으로 70도 젖혀졌다
+    for z, w_ in ((0.015, 0.045), (0.9, 0.04), (1.08, 0.035), (zt, 0.035)):
+        v, f = hoop(z, w_); cage.add_raw(v, f)
+    for z in (zd0, 0.32, 0.62, zd1):
+        v, f = hoop(z, 0.032, th[door[1]] + 0.1, th[door[0]] - 0.1 + 2 * math.pi, 30, False); cage.add_raw(v, f)
+    v, f = RU.lathe([(0.0, -0.012), (0.2, -0.012), (0.205, 0.006), (0.0, 0.006)], 18); cage.add_raw(v, f)     # 바닥판
+    v, f = RU.torus_raw(0.045, 0.012, Matrix.Translation((0, 0, zt + 0.17)) @ Matrix.Rotation(R(90), 4, 'X'), 10, 4); cage.add_raw(v, f)
+    v, f = RU.lathe([(0.0, zt + 0.1), (0.06, zt + 0.1), (0.05, zt + 0.13), (0.0, zt + 0.135)], 10); cage.add_raw(v, f)
+    # 문: 쇠띠 둘 + 가로띠 셋, 경첩(door[0] 앞 세로선)을 축으로 바깥으로 75도 젖혀졌다
     dacc = RU.Acc()
     for i in door:
         ca, sa = math.cos(th[i]), math.sin(th[i])
         pts = [(rad(z) * ca, rad(z) * sa, z) for z in [zd0 + (zd1 - zd0) * k / 8 for k in range(9)]]
-        v, f = RU.bar_path(pts, 0.024, 0.012, ref=(ca, sa, 0)); dacc.add_raw(v, f)
+        v, f = RU.bar_path(pts, 0.034, 0.011, ref=(ca, sa, 0)); dacc.add_raw(v, f)
     for z in (zd0 + 0.02, (zd0 + zd1) / 2, zd1 - 0.02):
         pts = []
         for k in range(7):
             a = th[door[0]] - 0.12 + (th[door[1]] - th[door[0]] + 0.24) * k / 6
             pts.append(((rad(z) + 0.012) * math.cos(a), (rad(z) + 0.012) * math.sin(a), z))
-        v, f = RU.bar_path(pts, 0.012, 0.028, ref=(0, 0, 1)); dacc.add_raw(v, f)
+        v, f = RU.bar_path(pts, 0.012, 0.03, ref=(0, 0, 1)); dacc.add_raw(v, f)
     ha = th[door[0]] - 0.16
-    hp = Vector((rad(0.5) * math.cos(ha), rad(0.5) * math.sin(ha), 0.0))
-    Md = Matrix.Translation(hp) @ Matrix.Rotation(R(-72), 4, 'Z') @ Matrix.Translation(-hp)
-    dv = [Md @ Vector(p) for p in dacc.v]
-    cage.add_raw(dv, dacc.f)
-    # 새장 놓기: 바닥 z 1.3, 가운데 x HX, 조금 기울고 돈 채로
-    Mc = Matrix.Translation((HX, 0.0, 1.3)) @ Matrix.Rotation(R(4), 4, 'Y') @ Matrix.Rotation(R(-3), 4, 'X') @ Matrix.Rotation(R(-28), 4, 'Z')
+    hp = Vector((rad(0.45) * math.cos(ha), rad(0.45) * math.sin(ha), 0.0))
+    Md = Matrix.Translation(hp) @ Matrix.Rotation(R(-75), 4, 'Z') @ Matrix.Translation(-hp)
+    cage.add_raw([Md @ Vector(p) for p in dacc.v], dacc.f)
+    # 새장 놓기: 8도 기울고 돌았다. 가슴(새장 z 0.75) 이 광원 자리 (0.7, 0, 1.9) 에 오게
+    Mrot = Matrix.Rotation(R(-8), 4, 'Y') @ Matrix.Rotation(R(-4), 4, 'X') @ Matrix.Rotation(R(-28), 4, 'Z')
+    chest = Mrot @ Vector((0, 0, 0.75))
+    Mc = Matrix.Translation(Vector((0.7, 0.0, 1.9)) - chest) @ Mrot
     acc.add_raw([Mc @ Vector(p) for p in cage.v], cage.f)
-    top = Mc @ Vector((0, 0, zt + 0.2))
-    chain_links(acc, [(HX, 0, 3.1), (top.x, top.y, top.z + 0.035)], link=0.1, wide=0.055, wire=0.011, seg=6, minor=4)
+    top = Mc @ Vector((0, 0, zt + 0.17))
+    chain_links(acc, [(HX, 0, AZ - 0.12), (top.x, top.y, top.z + 0.03)], link=0.1, wide=0.055, wire=0.011, seg=6, minor=4)
     iron = acc.obj("cage_iron")
     low_i = lowpoly(iron)
     drop_faces(low_i, lambda c, n: c.z < -0.1 and n.z < -0.9)
-    # 기둥 발치 돌무더기
+    # 돌무더기 (기둥 발치 여덟 + 버팀쇠 발치 셋)
     stones = []
+    spots = []
     for i in range(8):
         a = 2 * math.pi * i / 8 + rng.uniform(-0.2, 0.2)
-        rr = rng.uniform(0.15, 0.23)
-        s_ = (rng.uniform(0.12, 0.18), rng.uniform(0.1, 0.15), rng.uniform(0.09, 0.13))
+        rr = rng.uniform(0.17, 0.25)
+        spots.append((math.cos(a) * rr, math.sin(a) * rr * 1.1, a, 1.0, i % 3 == 0))
+    for k in range(3):
+        a = R(170 + 40 * k)
+        spots.append((sf.x + 0.12 + math.cos(a) * 0.14, sf.y + math.sin(a) * 0.14, a, 0.8, False))
+    for (x, y, a, sc_, up) in spots:
+        s_ = (rng.uniform(0.12, 0.18) * sc_, rng.uniform(0.1, 0.15) * sc_, rng.uniform(0.09, 0.13) * sc_)
         bm = rough_box(rng, *s_, jit=0.22, chips=(2, 4), depth=(0.015, 0.04))
-        stones.append(G.obj_bm(bm, "st", Matrix.Translation((PX + math.cos(a) * rr, math.sin(a) * rr * 1.1, s_[2] * 0.3 + (0.06 if i % 3 == 0 else 0.0)))
+        stones.append(G.obj_bm(bm, "st", Matrix.Translation((x, y, s_[2] * 0.3 + (0.06 if up else 0.0)))
                                @ Euler((R(rng.uniform(-14, 14)), R(rng.uniform(-14, 14)), a), 'XYZ').to_matrix().to_4x4()))
-    # k5 i2: 돌 여덟을 join 만 한 저폴리는 서로·기둥 속에 묻힌 면이 남아 굽기 광선이 이웃 돌을 맞혔다 (돌무더기 자리 steep 80~96%).
-    #        → 저폴리는 사본을 union 하고 기둥 자리를 파낸 것, 원본은 돌마다 따로 (돌마다 색조가 다르게 칠해지도록)
+    # (k5 i2) 돌 저폴리는 사본을 union 하고 기둥·버팀쇠 자리를 파낸 것, 원본은 돌마다 따로
     scp = [copy(o_) for o_ in stones]
     su = union(scp[0], scp[1:])
-    cut(su, [box(0.16, 0.16, 1.2, (PX, 0, 0.4))])
+    cut(su, [box(0.18, 0.18, 1.2, (0, 0, 0.4))])
     low_s = lowpoly(su, z=-0.02)
     delete(su)
     so = join(stones)
     co_, fi_ = ROCK3(0.2, 0.5, chisel=0.3)
     carve(so, 0.004, co_, fi_, seed=72, mode='octree', pieces=True)
-    smat = paint3("cage_stone", MEGALITH, h=0.4, k=0.25, cells=0.2, piece_var=0.8, piece_val=0.15, facet_var=0.14, moss=0.7,
-                  moss_color=MOSS_OLIVE, moss_patch=1.5, dirt=0.6, dirt_h=0.12, edge=0.0, streaks=0.0, ao=0.05, grain=0.25, tooling=0.0,
-                  strokes=0.6, stains=0.6, edge_mode='attr', lichen=0.0, contrast=0.25, hue_var=0.2, shadow=SHADOW_GREY, gain=1.08)
+    # k5r: 돌이 기존 바위보다 밝은 청백색 → 짙고 흙때 묻은 돌, 지의류 반점 없음
+    smat = paint3("cage_stone", MEGALITH, h=0.4, k=0.25, cells=0.2, piece_var=0.6, piece_val=0.12, facet_var=0.12, moss=0.35,
+                  moss_color=MOSS_OLIVE, moss_patch=1.2, dirt=0.85, dirt_h=0.16, edge=0.0, streaks=0.0, ao=0.05, grain=0.25, tooling=0.0,
+                  strokes=0.6, stains=0.8, edge_mode='attr', lichen=0.0, contrast=0.25, hue_var=0.05, shadow=SHADOW_GREY, gain=0.82)
     set_mat(so, smat)
-    # 뼈: 해골 (바닥에 기울어 누움) + 긴 뼈 둘 (창살 밖으로 늘어진 팔뼈는 흰 막대기처럼 읽혀 뺐다)
-    sk = G.skull_high(random.Random(73), jaw_open=14, seed=73, moss=0.1, dirt=0.3)
-    Msk = Mc @ Matrix.Translation((0.06, 0.05, 0.012)) @ Matrix.Rotation(R(150), 4, 'Z') @ Matrix.Rotation(R(-18), 4, 'Y')
-    sk.data.transform(Msk); sk.data.update()
-    low_k = kit.decimated(sk, 500)
+    # 해골 한 구 (새장 기준 좌표): 앞(문 쪽) 방향 fw, 옆 sd
+    fa = (th[door[0]] + th[door[1]]) / 2
+    fw = Vector((math.cos(fa), math.sin(fa), 0.0))
+    sd = Vector((-fw.y, fw.x, 0.0))
+    bk = -fw * 0.1                                                # 등뼈는 문 반대쪽 쇠띠에 기댔다
     items = []
-    for (p, yaw, L, r) in (((-0.08, -0.06, 0.03), 40, 0.4, 0.019), ((0.02, 0.12, 0.028), -30, 0.34, 0.016)):
-        M = Mc @ Matrix.Translation(p) @ Matrix.Rotation(R(yaw), 4, 'Z') @ Matrix.Rotation(R(rng.uniform(-6, 6)), 4, 'Y')
-        items += xf_bone_items(G.long_bone(L, r, rng), M)
-    bh, low_b = bones_obj(items, 0.003, 420, 74, "cage_bones")
-    # 갇힌 혼 (Glow_Soul): 새장 가운데에서 피어오르는 한 덩이 혼불 — 한 밑동에서 높이가 다른 혀 넷이 같은 쪽으로 모여 오르고 아래에 둥근 불씨 + 작은 빛알.
-    # (k5 i1: 서로 반대로 기운 혀 둘은 흰 실루엣이 총·막대기처럼 읽혔다)
+    # 등뼈: X 를 따라 만든 것(목 x0 → 허리 x1, 가시돌기 −Z)을 세운다 — 허리가 골반(z 0.3), 목이 위, 가시돌기가 뒤(−fw), 위가 앞으로 12도 처짐
+    sp = spine_items(0.0, 0.7, lambda x: 0.02 * math.sin(x / 0.7 * 2.6), 0.0)
+    Msp = (Matrix.Translation(bk + Vector((0, 0, 0.3))) @ Matrix.Rotation(fa, 4, 'Z') @ Matrix.Rotation(R(12), 4, 'Y')
+           @ Matrix.Translation((0, 0, 0.7)) @ Matrix.Rotation(R(90), 4, 'Y'))
+    items += xf_bone_items(sp, Msp)
+    for k in range(7):                                            # 갈비 일곱 쌍 (앞으로 처지며 둥글게 감싼다)
+        zc = 0.62 + 0.045 * k
+        sc_ = 0.75 + 0.25 * math.sin(math.pi * (k + 1) / 8)
+        base = bk + Vector((0, 0, zc)) + fw * (0.018 + (zc - 0.3) * 0.21)
+        for sg in (-1, 1):
+            pts = []
+            for j in range(9):
+                ph = 0.15 + 2.45 * j / 8
+                q = base + sd * (sg * 0.13 * sc_ * math.sin(ph)) + fw * (0.1 * sc_ * (1 - math.cos(ph))) - Vector((0, 0, 0.05 * ph / 2.6))
+                pts.append(q)
+            items += G.tube_items(pts, [0.0105] * 9, 0.6, squash=(1.0, 0.6))
+    items.append((tuple(bk + fw * 0.03 + Vector((0, 0, 0.27))), (0.08, 0.12, 0.06), (0, 0, fa)))                     # 골반 (넓적한 덩이)
+    for sg in (-1, 1):
+        items.append((tuple(bk + fw * 0.03 + sd * (sg * 0.09) + Vector((0, 0, 0.3))), (0.05, 0.06, 0.07), (0, 0, fa)))
+    # 다리: 무너져 바닥에 쌓였다
+    for (a_, b_, r_, kind) in (((0.11, -0.1, 0.05), (-0.08, 0.12, 0.12), 0.019, 'femur'), ((-0.1, -0.11, 0.06), (0.07, 0.13, 0.1), 0.019, 'femur'),
+                               ((0.13, 0.06, 0.03), (-0.13, -0.04, 0.05), 0.015, 'tibia'), ((-0.03, 0.14, 0.15), (0.1, -0.12, 0.08), 0.015, 'tibia')):
+        A = Vector((0, 0, a_[2])) + fw * a_[0] + sd * a_[1]
+        B = Vector((0, 0, b_[2])) + fw * b_[0] + sd * b_[1]
+        items += limb_items(A, B, r_, rng, kind, (0, 0, 1))
+    # 한 팔: 어깨 → 열린 문 밖으로 늘어졌다 (위팔은 문틀을 넘고, 아래팔·손은 문 밖에서 아래로)
+    sh = fw * 0.08 + sd * (-0.14) + Vector((0, 0, 0.86))
+    el = fw * 0.33 + sd * (-0.06) + Vector((0, 0, 0.64))
+    wr = fw * 0.38 + sd * (-0.09) + Vector((0, 0, 0.4))
+    items += limb_items(sh, el, 0.0135, rng, 'humerus', tuple(sd))
+    items += limb_items(el + Vector((0, 0, -0.015)), wr, 0.0085, rng, 'ulna', tuple(sd))
+    items += limb_items(el + sd * 0.025, wr + sd * 0.02, 0.0095, rng, 'radius', tuple(sd))
+    hand = wr + Vector((0, 0, -0.05))
+    items.append((tuple(hand + sd * 0.01), (0.028, 0.02, 0.04)))
+    for j in range(4):                                            # 손가락 (아래로 늘어짐)
+        o0 = hand + sd * (0.025 - 0.017 * j) + Vector((0, 0, -0.035))
+        items += G.tube_items([o0, o0 + fw * 0.01 + Vector((0, 0, -0.07 + 0.01 * abs(j - 1.5)))], [0.006, 0.005], 0.6)
+    items = xf_bone_items(items, Mc)
+    bh, low_b = bones_obj(items, 0.003, 1100, 74, "cage_bones")
+    # 해골: 머리 칸 안에서 앞으로 처졌다
+    sk = G.skull_high(random.Random(73), jaw_open=16, seed=73, moss=0.1, dirt=0.3)
+    Msk = (Mc @ Matrix.Translation(fw * 0.03 + Vector((0, 0, 1.11))) @ Matrix.Rotation(fa + R(90), 4, 'Z')
+           @ Matrix.Rotation(R(28), 4, 'X') @ Matrix.Rotation(R(10), 4, 'Y') @ Matrix.Diagonal((1.05, 1.05, 1.05, 1)) @ Matrix.Translation((0, 0, -0.1)))
+    sk.data.transform(Msk); sk.data.update()
+    low_k = kit.decimated(sk, 520)
+    # 갇힌 혼 (Glow_Soul): 가슴께(광원 자리)에서 피어오르는 혼불 — 혀 넷이 서로 다른 쪽으로 감기며 오르고(한 판에 서지 않게), 단면을 두툼하게
     gl = []
-    gc = Mc @ Vector((0.0, 0.0, 0.3))
-    for (dx, dy, h_, w_, ln, cu, tw) in ((0.0, 0.0, 0.38, 0.06, (0.015, -0.01), 0.025, 2.2),
-                                         (0.035, 0.02, 0.26, 0.042, (0.03, 0.01), -0.02, -1.8),
-                                         (-0.03, 0.025, 0.22, 0.04, (-0.025, 0.015), 0.018, 1.6),
-                                         (0.0, -0.035, 0.17, 0.036, (0.005, -0.03), -0.015, -1.4),
-                                         (0.0, 0.0, 0.1, 0.075, (0.0, 0.0), 0.0, 0.8)):
-        o, _ = flame_lick(tuple(gc + Vector((dx, dy, 0.0))), h_, w_, ln, curl=cu, twist=tw, name='Glow_Soul'); gl.append(o)
-    for (dx, dy, dz, s_) in ((0.12, -0.08, 0.62, 0.018), (-0.1, 0.06, 0.75, 0.014), (0.05, 0.1, 0.9, 0.011)):
+    gc = Mc @ (fw * 0.06 + Vector((0.0, 0.0, 0.56)))
+    # (k5fix 2회차) 1회차 혼불(높이 0.42, 폭 0.06)은 흰 덩이가 가슴을 덮어 8 m 에서 '등불' 로 읽혔다 → 가늘고 작게, 갈비뼈가 보이게
+    for (dx, dy, h_, w_, ln, cu, tw) in ((0.0, 0.0, 0.32, 0.038, (0.02, -0.012), 0.022, 2.4),
+                                         (0.03, 0.02, 0.22, 0.028, (0.035, 0.03), -0.02, -1.9),
+                                         (-0.03, 0.02, 0.19, 0.026, (-0.03, 0.02), 0.018, 1.7),
+                                         (0.004, -0.035, 0.15, 0.025, (0.012, -0.04), -0.014, -1.5),
+                                         (0.0, 0.0, 0.07, 0.045, (0.0, 0.0), 0.0, 0.8)):
+        o, _ = flame_lick(tuple(gc + Vector((dx, dy, 0.0))), h_, w_, ln, curl=cu, twist=tw, flat=0.78, name='Glow_Soul'); gl.append(o)
+    for (dx, dy, dz, s_) in ((0.12, -0.08, 0.95, 0.018), (-0.1, 0.06, 1.0, 0.014), (0.05, 0.1, 1.2, 0.011)):
         e = G.chunk(tuple(Mc @ Vector((dx, dy, dz))), (s_, s_, s_ * 1.2), rng, 6, (0.1, 0.25), sub=1)
         gl.append(glow(e, 'Glow_Soul'))
     ih = iron_src(iron)
     delete(iron)
-    im = iron_paint("cage_iron", 3.6, rust=0.5)
-    G.tint_near(im, (HX, 0.0, 1.32), 0.3, (0.03, 0.025, 0.03), 0.5)             # 새장 바닥: 검게 밴 때
+    im = iron_paint("cage_iron", 3.7, rust=0.5)
+    G.tint_near(im, tuple(Mc @ Vector((0, 0, 0.02))), 0.3, (0.03, 0.025, 0.03), 0.5)             # 새장 바닥: 검게 밴 때
     set_mat(ih, im)
     cards = N.Cards()
     gr = random.Random(75)
-    grass_at(cards, gr, [(PX + 0.25, -0.22, 0.05), (PX - 0.22, 0.2, 0.05), (PX + 0.05, 0.3, 0.1), (PX - 0.15, -0.3, 0.04)], (0.22, 0.36), (0.14, 0.2), 0.5)
-    print("LOW hanging_cage", tri_count(low_i) + tri_count(low_s) + tri_count(low_k) + tri_count(low_b))
+    grass_at(cards, gr, [(0.25, -0.22, 0.05), (-0.22, 0.2, 0.05), (0.05, 0.3, 0.1), (-0.15, -0.3, 0.04), (sf.x + 0.1, sf.y - 0.15, 0.03)],
+             (0.22, 0.36), (0.14, 0.2), 0.5)
+    print("LOW hanging_cage", tri_count(low_i) + tri_count(low_s) + tri_count(low_k) + tri_count(low_b),
+          [tri_count(o_) for o_ in (low_i, low_s, low_k, low_b)])
     wt = lambda c, n: 0.6 if c.z < 0.4 else 1.0
     lod0 = finish3("hanging_cage", [ih, so, sk, bh], [low_i, low_s, low_k, low_b], extras=gl + [cards.obj("grass")], cage=0.004,
                     cage_reach=0.04, hard=55, uv_margin=0.002, uv_weight=wt, lod1=0.5)
@@ -2506,8 +2568,14 @@ def mausoleum_small():
     cut(body, [G.obj_bm(G.bm_poly(tri, Y0 - 0.2, Y0 + 0.07), "tymp")])
     # 문 앞 디딤돌 한 단 (받침 앞면과 2 cm 겹쳐 union. 예전: 아치 안에 join 한 두 단 — 아치 벽과 같은 평면에 겹친 면이 남았다)
     body = union(body, [box(1.5, 0.3, 0.15, (0, Y0 - 0.12, 0.005))])          # y -2.87..-2.57, z -0.07..0.08
-    chip(body, rng, 34, (0.05, 0.12), sharp_deg=35, bite=0.37, zmin=0.1)
+    # k5fix: 상자 커터 이 빠짐(chip)은 처마 띠·벽에 반듯한 네모·Z 자 구멍을 남겨 속이 까맣게 읽혔다 (k5r) → 볼록 다면체 깨짐, 새김 자리는 건너뛴다
+    carved = lambda p, out: (out.y < -0.6 and abs(p.x) < 1.35 and 2.6 < p.z < 4.45) or p.z > 3.4     # 지붕은 건너뛴다 (지붕 돌판 이음 홈과 겹치면 불리언이 벽을 지웠다)
+    chip_convex_away(body, rng, 22, (0.07, 0.16), zmin=0.1, avoid=carved, gap=1.4, push=0.38)
     cut(body, [G.chunk((2.12, 2.6, 3.58), (0.42, 0.5, 0.3), rng, 9, (0.1, 0.3)),               # 뒤 오른쪽 지붕 모서리 깨짐
+               G.chunk((-2.1, 2.55, 3.25), (0.55, 0.5, 0.62), rng, 10, (0.1, 0.3)),            # (k5fix) 뒤 왼쪽 처마 모서리 깨짐 (2회차에 크게 키운 덩이는 둥근 공 자국처럼 파여 되돌렸다 —
+                                                                                               #  무너진 모서리는 계단꼴 블록 빠짐으로 따로 만들어야 한다)
+               G.chunk((-2.14, -2.6, 3.58), (0.3, 0.34, 0.2), rng, 9, (0.1, 0.3)),            # (k5fix) 앞 왼쪽 처마 끝 깨짐
+               G.chunk((-0.9, 2.62, 3.62), (0.4, 0.22, 0.14), rng, 9, (0.1, 0.3)),             # (k5fix) 뒤 박공 처마 깨짐
                G.chunk((-1.92, Y0 + 0.14, 3.7), (0.2, 0.2, 0.2), rng, 8, (0.1, 0.3)),            # 떨어져 나간 장식돌 자리
                G.chunk((-2.2, -1.0, 0.24), (0.18, 0.3, 0.12), rng, 8, (0.1, 0.3)),
                G.chunk((2.05, -2.62, 3.46), (0.2, 0.16, 0.14), rng, 8, (0.1, 0.3)),            # 처마 앞 오른쪽 모서리
@@ -2556,17 +2624,20 @@ def mausoleum_small():
     yf = Y0 - 0.05
     st = rune_strokes(tr, 0.0, 2.98, 1.0, 0.085, yf, 0.06, [(0.32, 2.95, 0.12)])
     st += rune_strokes(tr, 0.0, 2.84, 0.8, 0.07, yf, 0.1, [(0.32, 2.95, 0.12)])
-    engrave_surface(body, st, (0, -1, 0), 0.016, 0.009, step=0.02, floor=0.3)
+    engrave_surface(body, st, (0, -1, 0), 0.02, 0.013, step=0.02, floor=0.3)              # k5fix: 0.016/0.009 → 더 깊게 (4 m 에서 희미했다)
     sk = winged_skull_strokes(random.Random(7716), 0.0, 3.9, 0.11, Y0 + 0.07, wing=3.2)
-    engrave_surface(body, [(a + Vector((0, -0.5, 0)), b + Vector((0, -0.5, 0))) for a, b in sk], (0, -1, 0), 0.02, 0.011, step=0.025, floor=0.3)
+    engrave_surface(body, [(a + Vector((0, -0.5, 0)), b + Vector((0, -0.5, 0))) for a, b in sk], (0, -1, 0), 0.024, 0.013, step=0.025, floor=0.3)
     # 옆벽 긴 금
     ck = G.crack_strokes(random.Random(7717), (-1.0, 0, 3.2), (0.3, 0, -1), 1.6, 8, 0.4)
     engrave_surface(body, [(Vector((-2.5, a.x, a.z)), Vector((-2.5, b.x, b.z))) for a, b in ck], (-1, 0, 0), 0.016, 0.008, step=0.05, floor=0.25)
     # 원본: 다듬은 돌 (금·잔 구멍만, 끌 자국 칸 없음)
     carve(body, 0.012, [{'t': 'lumps', 'scale': 0.35, 'amp': 0.002}], stone_fine(2.0), seed=78, edge_from=esrc)
-    m = stone_paint("mausoleum_src", 4.8, 2.0, rain=0.9, rain_h=1.9, splash_z=0.24, splash_h=0.5, stains=1.0,
-                    moss_low_h=0.9, dirt=0.9, dirt_h=0.8, edge_w=0.014)
+    # k5fix: 옆·뒤 벽이 새로 쌓은 벽처럼 깨끗했다 (k5r) → 처마 밑에서 2.8 m 흘러내린 짙은 빗물 줄때, 밑동 1.1 m 젖은 어두운 띠 + 기어오른 이끼,
+    #        지의류 흰 반점은 없앰 (지붕·받침에 위장무늬로 찍혔다), 위를 향한 면 이끼 덩어리는 옅게 크게
+    m = stone_paint("mausoleum_src", 4.8, 2.0, rain=0.85, rain_h=2.8, rain_color=(0.1, 0.11, 0.1), splash_z=0.24, splash_h=0.7, stains=1.0,
+                    moss=0.45, moss_patch=1.0, moss_low=1.0, moss_low_h=1.15, dirt=0.95, dirt_h=1.0, edge_w=0.014, lichen=0.0)
     G.blotch(m, (0.12, 0.12, 0.13), 0.8, 0.45, 0.5, 0.66)             # 크게 번진 검은 물때 (새 돌처럼 고르지 않게)
+    G.dirt_low(m, 0.2, 1.1, 0.45, (0.1, 0.1, 0.11))                    # 밑동 젖은 띠
     G.tint_near(m, (0.0, -1.2, 1.2), 1.1, (0.02, 0.018, 0.03), 0.8)               # 안쪽 방 어둠
     set_mat(body, m)
     low = lowpoly(low_src)
@@ -2582,7 +2653,7 @@ def mausoleum_small():
     low_a = lowpoly(altar)
     drop_faces(low_a, lambda c, n: c.z < 0.2 and n.z < -0.9)
     carve(altar, 0.006, [], stone_fine(1.0), seed=79)
-    set_mat(altar, stone_paint("mausoleum_altar", 1.5, 1.0, moss=0.3, rain=0.3))
+    set_mat(altar, stone_paint("mausoleum_altar", 1.5, 1.0, moss=0.3, rain=0.3, lichen=0.0))
     gl = []
     o, _ = flame_lick((0.0, -0.5, 1.48), 0.34, 0.06, (0.02, -0.03), curl=0.03, twist=1.8, name='Glow_Soul'); gl.append(o)
     o, _ = flame_lick((0.04, -0.48, 1.48), 0.2, 0.04, (-0.04, 0.01), curl=-0.02, twist=-1.4, name='Glow_Soul'); gl.append(o)
@@ -2615,10 +2686,14 @@ def mausoleum_small():
     # 떨어진 장식돌 + 돌 조각
     frag = G.chunk((-1.7, Y0 - 0.22, 0.1), (0.15, 0.13, 0.12), rng, 9, (0.08, 0.25))
     frag2 = G.chunk((-1.35, Y0 - 0.2, 0.05), (0.08, 0.07, 0.05), rng, 8, (0.08, 0.25))
-    fr = join([frag, frag2] + candles)
+    # (k5fix) 무너진 뒤 왼쪽 모서리의 돌 무더기
+    rub = [G.chunk((-2.42, 2.1, 0.1), (0.2, 0.17, 0.13), rng, 9, (0.08, 0.25)),
+           G.chunk((-2.38, 2.45, 0.07), (0.15, 0.13, 0.09), rng, 8, (0.08, 0.25)),
+           G.chunk((-2.52, 1.78, 0.05), (0.1, 0.09, 0.07), rng, 8, (0.08, 0.25))]
+    fr = join([frag, frag2] + rub + candles)
     low_f = lowpoly(fr, z=-0.01)
     carve(fr, 0.005, [], stone_fine(1.0), seed=80)
-    set_mat(fr, stone_paint("mausoleum_frag", 0.3, 0.5, moss=0.6, rain=0.0))
+    set_mat(fr, stone_paint("mausoleum_frag", 0.3, 0.5, moss=0.4, rain=0.0, lichen=0.0))
     # 덩굴 (앞 왼쪽 모서리 → 옆벽) + 발치 풀
     v = G.Vine(random.Random(81), leaf=(0.05, 0.085), leaf_p=0.42)
     tgt = join([copy(low)])
@@ -2742,7 +2817,9 @@ def obelisk_chained():
     union(p1, [p2, shaft])
     xf_all(p1)          # engrave_surface 의 ray_cast 는 객체 좌표 — box() 가 남긴 위치(z 0.07)를 먼저 적용한다
     o = p1
-    chip(o, rng, 20, (0.04, 0.1), sharp_deg=35, bite=0.37, zmin=0.1)
+    # k5fix: 상자 커터 이 빠짐(chip)은 받침 모서리에 새까만 Z 자 틈을 남겼다 (k5r: 종이 오림 같은 구멍) → 볼록 다면체 깨짐, 앞면 글자 줄은 건너뛴다
+    runes = lambda p, out: out.y < -0.6 and 1.9 < p.z < 3.75
+    chip_convex_away(o, rng, 12, (0.05, 0.11), zmin=0.1, avoid=runes, gap=1.5, push=0.4)
     cut(o, [G.chunk(tuple(Ml @ Vector((0.05, -0.02, 4.58))), (0.12, 0.1, 0.12), rng, 9, (0.1, 0.3)),        # 깨진 끝
             G.chunk(tuple(Ml @ Vector((-0.2, 0.19, 3.98))), (0.16, 0.15, 0.2), rng, 9, (0.1, 0.3)),         # 머리 뒤 모서리
             G.chunk((0.75, -0.75, 0.2), (0.2, 0.2, 0.14), rng, 8, (0.1, 0.3))])
@@ -2761,8 +2838,9 @@ def obelisk_chained():
     fine = stone_fine(1.4)
     fine[0]['cover'] = 0.08; fine[1]['cover'] = 0.07                # 넓은 면에 그물처럼 번지는 잔금을 줄인다 (거북등처럼 읽히지 않게)
     carve(o, 0.0055, [{'t': 'lumps', 'scale': 0.5, 'amp': 0.0015}], fine, seed=91, edge_from=esrc)
-    m = stone_paint("obelisk_src", 4.6, 1.4, pal=OBELISK_STONE, moss=0.8, moss_low=0.9, moss_low_h=0.7, rain=0.85, rain_h=2.2,
-                    splash_z=0.24, splash_h=0.4, edge_w=0.012)
+    # k5fix: 받침 이끼가 녹색 얼룩 + 흰 반점 위장무늬였다 → 지의류 0, 위 면 이끼 옅고 크게, 밑동은 기어오른 이끼·흙물. 청보라 채도를 낮춘다 (hue_var)
+    m = stone_paint("obelisk_src", 4.6, 1.4, pal=OBELISK_STONE, moss=0.4, moss_patch=1.0, moss_low=0.9, moss_low_h=0.55, rain=0.85, rain_h=2.2,
+                    splash_z=0.24, splash_h=0.4, edge_w=0.012, lichen=0.0, hue_var=0.05)
     G.tint_near(m, tuple(Ml @ Vector((0.0, -0.25, 2.65))), 0.5, (0.2, 0.09, 0.05), 0.45)        # 목테 아래 녹물
     set_mat(o, m)
     low = lowpoly(low_src)
@@ -2816,7 +2894,7 @@ def obelisk_chained():
     low_i = lowpoly(iron)
     ih = iron_src(iron)
     delete(iron)
-    set_mat(ih, iron_paint("obelisk_iron", 4.6, rust=0.55))
+    set_mat(ih, iron_paint("obelisk_iron", 4.6, pal=IRON_RUSTY, rust=0.75))          # k5fix: 목테·꺾쇠가 새까맣게 떴다 → 녹 갈색 (사슬과 같은 톤)
     cards = N.Cards()
     gr = random.Random(92)
     pts = [(sx * 0.62, sy * 0.3, 0.24) for sx in (-1, 1) for sy in (-1, 1)] + [(0.3, 0.62, 0.24), (-0.3, -0.62, 0.24)]
@@ -2829,6 +2907,65 @@ def obelisk_chained():
 
 
 # ═════════════════════════ 16. 찢긴 천막 ═════════════════════════
+def cloth_marks(mat, seams_x=(), patches=(), mud_h=0.4, mud=0.65, mud_color=(0.115, 0.088, 0.062), rain=0.5, rain_top=2.3, rain_len=1.4):
+    """(k5fix) 천막 천의 손칠 자국 — 구름 잡음 얼룩(blotch) 대신 (k5r: 넓게 번진 blotch 가 연기 사진·'구름 필터'처럼 읽혔다).
+    seams_x: 마룻대에서 아랫단으로 내려가는 솔기 (x 가 일정한 띠: 겹친 천 가장자리가 조금 어둡고, 그 옆에 바늘땀 점선). 박공(옆을 보는 면)에는 없다
+    patches: 기운 천 조각 [(x0, x1, z0, z1, side, (r,g,b))] — side −1 = 앞(−Y) 경사면, +1 = 뒤. 테두리를 잡음으로 흔들고 안쪽 가장자리에 바늘땀
+    mud: 아랫단 흙물 (땅에서 mud_h 까지, 위 가장자리가 잡음으로 들쭉날쭉한 갈색 띠)
+    rain: 마룻대에서 경사를 따라 흘러내린 빗물 줄때 (x 로만 바뀌고 경사 방향으로 길게 늘어난 잡음 — 경사면에서 세로 줄이 된다)"""
+    nt = mat.node_tree
+    b, col = G._final_color(mat)
+    tc = nt.nodes.new('ShaderNodeTexCoord'); P = tc.outputs['Object']
+    geo = nt.nodes.new('ShaderNodeNewGeometry')
+    sep = nt.nodes.new('ShaderNodeSeparateXYZ'); nt.links.new(P, sep.inputs[0])
+    X, Y, Z = sep.outputs['X'], sep.outputs['Y'], sep.outputs['Z']
+    sn = nt.nodes.new('ShaderNodeSeparateXYZ'); nt.links.new(geo.outputs['Normal'], sn.inputs[0])
+    slope = kit._maprange(nt, _M(nt, 'ABSOLUTE', sn.outputs['X']), 0.6, 0.4)            # 경사면 = 1, 박공 = 0
+    wob = kit._mul(nt, kit._mul(nt, kit._noise(nt, P, 3.0, 3), 0.5, 'SUBTRACT'), 0.03)       # 솔기·조각 테두리가 자로 그은 듯 곧지 않게
+    Xw = kit._mul(nt, X, wob, 'ADD')
+    Zw = kit._mul(nt, Z, wob, 'ADD')
+    dash = _M(nt, 'GREATER_THAN', _M(nt, 'SINE', kit._mul(nt, kit._mul(nt, Y, Z, 'ADD'), 2 * math.pi / 0.035)), 0.1)   # 바늘땀 점선 (3.5 cm)
+    for xs in seams_x:
+        d = _M(nt, 'ABSOLUTE', _M(nt, 'SUBTRACT', Xw, xs))
+        band = kit._mul(nt, _M(nt, 'LESS_THAN', d, 0.028), slope)
+        col = kit._mix(nt, 'MULTIPLY', kit._mul(nt, band, 0.55), col, W((0.78, 0.74, 0.7)))
+        edge_ = kit._mul(nt, _M(nt, 'LESS_THAN', _M(nt, 'ABSOLUTE', _M(nt, 'SUBTRACT', d, 0.028)), 0.0045), slope)
+        col = kit._mix(nt, 'MULTIPLY', kit._mul(nt, edge_, 0.7), col, W((0.45, 0.42, 0.4)))
+        st = kit._mul(nt, kit._mul(nt, _M(nt, 'LESS_THAN', _M(nt, 'ABSOLUTE', _M(nt, 'SUBTRACT', d, 0.05)), 0.004), dash), slope)
+        col = kit._mix(nt, 'MULTIPLY', kit._mul(nt, st, 0.75), col, W((0.38, 0.33, 0.28)))
+    for (x0, x1, z0, z1, side, c) in patches:
+        inside = kit._mul(nt, kit._mul(nt, _M(nt, 'GREATER_THAN', Xw, x0), _M(nt, 'LESS_THAN', Xw, x1)),
+                          kit._mul(nt, _M(nt, 'GREATER_THAN', Zw, z0), _M(nt, 'LESS_THAN', Zw, z1)))
+        inside = kit._mul(nt, kit._mul(nt, inside, _M(nt, 'GREATER_THAN', kit._mul(nt, Y, side), 0.05)), slope)
+        tone = kit._ramp(nt, kit._noise(nt, P, 9.0, 4), 0.3, W(tuple(v * 0.8 for v in c)), 0.7, W(tuple(min(1.0, v * 1.15) for v in c)))
+        col = kit._mix(nt, 'MIX', kit._mul(nt, inside, 0.9), col, tone)
+        dx = _M(nt, 'MINIMUM', _M(nt, 'SUBTRACT', Xw, x0), _M(nt, 'SUBTRACT', x1, Xw))
+        dz = _M(nt, 'MINIMUM', _M(nt, 'SUBTRACT', Zw, z0), _M(nt, 'SUBTRACT', z1, Zw))
+        rim = kit._mul(nt, _M(nt, 'LESS_THAN', _M(nt, 'MINIMUM', dx, dz), 0.012), inside)
+        col = kit._mix(nt, 'MULTIPLY', kit._mul(nt, rim, 0.6), col, W((0.5, 0.46, 0.42)))
+        sti = kit._mul(nt, kit._mul(nt, _M(nt, 'LESS_THAN', _M(nt, 'ABSOLUTE', _M(nt, 'SUBTRACT', _M(nt, 'MINIMUM', dx, dz), 0.025)), 0.004), dash), inside)
+        col = kit._mix(nt, 'MULTIPLY', kit._mul(nt, sti, 0.8), col, W((0.32, 0.28, 0.24)))
+    if rain > 0:
+        mp = nt.nodes.new('ShaderNodeMapping'); mp.inputs['Scale'].default_value = (22.0, 0.0, 0.9)
+        nt.links.new(P, mp.inputs['Vector'])
+        rs = kit._maprange(nt, kit._noise(nt, mp.outputs['Vector'], 1.0, 3, 0.5), 0.56, 0.62)            # 가는 줄만 (넓으면 얼룩 구름이 된다)
+        mp2 = nt.nodes.new('ShaderNodeMapping'); mp2.inputs['Scale'].default_value = (9.0, 0.0, 0.0)
+        nt.links.new(P, mp2.inputs['Vector'])
+        rl = kit._maprange(nt, kit._noise(nt, mp2.outputs['Vector'], 1.0, 2, 0.5), 0.3, 0.7, 0.45, 1.2)      # 줄마다 흘러내린 길이
+        below = _M(nt, 'DIVIDE', _M(nt, 'SUBTRACT', rain_top, Z), rl)
+        rb = kit._maprange(nt, below, rain_len, rain_len * 0.2)
+        rm = kit._mul(nt, kit._mul(nt, kit._mul(nt, rs, rb), slope), rain)
+        col = kit._mix(nt, 'MULTIPLY', rm, col, W((0.6, 0.58, 0.54)))
+    if mud > 0:
+        mz = kit._mul(nt, Z, kit._mul(nt, kit._mul(nt, kit._noise(nt, P, 4.5, 4), 0.5, 'SUBTRACT'), mud_h * 0.8), 'ADD')
+        mm = kit._mul(nt, kit._maprange(nt, mz, mud_h, mud_h * 0.15), mud)
+        spl = kit._maprange(nt, kit._noise(nt, P, 38.0, 3), 0.56, 0.62)                         # 흙물 위로 튄 점
+        mm = _M(nt, 'MAXIMUM', mm, kit._mul(nt, kit._mul(nt, spl, kit._maprange(nt, mz, mud_h * 1.9, mud_h)), mud * 0.7))
+        col = kit._mix(nt, 'MIX', mm, col, W(mud_color))
+    nt.links.new(col, b.inputs['Base Color'])
+    return mat
+
+
 def tent_torn():
     """찢긴 천막: 앞뒤(±X) 장대 + 마룻대에 걸친 마름모꼴 천막. 뒤 장대는 +X 로 기울어 마룻대가 그쪽으로 처졌다. 앞(−Y) 경사면은 아랫단에서
     마룻대 가까이까지 V 자로 찢겨 벌어져 안이 들여다보이고(말아 둔 깔개·나무 상자), 아랫단은 들쭉날쭉. 뒤 경사면은 구멍 하나 + 갈라진 틈. 뒤 박공은 삼각 천으로 막혔고
@@ -2845,13 +2982,14 @@ def tent_torn():
         poles.append(mesh_from("pole", v, f))
         psegs.append((Vector(a), Vector(b)))
     # 말뚝 (밧줄 끝 둘 + 천 귀퉁이 넷)
-    stakes = [((-1.88, 0.02, 0.0), (-1.8, 0.02, 0.24)), ((1.9, 0.08, 0.0), (1.82, 0.07, 0.22))]
+    # k5fix: 말뚝이 1 m 에서도 안 보였다 → 굵고(6 cm) 길게 (땅 위 0.3 m)
+    stakes = [((-1.9, 0.02, -0.05), (-1.8, 0.02, 0.3)), ((1.92, 0.08, -0.05), (1.82, 0.07, 0.28))]
     for sx in (-1, 1):
         for sy in (-1, 1):
-            stakes.append(((sx * 1.62, sy * 1.46, -0.02), (sx * 1.6, sy * 1.42, 0.16)))
+            stakes.append(((sx * 1.63, sy * 1.47, -0.05), (sx * 1.6, sy * 1.42, 0.22)))
     W = []
     for a, b in stakes:
-        W.append(timber(rng, a, b, 0.045, 0.04, ref=(1, 0, 0), rot=(0.0, 0.6), chips=(0, 1), name="stake"))
+        W.append(timber(rng, a, b, 0.06, 0.055, ref=(1, 0, 0), rot=(0.0, 0.6), chips=(0, 1), name="stake"))
         psegs.append((Vector(a), Vector(b)))
     # 나무 상자 (안쪽 뒤)
     crate, csegs = [], []
@@ -2872,8 +3010,16 @@ def tent_torn():
         place_xf(o_, Mcr)
     psegs += [(Mcr @ a, Mcr @ b) for a, b in csegs]
     W += crate
+    # k5fix: 저폴리에서 상자는 판자 12 장 대신 닫힌 상자 하나 (+ 뚜껑) — 모서리에서 맞닿은 판자끼리 굽기 광선이 이웃 판자를 맞혀
+    #        상자 면 steep 이 30~88% 였다. 원본(고폴리)은 판자 그대로라 판자 틈은 노멀·그늘로 남는다
+    lo_src = [copy(o_) for o_ in poles + W if all(o_ is not c_ for c_ in crate[:-1])]
+    cb = xf_all(box(0.52, 0.42, 0.295, (cx_, cy_, 0.005 + 0.1475)))
+    place_xf(cb, Mcr)
+    lo_src.append(cb)
     wood = join(poles + W)
-    low_w = lowpoly(wood)
+    wlo = join(lo_src)
+    low_w = lowpoly(wlo)
+    delete(wlo)
     drop_faces(low_w, lambda c, n: c.z < -0.03)
     # 천: 판(펼친 좌표: X = 마룻대 방향 u, Z = 마룻대에서 땅까지 경사 s, 앞 −, 뒤 +) → 찢기 → 천막 모양으로 굽히기
     Ls = 2.62
@@ -2913,14 +3059,16 @@ def tent_torn():
             cs.append(G.obj_bm(G.bm_poly([(gx - 0.004, z0), (gx + 0.004, z0), (gx + w0 * rng.uniform(0.6, 1.2), side * (Ls + 0.2)),
                                           (gx - w0, side * (Ls + 0.2))], -0.3, 0.3), "gap"))
     # 뒤 경사면: 구멍 하나 + 비스듬히 갈라진 틈 하나 (둥근 구멍 둘을 나란히 두면 눈처럼 읽힌다)
-    cs.append(G.obj_bm(G.bm_poly(rag_poly(0.85, 1.15, 0.22, 0.15, 9), -0.3, 0.3), "hole"))
-    cs.append(G.obj_bm(G.bm_poly([(-0.72, 1.3), (-0.68, 1.3), (-0.48, 2.3), (-0.62, 2.32)], -0.3, 0.3), "slit"))
+    # k5fix: 곧은 다각형 칼자국처럼 보였다 (k5r) → 꼭짓점을 늘리고 들쭉날쭉하게, 틈은 두 가장자리를 톱니로 찢는다
+    cs.append(G.obj_bm(G.bm_poly(rag_poly(0.85, 1.15, 0.24, 0.17, 17, 0.42), -0.3, 0.3), "hole"))
+    sl0, sl1, sl2 = (-0.7, 1.24), (-0.47, 2.31), (-0.63, 2.33)
+    cs.append(G.obj_bm(G.bm_poly([sl0] + jag_edge(sl0, sl1, 8, 0.022) + [sl1, sl2] + jag_edge(sl2, sl0, 8, 0.022), -0.3, 0.3), "slit"))
     cs.append(G.obj_bm(G.bm_poly([(1.1, -Ls - 0.1), (1.64, -Ls - 0.1), (1.7, -1.85), (1.38, -1.95), (1.2, -2.25)], -0.3, 0.3), "torn"))   # 뒤 장대 쪽 앞 아랫단이 뜯겼다
     cut(cloth, cs)
 
     def zr(u):
         t = (u + 1.74) / 3.5
-        return 2.24 + (1.98 - 2.24) * t + 0.04
+        return 2.24 + (1.98 - 2.24) * t + 0.052          # k5fix: 0.04 → 0.052 (천 안쪽 면이 마룻대 윗면을 0.5 mm 파고들어 굽기 광선이 엇갈렸다)
 
     def yr(u):
         return -0.005 + 0.07 * (u + 1.74) / 3.5
@@ -2934,7 +3082,7 @@ def tent_torn():
         z = zr(u) * (1 - t) + 0.02 * t
         z -= 0.26 * math.sin(math.pi * t) * (0.6 + 0.4 * math.sin(math.pi * (u + 1.64) / 3.28))          # 천이 처져 오목하게
         z -= 0.12 * math.sin(math.pi * (u + 1.64) / 3.28) * (1 - t) * t * 4                                # 장대 사이 마룻줄이 처짐
-        y += side * (0.05 * math.sin(8.0 * u + 0.7) + 0.025 * math.sin(11.0 * u + 2.0 * s)) * t ** 1.5       # 마룻대에서 아랫단으로 내려가는 세로 주름
+        y += side * (0.035 * math.sin(8.0 * u + 0.7) + 0.02 * math.sin(11.0 * u + 2.0 * s)) * t ** 1.5      # 마룻대에서 아랫단으로 내려가는 세로 주름
         if side < 0 and t > 0.15:                                                                           # 찢긴 틈 양쪽 자락이 바깥으로 들려 늘어짐
             uc = 0.08 + (0.14 - 0.08) * (t - 0.2) / 0.8
             dd = abs(u - uc)
@@ -2944,15 +3092,25 @@ def tent_torn():
             k = (t - 0.72) / 0.28
             y -= 0.12 * k * k
             z += 0.05 * k * k
+        # (k5fix) 장대 꼭대기에서 아랫단으로 부채꼴로 퍼지는 당김 주름 + 마룻대 아래 가로로 늘어진 골 (k5r: 천이 팽팽한 판처럼 곧았다)
+        fold = 0.0
+        for up_, ph0 in ((-1.64, 0.4), (1.64, 1.7)):
+            du, ds = u - up_, t * Ls
+            rr = math.hypot(du, ds)
+            if rr > 0.15:
+                ang = math.atan2(abs(du), ds)
+                fold += 0.08 * math.sin(7.0 * ang + ph0 + (0.9 if side > 0 else 0.0)) * min(1.0, (rr - 0.15) / 0.6) * math.exp(-rr / 2.6)
+        fold += 0.045 * math.sin(math.pi * (u + 1.64) / 3.28) * math.sin(3.0 * math.pi * t + 0.6) * (1 - t)
+        fold *= min(1.0, t / 0.15)                                  # 마룻대(앞뒤 경사면이 만나는 줄)에서는 0 — 두 경사면 식이 달라 꺾이지 않게
         n = Vector((0, side * zr(u), Wd)).normalized()
-        return Vector((u, y, z)) + n * p.y
+        return Vector((u, y, z)) + n * (p.y + fold)
     for vtx in cloth.data.vertices:
         vtx.co = shape(vtx.co)
     cloth.data.update()
     # 박공 천: 뒤(+X)는 삼각으로 막혔고(아래 귀퉁이 하나 뜯김), 앞(−X)은 한쪽 자락만 늘어졌다
     gables = []
     for xg, kind in ((1.66, 'back'), (-1.6, 'front')):
-        g = _sheet(-1.42, 1.48, 0.0, 2.3, 0.11, 0.0, 0.009)
+        g = _sheet(-1.42, 1.48, 0.0, 2.3, 0.15, 0.0, 0.009)          # k5fix: 0.11 → 0.15 (박공은 평평한 삼각 — 삼각형 예산)
         zt_ = zr(xg) - 0.05
         tri = [(-1.6, -0.1), (yr(xg), zt_), (1.65, -0.1), (1.65, 2.5), (-1.6, 2.5)]
         cuts = [G.obj_bm(G.bm_poly([(-1.7, -0.2), (yr(xg) - 0.02, zt_ + 0.02), (yr(xg) - 0.02, 2.6), (-1.7, 2.6)], -0.3, 0.3), "c1"),
@@ -2977,12 +3135,13 @@ def tent_torn():
     # 깔개 (말아 둔 천)
     roll = xf_all(cyl(0.12, 0.72, (-0.35, 0.55, 0.12), 14, rot=(0, R(90), R(8))))
     # 밧줄: 장대 끝 → 말뚝, 천 귀퉁이 → 말뚝
-    rp = [([P0 + Vector((0, 0, -0.04)), Vector((-1.82, 0.02, 0.2))], False), ([P1 + Vector((0, 0, -0.03)), Vector((1.84, 0.07, 0.18))], False)]
+    # k5fix: 밧줄을 굵게 하자 장대 꼭대기 근처에서 장대와 겹쳐 굽기가 엇갈렸다 → 장대 바깥 6 cm 에서 시작해 말뚝으로 (장대에서 벌어지며 내려간다)
+    rp = [([P0 + Vector((-0.06, 0, -0.05)), Vector((-1.84, 0.02, 0.26))], False), ([P1 + Vector((0.06, 0, -0.04)), Vector((1.86, 0.07, 0.24))], False)]
     for sx in (-1, 1):
         for sy in (-1, 1):
             c0 = shape(Vector((sx * 1.6, 0, sy * Ls * 0.97)))
             rp.append(([c0, Vector((sx * 1.6, sy * 1.43, 0.12))], False))
-    rope_lo, rope_hi = rope_pair(rp, 0.011, lo_step=0.06)
+    rope_lo, rope_hi = rope_pair(rp, 0.014, lo_step=0.15)          # k5fix: 굵게 (1 m 에서 보이게), 곧은 줄이라 저폴리 고리 간격 0.06 → 0.15 (삼각형 예산)
     set_mat(rope_hi, rope_paint("tent_rope", 2.4))
     low_c = lowpoly(cloth)
     low_r = lowpoly(roll)
@@ -2995,13 +3154,17 @@ def tent_torn():
     delete(cloth)
     sub = ch.modifiers.new('sub', 'SUBSURF'); sub.subdivision_type = 'SIMPLE'; sub.levels = 2
     apply_all(ch)
-    surface(ch, [{'t': 'lumps', 'scale': 9.0, 'amp': 0.0015}, {'t': 'grain', 'scale': 160.0, 'amp': 0.0004}], 94)
-    cm = paint3("tent_cloth", CANVAS, h=2.4, k=0.6, moss=0.15, moss_color=MOSS_DEAD, dirt=0.95, dirt_h=0.8, edge=0.3, edge_w=0.006,
-                cavity=0.7, ao=0.05, streaks=0.5, stains=0.9, strokes=0.6, tooling=0.0, grain=0.7, hue_var=0.2, piece_var=0.0, contrast=0.22,
-                gain=1.05, shadow=(0.06, 0.05, 0.05), light=0.6, speckle=0.35, rain=0.6, rain_h=1.6, rain_color=(0.18, 0.17, 0.15))
-    G.blotch(cm, (0.12, 0.13, 0.1), 2.0, 0.6, 0.47, 0.63, mode='MIX')            # 곰팡이 얼룩
-    G.blotch(cm, (0.09, 0.08, 0.07), 4.5, 0.4, 0.5, 0.62, mode='MIX')             # 잔 때 얼룩
-    G.blotch(cm, (0.36, 0.33, 0.27), 1.2, 0.3, 0.52, 0.7, mode='MIX')              # 볕에 바랜 얼룩
+    surface(ch, [{'t': 'lumps', 'scale': 5.0, 'amp': 0.002}, {'t': 'lumps', 'scale': 16.0, 'amp': 0.0006},
+                 {'t': 'grain', 'scale': 160.0, 'amp': 0.0004}], 94)
+    # k5fix: 녹회색 바탕에 흐린 흰 구름(blotch 셋)이 연기 사진처럼 번졌다 (k5r) → 바랜 아마색 바탕 + 솔기·기운 조각·빗물 줄때·아랫단 흙물 (cloth_marks)
+    # (k5fix 2회차) 1회차 굽기에서 paint3 의 검게 삭은 얼룩(stains)·잔 점·넓은 AO 가 천 위쪽을 어둡게 얼룩져 다시 구름처럼 보였다 → 끄고, 무늬는 cloth_marks 만
+    cm = paint3("tent_cloth", TENT_LINEN, h=2.4, k=0.6, moss=0.0, dirt=0.0, edge=0.1, edge_w=0.005,
+                cavity=0.45, ao=0.04, streaks=0.15, stains=0.0, strokes=0.25, tooling=0.0, grain=0.7, hue_var=0.04, piece_var=0.0, contrast=0.1,
+                gain=1.08, shadow=(0.1, 0.085, 0.075), light=0.25, speckle=0.08, rain=0.0)
+    cloth_marks(cm, seams_x=(-1.08, -0.52, 0.04, 0.6, 1.16),
+                patches=[(0.12, 0.56, 0.95, 1.42, 1, (0.16, 0.115, 0.08)), (-1.36, -1.0, 0.72, 1.06, -1, (0.13, 0.125, 0.1)),
+                         (-1.22, -0.95, 1.6, 1.86, 1, (0.15, 0.09, 0.07))],
+                mud_h=0.5, mud=0.8, rain=0.4, mud_color=(0.085, 0.064, 0.045), rain_top=2.3, rain_len=1.5)
     set_mat(ch, cm)
     rh = copy(roll)
     delete(roll)
@@ -3069,7 +3232,9 @@ META = {
     # 2차 7종 (k5). 키 큰 실루엣(교수대·새장·오벨리스크)과 랜드마크(납골당)는 cull 을 작게 (멀리서도 보이게)
     "gallows": {"kind": "prop", "tags": ["ruin", "execution"], "collider": "mesh", "footprint": 1.9, "sink": 0.05, "tilt": 2,
                 "align": False, "scale": [0.95, 1.1], "cull": 0.003, "shadows": True, "detail": "wood"},
-    "hanging_cage": {"kind": "prop", "tags": ["execution", "light"], "collider": "capsule", "footprint": 0.9, "sink": 0.05, "tilt": 4,
+    # k5fix: collider capsule → mesh. 캡슐은 원점 축 반지름 0.38 m 라 1.15 m 높이에 매달린 새장(x 0.35~1.0)을 사람이 뚫고 지나간다
+    #        (기둥은 원점으로 옮겨 캡슐이어도 기둥은 막힌다). 광원 offset 은 규격 그대로 — 새장 가슴 한가운데
+    "hanging_cage": {"kind": "prop", "tags": ["execution", "light"], "collider": "mesh", "footprint": 0.9, "sink": 0.05, "tilt": 4,
                      "align": False, "scale": [0.9, 1.1], "cull": 0.004, "shadows": True, "detail": "metal",
                      "light": {"offset": [0.7, 0.0, 1.9], "color": SOUL, "intensity": 1.5, "range": 3}},
     "cart_broken": {"kind": "prop", "tags": ["camp"], "collider": "mesh", "footprint": 1.8, "sink": 0.08, "tilt": 6, "align": True,

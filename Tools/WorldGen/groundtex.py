@@ -152,7 +152,24 @@ def normal_map(h, strength):
     return ((n * 0.5 + 0.5) * 255 + 0.5).astype(np.uint8)
 
 
+FLAT_LOW = 0.85      # w5: 한 장 안의 큰 밝기 얼룩(한 변에 2.5 번보다 느린 무늬)을 지우는 세기. 이어 붙이면 그 얼룩이 4~6 m 마다
+FLAT_CYCLES = 2.5    # 되풀이되어 먼 땅이 바둑판(마름모 격자)처럼 보였다 (검토 wr2, 용의 무덤 재·흙 층). 잔무늬는 그대로 둔다
+
+
+def flatten_low(col):
+    """w5: 주기 텍스처의 큰 밝기 얼룩을 지운다 (밝기 비율로 나눠 색은 그대로)"""
+    n = col.shape[0]
+    L = col[..., 0] * 0.2126 + col[..., 1] * 0.7152 + col[..., 2] * 0.0722
+    fx = np.fft.fftfreq(n)[:, None] * n
+    fy = np.fft.fftfreq(n)[None, :] * n
+    g = np.exp(-(fx * fx + fy * fy) / (2 * FLAT_CYCLES ** 2))
+    lp = np.real(np.fft.ifft2(np.fft.fft2(L) * g))
+    k = (L.mean() / np.maximum(lp, 1e-4)) ** FLAT_LOW
+    return np.clip(col * k[..., None], 0, 1).astype(np.float32)
+
+
 def save(out, name, col, h, strength):
+    col = flatten_low(col)
     img = (to_srgb(col) * 255 + 0.5).astype(np.uint8)
     Image.fromarray(img, 'RGB').save(os.path.join(out, "ground_%s_albedo.jpg" % name), quality=92)
     Image.fromarray(normal_map(h, strength), 'RGB').save(os.path.join(out, "ground_%s_normal.png" % name))

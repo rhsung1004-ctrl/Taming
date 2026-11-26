@@ -303,6 +303,9 @@ def tint_near(mat, center, radius, color, amount=0.5, mode='MIX'):
 
 
 ROCK_PAL = ((0.04, 0.043, 0.066), (0.2, 0.2, 0.28), (0.6, 0.62, 0.8))
+# (k6) 회청색 돌: 알베도는 회색 쪽 (월드 조명이 이미 보라·파랑을 더한다). 이끼는 올리브
+ROCK_GREY = ((0.028, 0.032, 0.05), (0.19, 0.212, 0.29), (0.42, 0.43, 0.5))   # k6 3회차: 장면에서 이웃 이전 바위보다 희게 떠 파랑 쪽으로
+MOSS_OLIVE = (0.075, 0.09, 0.035)
 
 
 def rock_paint(name, k=1.0, pal=ROCK_PAL, moss=0.85, **kw):
@@ -931,10 +934,14 @@ def spall_flat(p, n, size, depth, rng, wall=45.0, sides=7, tilt=8.0, margin=0.06
 
 
 def rock_b():
-    """큰 바위 ~3.5m: 정으로 쳐서 깨진 듯 각진 큰 바위, 위에서 쐐기처럼 갈라진 틈, 평평하게 떨어져 나간 자국, 윗면 이끼, 발치에 풀.
+    """큰 바위 ~3.5m: 정으로 쳐서 깨진 듯 각진 큰 바위, 위에서 쐐기처럼 갈라진 틈, 결을 따라 계단처럼 떨어져 나간 턱, 윗면 이끼, 발치에 풀.
     v3b: 상자에서 깊은 평면으로 깎은 덩어리(둥근 구 바탕을 쓰지 않는다) + 불리언 합치기(리메시 없이 깨끗한 평면) →
-    쐐기 틈·모서리 깨짐(chip)·평면 spall(벽 45도) 까지 들어간 깨끗한 형태에서 저폴리 (큰 면을 저폴리가 그대로 따라가
-    굽기 광선이 스치지 않는다) + 단단한 모서리·이음매. 원본은 되붙인 리메시 + ROCK3(큰 평면 끌 면 + 굵은 금 몇 줄)"""
+    쐐기 틈·모서리 깨짐(chip)·평면 턱까지 들어간 깨끗한 형태에서 저폴리 (큰 면을 저폴리가 그대로 따라가
+    굽기 광선이 스치지 않는다) + 단단한 모서리·이음매.
+    k6: 2단 결 — 큰 평면(facet_mass) 위에 서로 거의 직각인 균열 셋(층리 + 세로 절리 둘)에 맞춘 큰 계단(저폴리에도)과
+    잔 계단(원본만 → 노멀맵), 떨어진 조각·3 cm 미만 판·가시는 clean_solid 로 굽기 전에 지운다 (k1r: 떠 있는 판 두 장·가시).
+    넓은 면의 노멀에는 정 자국(pocks)·알갱이(grain), 칠은 회청색 돌(채도·파랑을 이전 판 수준으로) + 면마다 밝기 + 결 따라 어두운 금
+    (veins) + 조각 층이 판 금을 그 깊이로 어둡게(hcav) + 위→아래 빗물 때·아래 흙물·올리브 이끼(weather3)"""
     rng = random.Random(33)
     main = facet_mass(rng, (4.3, 3.4, 3.1), (0, 0, 0.8), planes=16, depth=(0.1, 0.24), rz=R(8), chamfer=22)
     side = facet_mass(rng, (2.0, 1.8, 1.6), (1.75, 0.75, 0.3), planes=10, depth=(0.1, 0.24), chamfer=10)
@@ -946,19 +953,40 @@ def rock_b():
     xf_all(wedge_)
     cut(o, [wedge_])
     chip_convex(o, rng, 6, (0.22, 0.4), zmin=0.3)
-    # 모서리에서 평면으로 떨어져 나간 계단 자국 (바닥 평면 + 40도 벽) → 저폴리에도 넣는다
-    step_spalls(o, rng, 6, (0.45, 0.8), (0.05, 0.09))
+    # k6: 무작위 방향 턱(step_spalls) 대신 결에 맞춘 큰 계단 (층리는 조금 기운 수평, 절리 둘은 세로) → 저폴리에도 넣는다
+    grng = random.Random(4401)
+    J = [(0.2, -0.12, 1.0), (0.95, 0.3, -0.15), (-0.3, 0.95, 0.08)]
+    print("GSTEP rock_b big", grain_steps(o, grng, 5, J, size=(0.35, 0.6), depth=(0.05, 0.09), wall=58, zmin=0.25, spacing=0.9))
+    clean_solid(o, 0.05, label="rock_b", plate_dot=-0.5, min_vol=0.02)
     origin0(o)
     low = lowpoly(o, z=-0.05)
-    co, fi = ROCK3(1.8, 0.7, chisel=0.25)     # 큰 평면 끌 면 (칸 75 cm, 깊이 1 cm 안팎) — 넓은 면이 비닐처럼 비지 않게
-    carve(o, 0.005, co, fi, seed=5, pieces=False, mode='octree')
-    m = paint3("rock_b", ROCK_PAL, h=2.3, k=1.8, cells=0.7, piece_var=0.4, piece_val=0.08, facet_var=0.3, light=1.2, moss=1.0, moss_low=0.5,
-               moss_low_h=0.35, dirt=0.6, dirt_h=0.3, edge=0.0, edge_w=0.014, edge_gain=0.95, streaks=0.55, ao=0.5, grain=0.12, tooling=0.0,
-               speckle=0.4, strokes=0.8, stains=0.55, edge_mode="attr", lichen=0.0, contrast=0.28, strata=1.0, strata_scale=2.0,
-               moss_patch=1.5)
-    # v3c: 지의류 반점(lichen 0.55)이 온 면에 고르게 찍혀 위장무늬처럼 읽혔다 → 없애고, 이끼는 윗면·틈에 큰 덩어리로(moss_patch 2.4 → 1.5),
-    # 넓은 옆면은 돌 결 줄무늬(strata)와 삭은 얼룩으로. 모서리 빛(edge)은 끄고 굽기에서 단단한 모서리 띠를 섬 안쪽 값으로 메운다(flat_hard)
-    #  — 모서리를 따라 생기던 얇은 밝은 보풀 줄 (칠한 빛 띠 + 둥근 원본 모서리를 스친 광선의 빗살)
+    # 잔 계단: 원본만 (노멀맵) — 큰 면 모서리를 따라 같은 결로 잘게 깨진 턱
+    # 쐐기 틈 안쪽·입술은 빼고 (잘게 깨면 틈 안이 유리 조각처럼 보였다)
+    Mw = (Matrix.Translation((0.2, 0, 0)) @ Euler((R(3), R(-10), R(26))).to_matrix().to_4x4()).inverted()
+
+    def off_wedge(p, out):
+        q = Mw @ p
+        w = 0.05 + (0.4 - 0.05) * min(max((q.z - 0.85) / 2.05, 0.0), 1.0)
+        return not (q.z > 0.55 and abs(q.x) < w + 0.35)
+    print("GSTEP rock_b fine", grain_steps(o, grng, 18, J, size=(0.12, 0.24), depth=(0.018, 0.035), wall=50, zmin=0.15, sharp_deg=32,
+                                           spacing=0.4, where=off_wedge))
+    clean_solid(o, 0.02, label="rock_b_fine", min_cluster=6, passes=3, min_vol=0.02)
+    # 조각 층: 아주 얕은 큰 굴곡(구겨진 면이 되지 않게 ROCK3 의 절반) + 굵은 금 몇 줄 (깊이를 'hgt' 로 남겨 칠에서 어둡게)
+    k_ = 1.8
+    fine = [{'t': 'lumps', 'scale': 0.9 / k_, 'amp': 0.0045 * k_},
+            {'t': 'cracks', 'scale': 1.5 / k_, 'width': 0.022, 'depth': 0.018 * k_, 'warp': 0.08, 'cover': 0.42, 'cover_scale': 0.6 / k_},
+            {'t': 'cracks', 'scale': 3.6 / k_, 'width': 0.03, 'depth': 0.006 * k_, 'warp': 0.08, 'cover': 0.21, 'cover_scale': 1.3 / k_}]
+    carve(o, 0.005, (), fine, seed=5, pieces=False, mode='octree', store='hgt')
+    drip_attr(o)
+    m = paint3("rock_b", ROCK_GREY, h=2.3, k=k_, cells=0.7, piece_var=0.25, piece_val=0.12, facet_var=0.42, facet_hue=0.1,
+               light=0.5, moss=1.0, moss_color=MOSS_OLIVE, moss_patch=1.25, moss_low=0.0, dirt=0.4, dirt_h=0.3, edge=0.0,
+               streaks=0.0, ao=0.28, grain=1.0, bump=0.6, tooling=0.0, speckle=0.45, grit=0.6, strokes=0.35, stains=0.45,
+               lichen=0.0, contrast=0.3, pivot=0.1, gain=1.62, strata=0.35, strata_scale=2.0, veins=1.0, vein_scale=2.2,
+               vein_tilt=(0.2, -0.12), vein_cover=0.6, hcav=0.9, hcav_d=0.012, hue_var=0.15, shadow=(0.1, 0.095, 0.13),
+               cavity=0.8, pocks=1.0, pock_scale=12.0, pock_depth=0.009)
+    weather3(m, 2.3, k=k_, rain=0.55, rain_h=0.9, rain_color=(0.55, 0.52, 0.47), rain_cover=0.45, rain_w=7.0,
+             mud=0.55, mud_h=0.35, mud_color=(0.075, 0.068, 0.056), moss=0.6, moss_h=0.32, moss_color=MOSS_OLIVE,
+             groove=0.4, groove_d=0.04, groove_color=(0.5, 0.46, 0.42), mottle=0.22, mottle_color=(0.15, 0.148, 0.135), mottle_scale=0.9)
     set_mat(o, m)
     print("LOW rock_b", tri_count(low))
     cards = Cards()
@@ -970,7 +998,7 @@ def rock_b():
         grass_tuft(cards, rng, p, rng.uniform(0.25, 0.45), rng.uniform(0.25, 0.4), 3, 0.4)
     down = lambda c, n: 0.55 if n.z < -0.3 else 1.0
     return finish3("rock_b", [o], [low], extras=[cards.obj("grass")], cage=0.012, cage_reach=0.1, uv_angle=40, hard=38,
-                   uv_margin=0.002, uv_weight=down, flat_hard=6)
+                   uv_margin=0.002, uv_weight=down, flat_hard=6, flat_smooth=2, despeck_n=0.3)
 
 
 def low_parts(high, tris, z=-0.05, floor=60):
@@ -1398,12 +1426,16 @@ def _ring_dir(T, N, B, want):
     return math.atan2(w.dot(B), w.dot(N))
 
 
-def tree_low_uv(tree, split_r, r_cut=0.03, low_step=(0.08, 0.3), rho=None, seam=None, z_cut=-0.06, name="tree", groups=None):
+def tree_low_uv(tree, split_r, r_cut=0.03, low_step=(0.08, 0.3), rho=None, seam=None, z_cut=-0.06, name="tree", groups=None,
+                bury=False):
     """(v3b) 원통 전개 저폴리: 가지마다 관 하나 + 이음매 하나 (UV 섬 = 가지 하나). 굵은 부분(A)은 원본 관과 같은 고리 틀·골(lobes)을
     따라 성기게 다시 찍고, 부모 속에 묻힌 시작 부분과 땅속(z_cut 아래) 고리는 버린다. 잔가지(B)는 예전 저폴리 관에 UV 만 붙인다.
     rho(가지, 점, 'A'|'B') → 텍셀 배율 (줄기 밑동 1.0 … 잔가지 0.25): 섬 크기를 이것으로 정해 pack 이 같은 비율로 키운다.
     seam(가지) → 이음매가 향할 방향 (가지 위쪽 +Z: 땅에서 올려다보면 안 보인다)
-    돌려주는 값: (A 객체, B 객체) — UV 층 'UVMap'"""
+    돌려주는 값: (A 객체, B 객체) — UV 층 'UVMap'
+    bury (k6): 굵은 가지·뿌리의 시작 고리를 부모 속에 완전히 묻힌 고리까지 남기고(고리 가장자리까지 부모 반지름 0.85 안), 시작을 막는다.
+      기본(False)은 '중심이 부모 밖으로 나온 고리 바로 앞 하나'만 남겨, 비스듬히 뻗은 가지는 시작 고리 한쪽이 부모 겉으로 나와
+      역광에서 관 속(검은 쐐기 틈)이 보였다 (k1r: dead_tree_a 오른쪽 굵은 가지 이음매)"""
     from mathutils.kdtree import KDTree
     rho = rho or (lambda b, p, kind: 1.0)
     seam = seam or (lambda b: (0, 0, 1))
@@ -1422,7 +1454,7 @@ def tree_low_uv(tree, split_r, r_cut=0.03, low_step=(0.08, 0.3), rho=None, seam=
 
     accs = {'A': ([], [], [], []), 'B': ([], [], [], [])}      # verts, faces, face_uvs, face groups
 
-    def emit(kind, ring_pts, ring_uv, tip_pt, tip_uv, cap_end, grp=0, split=0.6):
+    def emit(kind, ring_pts, ring_uv, tip_pt, tip_uv, cap_end, grp=0, split=0.6, cap_start=False):
         """고리들을 관으로. 둘레(UV 폭)가 구간 시작의 split 배 아래로 줄면 거기서 UV 섬을 끊는다 (정점은 그대로 이어져 음영은 매끈하다).
         한 섬이 뾰족한 세모(밑동이 넓게 퍼진 줄기)가 되면 배치가 성겨 텍셀이 크게 준다 (v3b 첫 판: uv_fill 0.43)"""
         V, F, U, G = accs[kind]
@@ -1462,6 +1494,15 @@ def tree_low_uv(tree, split_r, r_cut=0.03, low_step=(0.08, 0.3), rho=None, seam=
             for k in range(sides):
                 F.append((last + k, last + (k + 1) % sides, t))
                 U.append((sh(ring_uv[-1][k], off), sh(ring_uv[-1][k + 1], off), sh(cu, off)))
+        if cap_start:
+            # (k6) 시작 고리를 막는다 (부모 속에 묻혀 보이지 않지만, 혹시 나와도 관 속이 비어 보이지 않게). UV 는 고리 아래 좁은 띠
+            t = len(V); V.append(sum(ring_pts[0], Vector()) / sides)
+            v0_ = ring_uv[0][0][1]; off = seg_of[0]
+            dv = 0.04 * max(1e-4, width[0])
+            cu = (sum(u for u, v in ring_uv[0][:-1]) / sides, v0_ - dv)
+            for k in range(sides):
+                F.append((base + (k + 1) % sides, base + k, t))
+                U.append((sh(ring_uv[0][k + 1], off), sh(ring_uv[0][k], off), sh(cu, off)))
         G.extend([grp] * (len(F) - f0))
 
     nA = nB = 0
@@ -1506,6 +1547,14 @@ def tree_low_uv(tree, split_r, r_cut=0.03, low_step=(0.08, 0.3), rho=None, seam=
                     break
             else:
                 first = len(idx) - 2
+            if bury:
+                # 고리 가장자리까지 부모 속(반지름 0.85)에 묻힌 고리까지 거슬러 올라간다
+                while first > 0:
+                    q, qi, dist = kd.find(pp[idx[first]])
+                    lob = 1.0 + (b['lobe_amp'] if b['lobes'] else 0.0) + b['bumps']
+                    if dist + rr[idx[first]] * lob * max(1.0, b['ell']) < pr[qi] * 0.85:
+                        break
+                    first -= 1
             idx = idx[first:]
         off = Vector((b['seed'] * 7.13 + 3.1, b['seed'] * 3.71 - 1.7, b['seed'] * 1.37 + 0.4))
         want = Vector(seam(b))
@@ -1558,7 +1607,8 @@ def tree_low_uv(tree, split_r, r_cut=0.03, low_step=(0.08, 0.3), rho=None, seam=
         if len(ring_pts) < 1:
             continue
         emit(kind, ring_pts, ring_uv, tip_pt, tip_uv, cap_end=(tip_pt is None and not cut_end and kind == 'A'),
-             grp=groups.get(pi, groups.get('B', 0)) if kind == 'A' else groups.get('B', 0))
+             grp=groups.get(pi, groups.get('B', 0)) if kind == 'A' else groups.get('B', 0),
+             cap_start=bury and kind == 'A' and par is not None)
         if kind == 'A':
             nA += 1
         else:
@@ -1610,17 +1660,21 @@ def tree_seam(b):
 
 def tree_build(name, tree, split_r, voxel, layers_a, layers_b, mat, low_a, size, extr, extras=(), guide_step=0.05,
                lod2=None, low_sides=5, extra_highs=(), extra_lows=(), post_a=None, r_cut=0.03, mat_b=None,
-               low_step=(0.08, 0.3), uv_angle=66, extra_a=None, ivy_starts=(), fin=None, low_mode='remesh', rho=None):
+               low_step=(0.08, 0.3), uv_angle=66, extra_a=None, ivy_starts=(), fin=None, low_mode='remesh', rho=None,
+               hstore=None, low_bury=False):
     """뼈대 → 굵은 부분 리메시·조각, 잔가지 관 → 굽기. post_a(굵은 부분): 리메시 뒤 구멍 파기 등.
     fin: kit.finish 에 더 넘길 v3 인자 (cage, pack, margin=0 …). 없으면 예전과 같다.
     저폴리 굵은 부분은 껍질 조각 전의 매끈한 사본에서 줄인다 (껍질은 노멀맵으로).
     (v3b) low_mode='tube': 저폴리를 가지마다 관 하나로 다시 찍고 원통으로 편다 (tree_low_uv, 이음매 하나·섬 = 가지 하나).
       리메시 저폴리 + smart_project 는 섬이 수천 개로 쪼개져 텍셀이 낮고 껍질 결이 섬마다 끊겼다. rho: 텍셀 배율 (tree_rho)
       원본도 굵은 가지마다 따로 깎고(가지 하나만의 결 뼈대), 서로 닿지 않는 가지끼리 묶어 무리마다 따로 굽는다 (bake_groups)
-      → 원본이 합쳐진 가지 이음매에서 생기던 극단 법선·검은 점이 없다. post_a·extra_a 는 이 방식에서 쓰지 않는다"""
+      → 원본이 합쳐진 가지 이음매에서 생기던 극단 법선·검은 점이 없다. post_a·extra_a 는 이 방식에서 쓰지 않는다
+    (k6, tube 에서만) hstore: 굵은 부분 껍질 층의 밀고 당긴 양을 이 이름의 속성으로 → paint3(hcav=...) 로 골을 그 깊이만큼 어둡게
+      (골 대비를 형태를 더 가파르게 하지 않고 칠로 — steep 2% 미만 유지) / low_bury: tree_low_uv(bury) — 가지 시작을 부모 속에 묻고 막는다"""
     if low_mode == 'tube':
         return _tree_build_tube(name, tree, split_r, voxel, layers_a, layers_b, mat, size, extr, extras, guide_step, lod2,
-                                r_cut, mat_b, low_step, extra_highs, extra_lows, ivy_starts, fin, rho or tree_rho)
+                                r_cut, mat_b, low_step, extra_highs, extra_lows, ivy_starts, fin, rho or tree_rho,
+                                hstore=hstore, low_bury=low_bury)
     guide = tree.guide(guide_step)
     A, Bh = tree.meshes(split_r, hi=True, r_cut=r_cut, low_step=low_step)
     if extra_a is not None:
@@ -1708,7 +1762,7 @@ def _tree_groups(tree, split_r, r_cut):
 
 
 def _tree_build_tube(name, tree, split_r, voxel, layers_a, layers_b, mat, size, extr, extras, guide_step, lod2,
-                     r_cut, mat_b, low_step, extra_highs, extra_lows, ivy_starts, fin, rho):
+                     r_cut, mat_b, low_step, extra_highs, extra_lows, ivy_starts, fin, rho, hstore=None, low_bury=False):
     """tree_build(low_mode='tube') 본체: 가지마다 원본·저폴리 관, 무리별 굽기"""
     grp, ng = _tree_groups(tree, split_r, r_cut)
     pieces = list(tree.pieces(split_r, r_cut))
@@ -1724,7 +1778,7 @@ def _tree_build_tube(name, tree, split_r, voxel, layers_a, layers_b, mat, size, 
         h = acc.obj("%s_hA%d" % (name, pi))
         remesh(h, voxel)
         gd = tree.guide_for(b, guide_step)
-        surface(h, layers_a, seed=BARK_SEEDS[0], guide=gd)
+        surface(h, layers_a, seed=BARK_SEEDS[0], guide=gd, store=hstore)
         delete(gd)
         set_mat(h, mat)
         bake_groups[grp[pi]].append(h)
@@ -1733,7 +1787,7 @@ def _tree_build_tube(name, tree, split_r, voxel, layers_a, layers_b, mat, size, 
         h = base_acc.obj("%s_hBase" % name)
         remesh(h, voxel)
         gd = tree.guide(guide_step, only=base_ids)
-        surface(h, layers_a, seed=BARK_SEEDS[0], guide=gd)
+        surface(h, layers_a, seed=BARK_SEEDS[0], guide=gd, store=hstore)
         delete(gd)
         set_mat(h, mat)
         bake_groups[0].append(h)
@@ -1746,7 +1800,7 @@ def _tree_build_tube(name, tree, split_r, voxel, layers_a, layers_b, mat, size, 
         set_mat(hb, mat_b or mat)
         bake_groups[grp['B']].append(hb)
         highs.append(hb)
-    la, lb = tree_low_uv(tree, split_r, r_cut, low_step, rho, tree_seam, name=name, groups=grp)
+    la, lb = tree_low_uv(tree, split_r, r_cut, low_step, rho, tree_seam, name=name, groups=grp, bury=low_bury)
     lows = [x for x in (la, lb) if x is not None]
     extras = list(extras)
     for p, sd, ln in ivy_starts:
@@ -2051,22 +2105,27 @@ def dead_tree_a():
     # 이끼·지의류도 작게 (v3 의 회색 솜뭉치 얼룩 blotch(0.9, 0.5~0.6) 은 뺐다)
     # i8: 골 그늘을 덜 검게(가장자리에서 검은 구멍처럼 보였다), 판 모서리 빛을 줄여(뿌리 판이 수정 조각처럼 보였다),
     # 밑동 흙물·이끼를 높이 올려 줄기와 뿌리 퍼짐이 만나는 고리를 덮는다
-    m = paint3("dead_tree_a", BARK_GREY, h=2.5, k=1.0, moss=0.3, moss_color=MOSS_DEAD, moss_patch=5.5, moss_low=0.5, moss_low_h=0.95,
-               piece_var=0.0, hue_var=0.2, edge=0.0, edge_w=0.012, edge_gain=1.0, cavity=0.55, cavity_s=0.2, ao=0.16, strokes=0.15,
+    # k6: 껍질 골 대비는 형태를 더 가파르게 하지 않고(steep 2% 미만) 조각 층이 판 깊이('hgt')로 골을 어둡게 칠한다 (hcav).
+    # 밝기 gain 0.85 → 0.87, contrast 0.2 → 0.28 (골이 어두워져 평균이 내려간 만큼. k6 1회차 gain 0.8: 역광 −15%, 6 m p90 이전 미만)
+    # hcav 는 골이 가장 깊은 곳만 아주 어둡게 하면 짧은 가로 골이 구멍 점(얼굴 같은 무늬)으로 읽혀 0.7·0.028 m·덜 검게
+    m = paint3("dead_tree_a", BARK_GREY, h=2.5, k=1.0, moss=0.3, moss_color=MOSS_DEAD, moss_patch=5.5, moss_low=0.4, moss_low_h=0.95,
+               piece_var=0.0, hue_var=0.08, shadow=(0.12, 0.1, 0.15), edge=0.0, edge_w=0.012, edge_gain=1.0, cavity=0.55, cavity_s=0.2, ao=0.16, strokes=0.15,
                tooling=0.0, streaks=0.2, stains=0.25, dirt=0.6, dirt_h=0.85, light=1.1, lichen=0.0, grain=0.25,
-               contrast=0.2, pivot=0.06, gain=0.85)       # gain: 게임 시점 6 m 밝기가 이전보다 14% 밝았다 → ±10%
+               contrast=0.32, pivot=0.06, gain=0.83, hcav=0.7, hcav_d=0.028, hcav_color=(0.03, 0.026, 0.034))
     # v3c: 골을 따라 흰 보풀 줄(베벨 노드로 찾은 판 모서리 빛 edge 0.65 — 표본 8 개라 들쭉날쭉) 과 검은 점(좁은 AO 표본 잡음이
     # 골 입술에 찍힘)이 생겼다 → 모서리 빛 끄고, 좁은 AO 그늘은 약하게(cavity_s 0.2, 골은 넓은 AO 로 어둡다), 지의류 반점도 뺐다
-    blotch(m, (0.2, 0.19, 0.22), 2.6, 0.45, 0.62, 0.63)   # 껍질이 벗겨진 맨나무 (작고 또렷하게, 흰 물감 같지 않게 어둡게)
-    grad_dark(m, 0.0, 1.0, 0.45)
+    # k6: 껍질이 벗겨진 맨나무 얼룩(blotch 0.62~0.63, 경계가 또렷한 연회색 섬)은 6 m 줄기 위쪽에서 위장무늬로 읽혀 뺐다
+    grad_dark(m, 0.0, 1.0, 0.45, color=(0.2, 0.18, 0.21))   # k6: 보라 → 회갈 (알베도 채도가 이전 +37% 였다)
     # 잔가지는 밝게 (어두운 하늘에 실루엣이 읽히게)
     mb = paint3("dead_tree_a_tw", 'bark_pale', h=6.6, k=0.5, moss=0.1, moss_color=MOSS_DEAD, piece_var=0.0, edge=0.3,
                 cavity=0.5, ao=0.1, strokes=0.2, tooling=0.0, streaks=0.0, stains=0.0, dirt=0.0, light=0.8)
     # v3c despeck_n: 깊은 골 바닥의 1~2 화소 포화 점·줄(노멀맵)을 중앙값으로 — 렌더에서 골을 따라 생기던 흰 보풀 줄·검은 점
-    co, fi = BARK3(1.0, depth=0.8)         # 골 벽이 조금 덜 가파르게 (depth 1.0: steep 3.0% → 0.85: 2.4%)
+    co, fi = BARK3(1.0, depth=0.66)        # 골 벽이 조금 덜 가파르게 (depth 1.0: steep 3.0% → 0.85: 2.4% → 0.8: 2.18% → 0.74: 2.19%)
+    # k6: despeck_n 0.18 → 0.26 (골 벽까지 고르게 펴지 않게 외딴 포화 점만), 가지 시작을 부모 속에 묻고 막는다 (low_bury)
     return tree_build("dead_tree_a", tr, 0.045, 0.006, co + fi, twig_layers(), m, 5000, 2048, 0.06,
-                      extras=[cards.obj("moss")], mat_b=mb, low_mode='tube', rho=tree_rho,
-                      fin=dict(cage=0.006, cage_reach=0.06, samples=8, margin=0, uv_margin=0.002, despeck=True, despeck_n=0.18))
+                      extras=[cards.obj("moss")], mat_b=mb, low_mode='tube', rho=tree_rho, hstore='hgt', low_bury=True,
+                      fin=dict(cage=0.006, cage_reach=0.06, samples=8, margin=0, uv_margin=0.002, despeck=True, despeck_n=0.26,
+                               blob_fix=0.5))
 
 
 def arch_root(rng, ang, r_trunk, reach, height):

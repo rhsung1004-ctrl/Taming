@@ -872,7 +872,11 @@ def grave_slab_a():
     bc.data.transform(Matrix(((1, 0.45, 0, 0), (0, 1, 0, 0), (0, 0.35, 1, 0), (0, 0, 0, 1))))      # x += 0.45y, z += 0.35y
     bc.data.update()
     cut(slab, [bc])
+    # k6: 왼쪽 옆선 가운데가 깨져 나간 자국 (실루엣 깨짐 둘째 — 이전 판처럼 옆선이 곧은 자로 그은 선이 아니게). 따로 받은 난수
+    cut(slab, [chunk((-0.345, -0.02, 0.66), (0.075, 0.12, 0.1), random.Random(77), 9, (0.1, 0.3))])
     slab_low = copy(slab)                  # 저폴리 바탕: 큰 깨짐까지만 (새김·얇은 떨어짐은 노멀맵으로)
+    # k6: 닳은 모서리는 판 면·십자가를 파기 전 형태에서 찾는다 — 판 테두리(안쪽 띠)·십자가 입술이 흰 선으로 빛나지 않게 (바깥 윤곽만)
+    esrc = copy(slab)
     # 앞면 테두리 안쪽을 얕게 판 면 (액자)
     inner = round_top(W_ - 0.1, z0 + 0.1, hs - 0.1, 22)
     cut(slab, [obj_bm(bm_poly(inner, y0 - 0.05, y0 + 0.009), "panel")])
@@ -882,7 +886,6 @@ def grave_slab_a():
     cross = [(-0.022, -0.13), (0.022, -0.13), (0.018, 0.02), (0.075, 0.025), (0.08, 0.065), (0.018, 0.06), (0.022, 0.13),
              (-0.022, 0.13), (-0.018, 0.06), (-0.08, 0.065), (-0.075, 0.025), (-0.018, 0.02)]
     cut(slab, [obj_bm(bm_poly([(cx + x, cz + z) for x, z in cross], yf - 0.05, yf + 0.013), "cross")])
-    esrc = copy(slab)                      # v3b: 닳은 모서리는 글자·금 새기기 전 형태에서 (금 둘레 흰 외곽선 방지)
     st = text_strokes(rng, 0.0, 0.61, 0.4, 0.046, yf, jitter=0.002)
     st += text_strokes(rng, 0.0, 0.52, 0.34, 0.034, yf, jitter=0.002)
     st += text_strokes(rng, 0.0, 0.445, 0.3, 0.03, yf, jitter=0.002)
@@ -894,6 +897,9 @@ def grave_slab_a():
     ck += crack_strokes(crng, (-0.275, yf, 0.42), (1, 0, -0.35), 0.24, 5, 0.4, yf)
     # v3c: 큰 깨짐에서 판 면으로 뻗은 가는 금 한 줄 (십자가 오른쪽으로 비켜 내려간다)
     ck += crack_strokes(random.Random(71), (0.185, yf, 0.94), (-0.3, 0, -1), 0.26, 6, 0.35, yf)
+    # k6: 금 두 줄 더 — 왼쪽 깨진 자국에서 판 안으로, 왼쪽 아래 모서리에서 비스듬히 위로 (이전 판처럼 금이 판을 가로지르게)
+    ck += crack_strokes(random.Random(91), (-0.3, yf, 0.66), (1, 0, -0.35), 0.24, 6, 0.4, yf)
+    ck += crack_strokes(random.Random(92), (-0.24, yf, 0.18), (0.45, 0, 1), 0.36, 7, 0.4, yf)
     engrave_v(slab, ck, (0, -1, 0), 0.0075, 0.005, floor=0.25)
     # 앞·옆면이 얇게 떨어져 나간 자국
     sps = [spall((0.2, y0, 0.3), (0, -1, 0), (0.09, 0.06), 0.01, rng),
@@ -922,18 +928,28 @@ def grave_slab_a():
     fine = [dict(back, t='chisel', scale=5.5, amp=0.009, tilt=0.8, jitter=0.6, wall=0.14),
             dict(back, t='chisel', scale=16.0, amp=0.0038, tilt=0.8, jitter=0.6, wall=0.18, cover=0.75),
             dict(back, t='pits', scale=40.0, depth=0.003, cover=0.75),
-            dict(back, t='cracks', scale=3.0, width=0.025, depth=0.004, warp=0.08, cover=0.25, cover_scale=1.0),
+            dict(back, t='cracks', scale=3.0, width=0.025, depth=0.004, warp=0.08, cover=0.45, cover_scale=1.0),
             {'t': 'cracks', 'scale': 2.2, 'width': 0.02, 'depth': 0.004, 'warp': 0.08, 'cover': 0.08, 'cover_scale': 0.8}]
     carve(body, 0.0025, [{'t': 'lumps', 'scale': 0.7, 'amp': 0.0009}], fine, seed=11, edge_from=esrc)
+    drip_attr(body)                        # k6: 빗물 때가 그 자리 윗변·깨진 어깨 바로 아래에서 시작하게 ('dtop')
     # v3b 칠: 모서리 빛은 좁고 덜 밝게(흰 외곽선 → 장난감), 틈·글자 그늘 진하게, 삭은 얼룩·흙물 더 (오래 버려진 돌)
     # contrast·pivot: 밝은 곳은 그대로, 어두운 곳은 더 어둡게 (게임 시점 p90/평균 대비를 이전보다 크게). gain: 평균은 이전 ±10%
     # v3c: 버려진 묘비답게 — 윗변·받침 윗면 이끼 덩어리(moss 0.45 → 0.95, 덩어리 크게), 꼭대기에서 흘러내린 빗물 때(rain),
     # 받침과 만나는 곳 위로 튄 흙물(splash, 받침 윗면 z 0.15)
-    m = paint3("slab_a", 'stone', h=1.1, k=1.0, moss=1.0, moss_patch=1.3, moss_low=0.7, moss_low_h=0.4, dirt=0.7, dirt_h=0.2,
-               tooling=0.45, streaks=0.35, stains=0.8, lichen=0.5, edge=0.8, edge_w=0.009, edge_gain=0.85, edge_mode='attr',
-               piece_val=0.06, cavity=1.0, contrast=0.3, pivot=0.2, gain=1.12, rain=1.0, rain_h=0.7, rain_color=(0.2, 0.24, 0.21),
-               splash=0.95, splash_z=0.15, splash_h=0.22, light=0.85)
-    blotch(m, (0.3, 0.31, 0.27), 3.5, 0.65, 0.45, 0.62)     # v3c: 물때·풍화 얼룩 (넓고 부드럽게 — 새로 다듬은 돌처럼 고르지 않게)
+    # k6: 칠한 흰 테두리를 없앤다 (모서리 빛 0.8 → 0.5, 색 배율 0.85 → 0.42, 45% 는 통째로 끊김, 판 테두리·십자가 입술에는 없음 — esrc).
+    # 낡음은 원인과 방향이 있는 넷으로 (weather3): 윗변·깨짐 아래에서 흘러내린 빗물 때(줄 폭·간격 들쭉날쭉), 땅에서 받침·앞면 아래
+    # 1/4 까지 올라온 흙물·올리브 이끼, 글자·십자가·판 홈에 고인 회갈색 때, 넓은 물때 얼룩. 깨짐은 오른쪽 어깨(형태).
+    # paint3 의 빗물·튄 흙물·아래 이끼(파랑 보라·청록)는 끄고 회갈색·올리브로 바꿨다. 그늘색도 덜 보랗게 (채도·파랑 치우침)
+    m = paint3("slab_a", 'stone', h=1.1, k=1.0, moss=0.7, moss_patch=1.3, moss_color=(0.075, 0.09, 0.035), moss_low=0.0,
+               dirt=0.5, dirt_h=0.15, tooling=0.45, streaks=0.0, stains=0.6, lichen=0.0, edge=0.5, edge_w=0.008, edge_gain=0.42,
+               edge_mode='attr', edge_break=0.45, edge_break_scale=3.0, piece_val=0.06, cavity=0.9, contrast=0.22, pivot=0.2,
+               gain=1.55, light=0.85, hue_var=0.3, shadow=(0.13, 0.115, 0.17))
+    blotch(m, (0.3, 0.31, 0.27), 3.5, 1.0, 0.45, 0.62)     # v3c: 물때·풍화 얼룩 (넓고 부드럽게 — 새로 다듬은 돌처럼 고르지 않게)
+    weather3(m, 1.1, z0=0.0, rain=1.0, rain_h=0.75, rain_color=(0.24, 0.23, 0.21), rain_cover=0.7, rain_w=8.0,
+             mud=1.0, mud_h=0.45, mud_color=(0.1, 0.088, 0.066), moss=1.0, moss_h=0.5, moss_top=1.0, moss_color=(0.1, 0.135, 0.045),
+             groove=1.0, groove_d=0.03, groove_color=(0.28, 0.25, 0.21), mottle=0.6, mottle_color=(0.12, 0.115, 0.1),
+             mottle_scale=1.6)
+    weather3(m, 1.1, mottle=0.35, mottle_color=(0.3, 0.29, 0.26), mottle_scale=2.6)   # 밝은 물때 얼룩 (뒷면이 고른 단색 판이 되지 않게)
     set_mat(body, m)
     print("LOW grave_slab_a", tri_count(low))
     # 왼쪽 뒤 받침에서 기어오르는 덩굴 (조금)

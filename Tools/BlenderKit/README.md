@@ -82,14 +82,14 @@ low = lowpoly(low_src, z=-0.015)
 finish3("이름", [body], [low], extras=[...], cage=0.006, hard=55)     # size='auto' → 1024/2048
 ```
 
-### 종류별 권장값 (v3b·v3c 시범에서 확인한 값)
+### 종류별 권장값 (v3b·v3c 시범, 묘비·바위·나무는 k6 시범 2회차 값)
 
 | 종류 | 형태·저폴리 | carve | 칠 (paint3) | finish3 |
 | --- | --- | --- | --- | --- |
-| 작은 석물 ~1m (묘비·십자가) | `lowpoly(새김 전 형태)`, **큰 깨짐 한 군데**(들쭉날쭉한 윤곽 기둥을 앞뒤로 기울여 cut, 저폴리 전에) | 0.0025, `edge_from=새김 전 사본` | `edge_mode='attr'`, edge 0.8 / edge_w 0.009 / edge_gain 0.85, cavity 1.0, stains 0.7, **moss 0.95 / moss_patch 1.7, rain 0.9 / rain_h 0.75, splash 0.85 (splash_z = 받침 윗면)**, streaks 0.35 + `blotch`(물때) | cage 0.006, hard 55, `uv_weight`(앞면 1.0, 뒷면 0.65, 받침 0.7) |
+| 작은 석물 ~1m (묘비·십자가) | `lowpoly(새김 전 형태)`, **큰 깨짐 한 군데 + 옆선 깨짐 하나**(저폴리 전에), 금 4~5줄 | 0.0025, **`edge_from=판·홈을 파기 전 사본`**, 그 뒤 `drip_attr` | `edge_mode='attr'`, **edge 0.5 / edge_gain 0.42 / edge_break 0.45**, cavity 0.9, stains 0.6, moss 0.7(올리브), contrast 0.22, gain 1.55, shadow (0.13,0.115,0.17) + `blotch` 1.0 + **`weather3`(rain 1.0·mud 1.0·moss 1.0·moss_top 1.0·groove 1.0·mottle 0.6) + 밝은 mottle 한 번 더** (k6) | cage 0.006, hard 55, `uv_weight`(앞면 1.0, 뒷면 0.65, 받침 0.7) |
 | 블록 많은 석조 (벽·아치·계단) | `ashlar(..., damage=(0.14, rng))` → `carve(base=True)` → `low_of` | 0.009, `STONE3(1.25, 1.2, 0.6)` | piece_var 1.0, **piece_val 0.15**, **grime 0.85** (grime_h 0.16), edge_w 0.022 / edge_gain 1.35, ao 0.45, lichen 0.4 | cage 0.01 / reach 0.1, **uv_margin 0.001**, lod2 0.12 |
-| 바위 2~4m | `facet_mass` + `chip_convex` + `step_spalls` → `lowpoly(그 형태)` | 0.005, **`mode='octree'`**, `ROCK3(k, 0.7, chisel=0.25)`, pieces=False | cells 0.7, facet_var 0.3, **edge 0, lichen 0, strata 0.8**, moss 1.0 / **moss_patch 1.5** | cage 0.012 / reach 0.1, **hard 38, flat_hard 6**, uv_angle 40, uv_margin 0.002 |
-| 죽은 나무 | `tree_build(..., low_mode='tube', rho=tree_rho)` | 0.006, `BARK3(1.0, depth=0.8)` | BARK_GREY, **edge 0, lichen 0, cavity 0.55 / cavity_s 0.2**, dirt_h 0.85, moss_low_h 0.95 (blotch 는 작고 어둡게) | `fin=dict(cage=0.006, cage_reach=0.06, samples=8, margin=0, uv_margin=0.002)` |
+| 바위 2~4m | `facet_mass` + (쐐기 틈) + `chip_convex` + **`grain_steps`(결 셋, 큰 5) → `clean_solid(0.05)` → `lowpoly` → 잔 `grain_steps`(18, 틈 안 제외) → `clean_solid(0.02)`** (k6) | 0.005, `mode='octree'`, 얕은 lumps + 굵은 금 2층, **`store='hgt'`**, 그 뒤 `drip_attr` | **ROCK_GREY(회청), facet_var 0.42 / facet_hue 0.1, light 0.5, grain 1.0, grit 0.6, veins 1.0, hcav 0.9, pocks 1.0 (scale 12, 0.009 m)**, edge 0, lichen 0, moss 1.0 올리브 + `weather3`(rain·mud·moss·groove·mottle) (k6) | cage 0.012 / reach 0.1, hard 38, flat_hard 6, **flat_smooth 2, despeck_n 0.3**, uv_angle 40, uv_margin 0.002 |
+| 죽은 나무 | `tree_build(..., low_mode='tube', rho=tree_rho, **hstore='hgt', low_bury=True**)` (k6) | 0.006, `BARK3(1.0, depth=0.66)` | BARK_GREY, edge 0, lichen 0, cavity 0.55 / cavity_s 0.2, **hcav 0.7 (0.028 m), contrast 0.32, gain 0.83, hue_var 0.08, shadow·grad_dark 회갈** (맨나무 blotch 없음) | `fin=dict(cage=0.006, cage_reach=0.06, samples=8, margin=0, uv_margin=0.002, despeck_n=0.26, **blob_fix=0.5**)` |
 
 - **석물 (묘비)**: 다듬은 앞면에는 칸 무늬 층(plates, chisel 칸)을 쓰지 않는다 — 거북등·유약 금처럼 읽힌다. 앞면은 긴 금 2~3줄(`crack_strokes` →
   `engrave_v` 0.0075/0.005) + 칠의 `tooling`(끌 자국 결). 뒷면은 조각 층에 `'face': (0, 1, 0)`(그 방향 면에만, `face_lo`/`face_hi` 로 경계)을 붙여
@@ -113,7 +113,24 @@ finish3("이름", [body], [low], extras=[...], cage=0.006, hard=55)     # size='
 - `finish3(..., flat_hard=화소)` (v3c): 단단한 모서리(= UV 이음매) 둘레 그 폭의 띠를 두 그림 모두 그 섬 안쪽 값으로 다시 메운다(`regrow_hard_band`,
   로그 `FLATHARD`). 옥트리 리메시 원본의 모서리는 복셀 톱니라 광선이 스치며 띠 안에 빗살이 생긴다 — 저폴리 모서리가 단단하니 띠를 지워도 모서리는
   또렷하다. 칠한 모서리 빛(edge)도 함께 지워지므로 모서리 빛이 필요한 석물(묘비)에는 쓰지 않는다. 각진 바위·절벽 6 (2048 기준).
+- **k6 (시범 2회차) 새 도구** — 62종에 그대로 쓴다:
+  - `clean_solid(o, min_thick, …)`: 저폴리 사본을 뜨기 **전에** 형태 검사. 떨어진 조각(연결 성분 부피 `min_vol`·가장 큰 것의 `rel_vol` 미만)을 지우고,
+    표면 점마다 안쪽 두께 < `min_thick` 이고 두 면이 마주보는(날 사이각 57° 미만) 얇은 판·날·가시를 무리 지어 볼록 껍질로 잘라낸다.
+    두툼하게 넓은 무리(맞닿은 두 덩어리의 목)는 건너뛴다(`max_span`, 로그 `CLEANSKIP`). 로그 `CLEAN … thin_before/after % … vol`.
+  - `grain_steps(o, rng, n, joints, size, depth, wall, …, spacing, where)`: 결(서로 거의 직각인 균열 방향 2~3개)에 맞춘 평면 바닥 계단 턱.
+    큰 계단(0.35~0.6 m, 5~9 cm)은 저폴리 전에, 잔 계단(0.12~0.24 m, 2~3.5 cm)은 뒤에(노멀맵). 깊은 틈 안쪽은 `where` 로 뺀다.
+  - `weather3(mat, h, …)`: paint3 위에 얹는 세월 — 위→아래 빗물 때(`drip_attr` 의 'dtop' 으로 그 자리 윗변·깨짐 아래에서 시작, 줄 폭·간격 들쭉날쭉,
+    `rain_cover` 비율의 윗변에서만), 아래→위 흙물(`mud`, 회갈색)·이끼(`moss`, 올리브)·윗면 이끼(`moss_top`), 홈에 고인 때(`groove`, 좁은 AO),
+    넓은 물때 얼룩(`mottle`, 두 번 부르면 어두운·밝은 얼룩 둘). 색은 최종 albedo 값(선형).
+  - `paint3` 의 k6 인자: `edge_break`(모서리 빛 통째로 끊는 비율), `hcav`/`hcav_attr`/`hcav_d`/`hcav_color`(carve·surface 의 `store='hgt'` 깊이로 금·골을
+    표본 잡음 없이 어둡게), `grit`(아주 잔 알갱이), `veins`/`vein_scale`/`vein_tilt`/`vein_cover`(결 따라 가늘고 어두운 금), `pocks`/`pock_scale`/`pock_depth`
+    (정 자국 — 칸마다 얕은 오목 면을 노멀에), `facet_hue`(면 방향 색조 세기, 0 이면 밝기만).
+  - `finish`/`finish3` 의 k6 인자: `flat_smooth`(flat_hard 띠를 3x3 평균으로 고름), `blob_fix`(albedo 가 둘레 중앙값의 그 비율보다 어두운 400 화소 이하
+    덩어리를 두 그림 모두 둘레 값으로 메움 — 깊은 껍질 골의 검은 렌즈·구멍 점, 로그 `BLOBFIX`).
+  - `tree_build(..., hstore='hgt', low_bury=True)`: 껍질 골 깊이를 속성으로(칠에서 hcav), 가지·뿌리 시작 고리를 부모 속에 완전히 묻고 막는다
+    (역광에서 가지 이음매의 검은 쐐기 틈).
 - **밝기 맞추기**: 소품마다 `compare.py` 게임 시점 로그 `LUM` 의 평균을 이전 판 ±10% 안으로 (`gain` 으로). 대비(p90)는 이전보다 크게.
+  k6 부터는 검토자 도구(`review.py` F3·F6·B3·R3)로 앞빛·뒤 그늘 둘 다 맞춘다. 칠 색은 UV 섬 안쪽 채도 이전 +10% 이내·파랑 치우침 +0.02 이내(`uvstats.py`).
 - `finish3(..., size='auto', cage=push, cage_reach=…, hard=각도, uv_margin=…, uv_weight=…, samples=8, split_cage=True)`:
   - 굽기 우리: 저폴리 정점·면 가운데에서 법선으로 광선을 쏴 원본이 바깥에 있으면 그만큼 + push 부풀린 사본.
   - **split_cage** (기본 켬, hard 가 있을 때): 단단한 모서리에서 저폴리 사본을 쪼갠 뒤 우리를 만들어 굽는다. 쪼개지 않으면 모서리 정점의 우리가 양쪽 면 법선의
@@ -156,6 +173,13 @@ finish3("이름", [body], [low], extras=[...], cage=0.006, hard=55)     # size='
 - **큰 조각(수 cm)까지 들어간 리메시에서 저폴리 줄이기**: 면이 구겨져 UV 섬이 수천 개 → 조각 전 바탕(`carve(base=True)`)에서.
 - **섬이 수백 개인데 uv_margin 0.003 이상**: 여백이 텍스처를 절반 넘게 먹는다 (벽 0.27 → 0.001 로 0.47~0.52).
 - **우리를 쪼개지 않고 단단한 모서리 굽기**: 좁은 면에 빗살 → `split_cage`(finish3 기본).
+- **(k6) 칠한 모서리 빛을 판 테두리·십자가 입술까지**: 끊김 없는 흰 선 = 선 그은 스티커 → `edge_from` 은 판·홈을 파기 **전** 사본, edge 0.5 / edge_gain 0.42 /
+  edge_break 0.45 (albedo lum>0.7 0%).
+- **(k6) 불리언으로 깎은 바위를 검사 없이 굽기**: 떠 있는 얇은 판·가시 → `clean_solid`. 무리 넓이 제한이 없으면 두 덩어리가 맞닿은 목을 볼록 껍질로 잘라
+  옆 바위 하나가 통째로 사라진다 (`max_span`).
+- **(k6) 잔 계단을 깊은 틈 안에까지**: 유리 조각처럼 깨진 틈 → `grain_steps(where=…)`.
+- **(k6) 채도만 낮춘 회색 돌**: 밝기 평균이 같아도 보라 월드 조명 아래 이웃 이전 소품(파랑 보라)보다 희게 떠 '깨끗해' 보인다 → 회청색(파랑 치우침 0.05~0.08).
+- **(k6) 깊은 골만 아주 검게(hcav 0.85, 거의 검정)**: 짧은 가로 골이 구멍 점(얼굴 무늬)으로 읽힌다 → 0.7, 덜 검게.
 
 ### 예전 방식 (v2, 아직 v3 로 바꾸지 않은 묶음)
 
