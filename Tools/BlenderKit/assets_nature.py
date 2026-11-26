@@ -2062,10 +2062,11 @@ def dead_tree_a():
     # 잔가지는 밝게 (어두운 하늘에 실루엣이 읽히게)
     mb = paint3("dead_tree_a_tw", 'bark_pale', h=6.6, k=0.5, moss=0.1, moss_color=MOSS_DEAD, piece_var=0.0, edge=0.3,
                 cavity=0.5, ao=0.1, strokes=0.2, tooling=0.0, streaks=0.0, stains=0.0, dirt=0.0, light=0.8)
+    # v3c despeck_n: 깊은 골 바닥의 1~2 화소 포화 점·줄(노멀맵)을 중앙값으로 — 렌더에서 골을 따라 생기던 흰 보풀 줄·검은 점
     co, fi = BARK3(1.0, depth=0.8)         # 골 벽이 조금 덜 가파르게 (depth 1.0: steep 3.0% → 0.85: 2.4%)
     return tree_build("dead_tree_a", tr, 0.045, 0.006, co + fi, twig_layers(), m, 5000, 2048, 0.06,
                       extras=[cards.obj("moss")], mat_b=mb, low_mode='tube', rho=tree_rho,
-                      fin=dict(cage=0.006, cage_reach=0.06, samples=8, margin=0, uv_margin=0.002, despeck=True))
+                      fin=dict(cage=0.006, cage_reach=0.06, samples=8, margin=0, uv_margin=0.002, despeck=True, despeck_n=0.18))
 
 
 def arch_root(rng, ang, r_trunk, reach, height):

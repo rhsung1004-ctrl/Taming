@@ -1131,6 +1131,39 @@ def regrow_hard_band(img, segs, px, sent, normal=False):
     img.pixels.foreach_set(a.ravel())
     return float(band.sum()) / max(1, int((~sent).sum()))
 
+def despeckle_normal(img, thr=0.18, k=5, passes=3):
+    """(v3c) 노멀맵의 외딴 점·가는 줄(깊고 좁은 골 바닥에서 광선이 벽을 번갈아 맞아 생긴 1~2 화소 포화 점)을 둘레 k x k 의
+    중앙값 법선으로 바꾼다. 3x3 평균과 thr 넘게 다른 화소만 본다 (넓은 골 벽·모서리처럼 고르게 누운 면은 그대로).
+    렌더에서 골을 따라 생기는 흰 보풀 줄 + 검은 점. 2~3 화소 뭉치는 한 번에 다 안 잡혀 passes 번 되풀이한다
+    (나무 dead_tree_a 2048: 0.18 로 3번 → 0.9%·0.4%·0.3%, 골 바닥 포화 점이 거의 다 사라지고 골 벽·모서리는 그대로).
+    돌려주는 값: 바꾼 비율 (모든 번 합)"""
+    import numpy as np
+    w, h = img.size
+    a = np.empty(w * h * 4, np.float32)
+    img.pixels.foreach_get(a)
+    a = a.reshape(h, w, 4)
+    n = a[..., :3]
+    cnt = 0
+    for _ in range(passes):
+        P = np.pad(n, ((1, 1), (1, 1), (0, 0)), mode='edge')
+        mean = sum(P[dy:dy + h, dx:dx + w] for dy in range(3) for dx in range(3)) / 9.0
+        bad = np.abs(n - mean).max(axis=2) > thr
+        c = int(bad.sum())
+        if not c:
+            break
+        cnt += c
+        r = k // 2
+        Q = np.pad(n, ((r, r), (r, r), (0, 0)), mode='edge')
+        ys, xs = np.nonzero(bad)
+        st = np.stack([Q[ys + dy, xs + dx] for dy in range(k) for dx in range(k)])     # (k*k, N, 3)
+        med = np.median(st, axis=0) * 2.0 - 1.0
+        med /= np.maximum(np.linalg.norm(med, axis=1, keepdims=True), 1e-6)
+        n[ys, xs] = med * 0.5 + 0.5
+    if cnt:
+        a[..., :3] = n
+        img.pixels.foreach_set(a.ravel())
+    return cnt / float(w * h)
+
 def make_cage(low, highs, push=0.006, reach=0.2):
     """굽기 우리(cage): 저폴리 사본을 정점 법선(평균) 방향으로 '그 자리 원본 표면 바로 바깥'까지 부풀린 것.
     정점과 둘레 면 가운데에서 법선 방향으로 광선을 쏴, 원본이 저폴리보다 바깥으로 나와 있으면 그 거리 + push, 아니면 push.
@@ -1272,7 +1305,7 @@ def _hard_edges(o, angle):
 def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, lod2=None, uv_angle=66,
            cage=None, cage_reach=0.2, hard=None, pack=False, samples=None, margin=16, margin_type='EXTEND', uv_margin=0.003,
            uv='smart', uv_weight=None, lod_rule=False, bake_groups=None, probe=None, split_cage=False, despeck=False,
-           flat_hard=None):
+           flat_hard=None, despeck_n=None):
     """highs: 굽기 원본 / low_parts: 저폴리 조각 (하나로 합쳐 UV를 펴고 Main 재질)
     extras: 굽지 않고 그대로 붙이는 부품 (Glow_* 재질, Foliage 재질을 미리 입힌 것)
     lod1, lod2: LOD 비율 (Main 부분만 줄인다). None 이면 만들지 않는다.
@@ -1296,7 +1329,9 @@ def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, l
     (v3c 선택 인자)
       flat_hard: 화소 수. hard 와 margin=0 일 때, 단단한 모서리 둘레 그 폭의 띠를 두 그림 모두 섬 안쪽 값으로 다시 메운다
         (regrow_hard_band, 로그 FLATHARD). 원본 모서리가 둥근 각진 바위에서 모서리를 따라 생기는 얇은 밝은 보풀 줄을 없앤다.
-        모서리를 밝게 칠한 띠(paint3 edge)도 함께 지워지므로 모서리 빛이 필요한 석물(묘비 등)에는 쓰지 않는다"""
+        모서리를 밝게 칠한 띠(paint3 edge)도 함께 지워지므로 모서리 빛이 필요한 석물(묘비 등)에는 쓰지 않는다
+      despeck_n: 문턱값(0.18 안팎). margin=0 일 때 노멀맵의 외딴 점·가는 포화 줄을 중앙값으로 (despeckle_normal, 로그 DESPECKN).
+        깊고 좁은 골(나무껍질)의 바닥에서 생기는 흰 보풀 줄·검은 점"""
     t0 = __import__('time').time()
     low = join(low_parts)
     origin0(low)
@@ -1446,6 +1481,8 @@ def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, l
             del _a
         fill_holes(img_n, misses=False)
         clamp_normals(img_n)
+        if despeck_n:
+            print("DESPECKN", name, "%.3f%%" % (despeckle_normal(img_n, despeck_n) * 100))
         if sent_mask is not None:
             fa = regrow_hard_band(img_a, hard_segs, flat_hard, sent_mask)
             fn = regrow_hard_band(img_n, hard_segs, flat_hard, sent_mask, normal=True)
@@ -2064,10 +2101,10 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
         nt.links.new(P, mpr.inputs['Vector'])
         rlen = _maprange(nt, _noise(nt, mpr.outputs['Vector'], 1.6, 2, 0.5), 0.3, 0.7, 0.25, 1.15)    # 줄마다 흘러내린 길이
         below = _mul(nt, _mul(nt, h, sP.outputs['Z'], 'SUBTRACT'), rlen, 'DIVIDE')                # 꼭대기에서 아래로 (m / 길이)
-        rband = _maprange(nt, below, rh, 0.0)
+        rband = _maprange(nt, below, rh, rh * 0.25)          # 꼭대기 아래 1/4 은 고르게 진하고 그 아래로 옅어진다
         mpr2 = nt.nodes.new('ShaderNodeMapping'); mpr2.inputs['Scale'].default_value = (14 / k, 14 / k, 0.8 / k)
         nt.links.new(P, mpr2.inputs['Vector'])
-        rstr = _maprange(nt, _noise(nt, mpr2.outputs['Vector'], 2.0, 3, 0.5), 0.46, 0.58, 0.15, 1.0)  # 3~5 cm 진한 줄 + 옅은 바탕
+        rstr = _maprange(nt, _noise(nt, mpr2.outputs['Vector'], 2.0, 3, 0.5), 0.47, 0.56, 0.12, 1.0)  # 3~5 cm 진한 줄 + 옅은 바탕
         # (줄이 1 cm 로 잘면 가까이서 나뭇결처럼 읽혔다)
         rside = _maprange(nt, sN.outputs['Z'], 0.75, 0.35)
         rm = _mul(nt, _mul(nt, _mul(nt, rband, rstr), rside), rain)
@@ -2169,14 +2206,14 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
 
 def finish3(name, highs, low_parts, extras=(), size='auto', cage=0.006, cage_reach=0.2, hard=None, lod1=0.35, lod2=None,
             uv_angle=66, samples=8, uv_margin=0.003, uv='smart', uv_weight=None, lod_rule=True, bake_groups=None, probe=None,
-            split_cage=True, despeck=True, flat_hard=None):
+            split_cage=True, despeck=True, flat_hard=None, despeck_n=None):
     """v3 마무리: 굽기 우리(cage) + UV 다시 배치(pack) + 여백 없이 굽고 빈 곳을 둘레 색으로 메우기(자홍·검정 테두리 없음).
     size: 'auto' = 가장 긴 변 1.5 m 미만 1024, 그 밖 2048 (저장소 용량 규칙, 4096 금지)
     cage: 우리 여유(m), hard: 단단한 모서리 각도(도, 석물 55 안팎·각진 바위 35~40 / 나무 None)
     samples: 굽기 표본 (색은 AO·베벨 광선이 따로 있어 8 이면 충분) / uv_margin: 섬 사이 여백 (섬이 수백 개면 0.001)
     uv / uv_weight / lod_rule / split_cage: finish 설명 참고 (lod_rule 기본 켬: Main 1,000 삼각형 미만은 LOD1 에서 잎만 뺀다,
-    split_cage 기본 켬: hard 가 있으면 단단한 모서리에서 쪼갠 우리로 굽는다) / flat_hard: (v3c) finish 설명 참고 (각진 바위 6 안팎)"""
+    split_cage 기본 켬: hard 가 있으면 단단한 모서리에서 쪼갠 우리로 굽는다) / flat_hard, despeck_n: (v3c) finish 설명 참고 (각진 바위 flat_hard 6, 나무 despeck_n 0.18)"""
     return finish(name, highs, low_parts, extras=extras, size=size, lod1=lod1, lod2=lod2, uv_angle=uv_angle,
                   cage=cage, cage_reach=cage_reach, hard=hard, pack=True, samples=samples, margin=0, uv_margin=uv_margin,
                   uv=uv, uv_weight=uv_weight, lod_rule=lod_rule, bake_groups=bake_groups, probe=probe, split_cage=split_cage,
-                  despeck=despeck, flat_hard=flat_hard)
+                  despeck=despeck, flat_hard=flat_hard, despeck_n=despeck_n)

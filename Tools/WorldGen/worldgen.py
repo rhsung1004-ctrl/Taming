@@ -103,50 +103,56 @@ EMBER = [1.0, 0.5, 0.28]       # 꺼져 가는 모닥불 (차가운 밤 속의 �
 # 없으면 sub(대체 소품, 크기 배율 또는 None = 그 소품의 META 범위)로 놓고, 예상 META 에 광원이 있는데 대체 소품에 없으면
 # objects.json lights 에 같은 광원을 따로 넣는다 (밤에 장면이 보이게). sub 가 None 이면 건너뛴다.
 # 소품이 생기면 (BlenderKit 에서 이 이름으로 빌드) 다음 생성부터 자동으로 진짜 소품이 쓰인다
+# w4: 1차 9종(brazier, banner_torn, sarcophagus, soul_crystal, skeleton_remains, iron_fence, campfire, stone_wall_low, standing_stone)은
+# 진짜 소품이 생겼다 (BlenderKit scenes 묶음). size·META 는 그 manifest 실측으로 맞췄다 (manifest 가 있으면 어차피 manifest 가 이긴다).
+# 2차 7종(gallows, hanging_cage, cart_broken, obelisk_chained, mausoleum_small, shrine_roadside, tent_torn)도 빌드 1회차가 나와
+# size 를 실측으로 맞췄다 (독립 검토 전. 2회차 빌드가 나오면 manifest 가 이긴다)
 # light 의 far (m): 멀리서 보여야 하는 '등대 빛'. LightCuller 가 range × 12 대신 이 거리에서 끈다 (SPEC.md)
 FAR = 140.0                    # 장면·장소 등대 빛의 끄는 거리 (LightCuller 덮어쓰기)
 NEW_PROPS = {
-    "gallows":          dict(size=[3.6, 1.8, 4.8], footprint=1.9, kind="prop", collider="mesh", sink=0.05, tilt=2, align=False,
+    "gallows":          dict(size=[3.56, 1.83, 4.72], footprint=1.9, kind="prop", collider="mesh", sink=0.05, tilt=2, align=False,
                              scale=[0.95, 1.1], light=None, tags=["ruin", "execution"], sub=("dead_tree_c", None)),
     # v3: 대체를 교수 고목(dead_tree_c × 0.7, 약 3.8 m)으로. 처형터의 세로 실루엣
-    "hanging_cage":     dict(size=[2.0, 1.0, 3.6], footprint=0.9, kind="prop", collider="capsule", sink=0.05, tilt=4, align=False,
+    "hanging_cage":     dict(size=[2.21, 0.93, 3.74], footprint=0.9, kind="prop", collider="capsule", sink=0.05, tilt=4, align=False,
                              scale=[0.9, 1.1], light={"offset": [0.7, 0.0, 1.9], "color": SOUL, "intensity": 1.5, "range": 3},
                              tags=["execution", "light"], sub=("dead_tree_c", 0.7)),
-    "brazier":          dict(size=[1.0, 1.0, 1.3], footprint=0.6, kind="prop", collider="capsule", sink=0.04, tilt=2, align=False,
+    "brazier":          dict(size=[1.0, 1.0, 1.43], footprint=0.6, kind="prop", collider="capsule", sink=0.04, tilt=2, align=False,
                              scale=[0.9, 1.1], light={"offset": [0.0, 0.0, 1.25], "color": SPIRIT, "intensity": 7, "range": 9, "far": FAR},
                              tags=["light", "path"], sub=("lantern", None)),
-    "banner_torn":      dict(size=[1.4, 0.5, 4.2], footprint=0.5, kind="prop", collider="capsule", sink=0.15, tilt=8, align=False,
+    "banner_torn":      dict(size=[1.36, 0.54, 4.24], footprint=0.5, kind="prop", collider="capsule", sink=0.15, tilt=8, align=False,
                              scale=[0.85, 1.15], light=None, tags=["battle"], sub=("bone_spike", None)),
-    "sarcophagus":      dict(size=[2.4, 1.1, 1.1], footprint=1.3, kind="prop", collider="box", sink=0.05, tilt=2, align=False,
+    "sarcophagus":      dict(size=[2.7, 1.24, 1.08], footprint=1.3, kind="prop", collider="box", sink=0.05, tilt=2, align=False,
                              scale=[0.95, 1.1], light=None, tags=["grave"], sub=("coffin", None)),
-    "cart_broken":      dict(size=[3.4, 1.8, 1.5], footprint=1.8, kind="prop", collider="mesh", sink=0.08, tilt=6, align=True,
+    "cart_broken":      dict(size=[3.33, 1.92, 1.61], footprint=1.8, kind="prop", collider="mesh", sink=0.08, tilt=6, align=True,
                              scale=[0.9, 1.1], light=None, tags=["camp"], sub=("log_fallen", None)),
-    "soul_crystal":     dict(size=[1.4, 1.3, 2.4], footprint=0.9, kind="prop", collider="mesh", sink=0.2, tilt=12, align=False,
+    "soul_crystal":     dict(size=[1.43, 1.23, 2.4], footprint=0.9, kind="prop", collider="mesh", sink=0.2, tilt=12, align=False,
                              scale=[0.7, 1.4], light={"offset": [0.0, 0.0, 1.2], "color": SPIRIT, "intensity": 4, "range": 7, "far": FAR},
                              tags=["light", "crystal"], sub=("rock_b", 0.6)),
-    "skeleton_remains": dict(size=[1.8, 0.8, 0.4], footprint=0.9, kind="scatter", collider="none", sink=0.03, tilt=4, align=True,
+    "skeleton_remains": dict(size=[2.02, 0.88, 0.44], footprint=0.9, kind="scatter", collider="none", sink=0.03, tilt=4, align=True,
                              scale=[0.9, 1.1], light=None, tags=["bone"], sub=("bones_scatter", None)),
-    "iron_fence":       dict(size=[3.0, 0.2, 1.7], footprint=1.5, kind="prop", collider="box", sink=0.05, tilt=3, align=False,
+    "iron_fence":       dict(size=[3.03, 0.17, 1.88], footprint=1.5, kind="prop", collider="box", sink=0.05, tilt=3, align=False,
                              scale=[0.95, 1.05], light=None, tags=["grave", "path"], sub=("fence", None)),
     # v3: 대체를 crypt × 0.5 에서 큰 석관 무덤(grave_tomb)으로 (이름 있는 장소 '이름 없는 납골당'의 축소판이 여러 채 생기지 않게)
-    "mausoleum_small":  dict(size=[4.4, 5.2, 4.8], footprint=3.0, kind="landmark", collider="mesh", sink=0.06, tilt=0, align=False,
+    "mausoleum_small":  dict(size=[4.5, 5.56, 4.92], footprint=3.0, kind="landmark", collider="mesh", sink=0.06, tilt=0, align=False,
                              scale=[0.95, 1.05], light={"offset": [0.0, -2.4, 1.6], "color": SOUL, "intensity": 3, "range": 5, "far": FAR},
                              tags=["grave", "landmark", "light"], sub=("grave_tomb", 1.15)),
-    "shrine_roadside":  dict(size=[1.3, 1.0, 2.2], footprint=0.8, kind="prop", collider="box", sink=0.04, tilt=3, align=False,
+    "shrine_roadside":  dict(size=[1.28, 1.0, 2.29], footprint=0.8, kind="prop", collider="box", sink=0.04, tilt=3, align=False,
                              scale=[0.9, 1.1], light={"offset": [0.0, -0.35, 1.2], "color": SOUL, "intensity": 2.5, "range": 5, "far": FAR},
                              tags=["grave", "path", "light"], sub=("grave_obelisk", None)),
-    "obelisk_chained":  dict(size=[1.5, 1.5, 4.6], footprint=1.0, kind="prop", collider="box", sink=0.1, tilt=3, align=False,
+    "obelisk_chained":  dict(size=[1.5, 1.5, 4.65], footprint=1.0, kind="prop", collider="box", sink=0.1, tilt=3, align=False,
                              scale=[0.9, 1.15], light=None, tags=["ritual"], sub=("grave_obelisk", 1.7)),
-    "tent_torn":        dict(size=[3.6, 3.0, 2.4], footprint=2.0, kind="prop", collider="mesh", sink=0.05, tilt=4, align=True,
+    "tent_torn":        dict(size=[3.82, 3.04, 2.42], footprint=2.0, kind="prop", collider="mesh", sink=0.05, tilt=4, align=True,
                              scale=[0.9, 1.1], light=None, tags=["camp"], sub=None),
-    "campfire":         dict(size=[1.4, 1.4, 0.5], footprint=0.8, kind="prop", collider="none", sink=0.03, tilt=2, align=True,
+    "campfire":         dict(size=[1.35, 1.28, 0.47], footprint=0.8, kind="prop", collider="none", sink=0.03, tilt=2, align=True,
                              scale=[0.9, 1.1], light={"offset": [0.0, 0.0, 0.5], "color": EMBER, "intensity": 3.5, "range": 7, "far": FAR},
                              tags=["camp", "light"], sub=("rubble", 0.75)),
     # v3 새 소품 둘. 낮은 돌담(밭 경계, 긴 축 = 로컬 X, 양 끝이 무너져 이어 놓아도 자연스럽다)과 선돌(키 큰 거친 돌)
-    # 대체: 돌담 → 무너진 담 조각(wall_ruin_b × 0.5, 높이 약 1.2 m), 선돌 → 바위 기둥(cliff_b × 0.34, 높이 약 4 m)
-    "stone_wall_low":   dict(size=[4.0, 0.8, 1.2], footprint=2.0, kind="prop", collider="box", sink=0.1, tilt=2, align=True,
+    # 대체(소품이 없을 때만): 돌담 → 무너진 담 조각(wall_ruin_b × 0.5), 선돌 → 바위 기둥(cliff_b × 0.34)
+    # 돌담은 비탈을 따라 기울이지 않고 세운다 (턱을 가로지르면 fill_line 이 칸을 끊는다).
+    # 실측: 돌담 높이 1.29 m 는 땅속 밑동 0.3 m 를 포함한다 (원점 위 0.99 m). 선돌 3.17 m
+    "stone_wall_low":   dict(size=[4.14, 0.89, 1.29], footprint=2.0, kind="prop", collider="box", sink=0.1, tilt=2, align=False,
                              scale=[0.9, 1.15], light=None, tags=["wall", "field"], sub=("wall_ruin_b", 0.5)),
-    "standing_stone":   dict(size=[1.2, 0.9, 3.2], footprint=0.8, kind="prop", collider="box", sink=0.3, tilt=6, align=False,
+    "standing_stone":   dict(size=[1.28, 0.93, 3.17], footprint=0.8, kind="prop", collider="box", sink=0.3, tilt=6, align=False,
                              scale=[0.8, 1.3], light=None, tags=["ritual", "stone"], sub=("cliff_b", 0.34)),
 }
 
@@ -552,10 +558,10 @@ RELIEF_SEED = 5150
 RELIEF_SWELL = 1.3           # 중간 크기 오르내림 (m, 폭 30~60 m): 매끈한 큰 둔덕을 깬다
 RELIEF_HUMMOCK = 0.9         # 작은 둔덕 최대 높이 (m, 폭 6~15 m)
 RELIEF_CREST = 0.6           # 마루 바위 혹 최대 높이 (m)
-RELIEF_LINES = 170           # 밭 경계 줄 수 (등고선 줄: 비탈은 밭 턱, 평지는 밭 둑)
+RELIEF_LINES = 300           # 밭 경계 줄 수 (등고선 줄: 비탈은 밭 턱, 평지는 밭 둑). w4: 170 → 300 (진짜 돌담이 생겨 줄마다 읽힌다. 눈높이 40 m 마다 경계 하나)
 RELIEF_SEED_GAP = 16.0       # 줄 씨앗 격자 (m)
-RELIEF_LINE_GAP = 24.0       # 새 줄 씨앗은 기존 줄에서 이만큼 떨어져야 (줄 사이 간격, m)
-RELIEF_CROSS = 70            # 가로 줄 (등고선 줄 사이를 비탈 방향으로 잇는다) 수
+RELIEF_LINE_GAP = 22.0       # 새 줄 씨앗은 기존 줄에서 이만큼 떨어져야 (줄 사이 간격, m). w4: 24 → 22
+RELIEF_CROSS = 100           # 가로 줄 (등고선 줄 사이를 비탈 방향으로 잇는다) 수. w4: 70 → 100
 RELIEF_STEP = (0.6, 1.4)     # 밭 턱 높이 (m). 그냥 턱(scarp)은 × 1.1 (최대 1.5)
 RELIEF_BANK = (0.3, 0.55)    # 평지 밭 둑 높이 (m, 폭 약 3 m)
 RELIEF_RISER = 3.2           # 턱 비탈 폭 (m)
@@ -710,6 +716,48 @@ def relief(W, pads):
         used.extend(map(tuple, c[::2]))
         U["a"] = np.array(used)
 
+    # 마른 도랑 (w4: 밭 줄보다 먼저 긋는다. 줄이 촘촘해지자 도랑이 줄 앞에서 멈춰 40 m 를 못 넘어 34 → 11 개로 줄었다): 완만한 비탈에서 내리막을 따라 (매끈한 높이 기준), 줄·장소·길·물 앞에서 멈춘다
+    hs6 = box_blur(h, 6)
+    gz6, gx6 = np.gradient(hs6)
+    ditches = []
+    dseeds = [(float(rng.uniform(bx0 + 60, bx1 - 60)), float(rng.uniform(bz0 + 60, bz1 - 60))) for _ in range(2500)]
+    for (x, z) in dseeds:
+        if len(ditches) >= RELIEF_DITCHES:
+            break
+        s0 = sample(sl, x, z)
+        if not ok_at(x, z, 0.97, 0.22) or s0 < 0.06:
+            continue
+        if any((x - d_["pts"][0][0]) ** 2 + (z - d_["pts"][0][1]) ** 2 < RELIEF_DITCH_GAP ** 2 for d_ in ditches):
+            continue
+        pts, dprev, flat = [(x, z)], None, 0
+        for i in range(130):
+            g = np.array([sample(gx6, x, z), sample(gz6, x, z)])
+            gl = float(np.hypot(*g))
+            if gl < 0.015:
+                flat += 1
+                if flat > 6 or dprev is None:
+                    break
+                t = dprev
+            else:
+                flat = 0
+                t = -g / gl
+                if dprev is not None:
+                    t = 0.6 * t + 0.4 * dprev
+                    t /= np.linalg.norm(t) + 1e-9
+            wob = 0.35 * perlin(np.float32(i * 0.18), np.float32(len(ditches) * 3.1), 8401)
+            t = np.array([t[0] * math.cos(wob) - t[1] * math.sin(wob), t[0] * math.sin(wob) + t[1] * math.cos(wob)])
+            nx, nz = x + t[0] * 2.0, z + t[1] * 2.0
+            if not ok_at(nx, nz, 0.9, 0.32) or near_used(nx, nz, 10.0):
+                break
+            x, z, dprev = nx, nz, t
+            pts.append((x, z))
+        if len(pts) < 21:                         # 40 m 미만은 버린다
+            continue
+        c, Lc = resample(np.array(pts), 2.0)
+        D = rng.uniform(*RELIEF_DITCH)
+        ditches.append({"pts": c, "L": Lc, "D": float(D)})
+        used.extend(map(tuple, c[::3]))
+        U["a"] = np.array(used)
     for (x, z) in seeds:
         if len(lines) >= RELIEF_LINES:
             break
@@ -764,48 +812,6 @@ def relief(W, pads):
         off = ln["A"] * env * (ss(s, -Rw / 2, Rw / 2) - 0.5) * (1 - ss(np.abs(s), Rw / 2 + 2, Rw / 2 + 17))
         off += ln["B"] * env * np.exp(-(dist / 1.7) ** 2)
         delta[z0:z1, x0:x1] += off.astype(np.float32)
-    # 마른 도랑: 완만한 비탈에서 내리막을 따라 (매끈한 높이 기준), 줄·장소·길·물 앞에서 멈춘다
-    hs6 = box_blur(h, 6)
-    gz6, gx6 = np.gradient(hs6)
-    ditches = []
-    dseeds = [(float(rng.uniform(bx0 + 60, bx1 - 60)), float(rng.uniform(bz0 + 60, bz1 - 60))) for _ in range(2500)]
-    for (x, z) in dseeds:
-        if len(ditches) >= RELIEF_DITCHES:
-            break
-        s0 = sample(sl, x, z)
-        if not ok_at(x, z, 0.97, 0.22) or s0 < 0.06:
-            continue
-        if any((x - d_["pts"][0][0]) ** 2 + (z - d_["pts"][0][1]) ** 2 < RELIEF_DITCH_GAP ** 2 for d_ in ditches):
-            continue
-        pts, dprev, flat = [(x, z)], None, 0
-        for i in range(130):
-            g = np.array([sample(gx6, x, z), sample(gz6, x, z)])
-            gl = float(np.hypot(*g))
-            if gl < 0.015:
-                flat += 1
-                if flat > 6 or dprev is None:
-                    break
-                t = dprev
-            else:
-                flat = 0
-                t = -g / gl
-                if dprev is not None:
-                    t = 0.6 * t + 0.4 * dprev
-                    t /= np.linalg.norm(t) + 1e-9
-            wob = 0.35 * perlin(np.float32(i * 0.18), np.float32(len(ditches) * 3.1), 8401)
-            t = np.array([t[0] * math.cos(wob) - t[1] * math.sin(wob), t[0] * math.sin(wob) + t[1] * math.cos(wob)])
-            nx, nz = x + t[0] * 2.0, z + t[1] * 2.0
-            if not ok_at(nx, nz, 0.9, 0.32) or near_used(nx, nz, 10.0):
-                break
-            x, z, dprev = nx, nz, t
-            pts.append((x, z))
-        if len(pts) < 21:                         # 40 m 미만은 버린다
-            continue
-        c, Lc = resample(np.array(pts), 2.0)
-        D = rng.uniform(*RELIEF_DITCH)
-        ditches.append({"pts": c, "L": Lc, "D": float(D)})
-        used.extend(map(tuple, c[::3]))
-        U["a"] = np.array(used)
     for dt in ditches:
         c, L, D = dt["pts"], dt["L"], dt["D"]
         wb = 0.9
@@ -877,8 +883,8 @@ def road_point(W, i, x, z, side, gap):
 
 
 BURY_MAX = 0.25        # 바닥 상자 접지 큰 소품: 오르막 쪽 묻힘이 높이의 이 비율을 넘지 않게 (의도된 묻힘 소품은 빼고)
-# 묻혀도 자연스러운 것 (바위·통나무·얇은 울타리·낮은 관): 묻힘 검사와 밑 평탄화를 하지 않는다
-BURY_FREE = {"fence", "iron_fence", "rock_b", "rock_flat", "log_fallen", "coffin", "rubble", "roots", "stair_ruin"}
+# 묻혀도 자연스러운 것 (바위·낮은 관·잔해): 묻힘 검사와 밑 평탄화를 하지 않는다
+BURY_FREE = {"rock_b", "rock_flat", "coffin", "rubble", "roots", "stair_ruin"}   # v3 검토 반영: 울타리·통나무는 뺐다 (묻혀 보였다)
 
 
 class Placer:
@@ -939,6 +945,8 @@ class Placer:
             return False
         self.subst[a] = self.subst.get(a, 0) + 1
         lt = spec.get("light")
+        if lt and lt.get("far") and self.meta[b].get("light") and len(self.objects) > n0:
+            self.objects[-1]["far"] = float(lt["far"])      # 대체 소품(등불 등)이 발광 부품과 광원을 가지면 그 광원이 등대 빛
         if lt and not self.meta[b].get("light"):
             y0 = self.objects[-1]["p"][1] if len(self.objects) > n0 else self.height(x, z)
             y = y0 + lt["offset"][2] * (s if s is not None else 1.0)
@@ -1181,8 +1189,10 @@ class Placer:
                 boxed = True
                 hgt = (m.get("_size") or [1, 1, 2 * m.get("footprint", 0.5)])[2] * s
                 bury = self._spread + gm
-                if hgt < 1.0:
-                    sink_ok = True                     # 낮은 것(관·잔해)은 묻혀도 눈에 띄지 않는다
+                if hgt < 1.0 and a not in ("log_fallen", "stone_wall_low", "standing_stone", "iron_fence"):
+                    sink_ok = True                     # 낮은 것(관·잔해)은 묻혀도 눈에 띄지 않는다 (쓰러진 나무는 v3 검토 반영으로, 줄인 돌담 토막·작은 선돌은 w4 에서 본다)
+                if a == "log_fallen" and bury_max is None:
+                    bury_max = 0.5                     # 쓰러진 나무: 오르막 쪽 끝이 키의 반까지 (가운데는 반 아래로)
                 # v3: 큰 소품이 비탈 오르막 쪽에 높이의 25% 넘게 묻히면 밑을 조금 고른다 (의도된 묻힘: 절벽·묻는 깊이를 준 것은 빼고)
                 if sink_ok or bury <= (BURY_MAX if bury_max is None else bury_max) * hgt:
                     break
@@ -1420,7 +1430,8 @@ def lay_graveyard(W, P):
         if rng.random() < 0.16:
             continue
         th = math.degrees(math.atan2(-tz, tx))           # 로컬 X 를 접선 방향으로
-        P.put("fence", x, z, yaw=th, check=False, tilt=3 if rng.random() < 0.8 else 9, stamp=("dirt", 0.7))
+        P.put("fence", x, z, yaw=th, check=False, tilt=3 if rng.random() < 0.8 else 6, stamp=("dirt", 0.7), bury_reject=True,
+              bury_max=FILL_UPRIGHT_BURY)            # v3 검토 반영: 비탈에서 한쪽 끝이 깊이 묻히는 칸은 비운다
     P.put("fence_gate", cx, cz - rz - 8, yaw=180, check=False, stamp=("path", 1.0))
     # 가운데 십자로의 천사상, 납골당 앞 사신상
     P.put("statue_angel", cx, cz, yaw=180, check=False, stamp=("path", 3.0))
@@ -1980,6 +1991,7 @@ def lay_mountain_foot(W, P):
     3) 발치 너덜 띠: 비탈이 평지와 만나는 곳의 작은 돌"""
     rng = P.rng
     dd = W.dd
+    W.foot_items = []
     gate_far = (np.hypot(W.X - GATE[0], W.Z - GATE[1]) > 95).astype(np.float32)
     foot = ((dd > -3.0) & (dd < 2.5)).astype(np.float32) * gate_far
     pick = in_mask(W, foot)
@@ -2005,6 +2017,7 @@ def lay_mountain_foot(W, P):
             continue
         centers.append((x, z))
         nb[nm] += 1
+        W.foot_items.append({"t": "foot_rocks", "p": [round(x, 1), round(z, 1)], "main": nm, "h": round(hgt * (1 - MFOOT_BURY), 1)})
         mouth = sample(W.spur, x, z) < 0.42
         for q in range(int(rng.integers(1, 3))):                       # 옆에 작은 절벽 조각 (같은 벽에서 떨어져 나온)
             sd = 1 if rng.random() < 0.5 else -1
@@ -2023,7 +2036,7 @@ def lay_mountain_foot(W, P):
             n3 = "rock_b" if rng.random() < 0.6 else "rock_flat"
             s3 = rng.uniform(0.7, 1.25)
             h3 = (P.meta.get(n3, {}).get("_size") or [1, 1, 1.5])[2] * s3
-            if P.put(n3, x + ix * d_ + tx * o_, z + iz * d_ + tz * o_, yaw=rng.uniform(0, 360), s=s3, slope=None, ground="box",
+            if P.put(n3, x + ix * d_ + tx * o_, z + iz * d_ + tz * o_, yaw=rng.uniform(0, 360), s=s3, slope=0.8, ground="box",
                      align_max=30, ground_margin=h3 * 0.3, stamp=("rock", 1.2)):
                 nb["talus_big"] += 1
         for q in range(int(rng.integers(3, 7)) if mouth else int(rng.integers(1, 4))):     # 작은 돌
@@ -2036,7 +2049,7 @@ def lay_mountain_foot(W, P):
             P.stamps.append((x + ix * 8.0, z + iz * 8.0, rng.uniform(7.0, 10.0), "rock"))
     # 3) 발치 너덜 띠: 비탈이 평지와 만나는 발치 (완만한 곳이라 지형 나무 바위도 땅에 붙는다)
     st = (W.slope > 0.45).astype(np.float32) * (W.mount < 0.75)
-    scree = (box_blur(st, 2) > 0.02) * (W.slope < 0.4) * (W.mount < 0.75) * (np.hypot(W.X - GATE[0], W.Z - GATE[1]) > 30)
+    scree = (box_blur(st, 2) > 0.02) * (W.slope < 0.4) * (W.mount < 0.75) * (np.hypot(W.X - GATE[0], W.Z - GATE[1]) > 30) * (W.dd < 3.0)  # 벽 위 층진 턱(평평한 곳)에는 두지 않는다
     a3 = in_mask(W, scree.astype(np.float32))
     n1 = P.scatter("rock_a", 110, a3, slope=0.4)
     n2 = P.scatter("rock_c", 150, a3, slope=0.4)
@@ -2110,15 +2123,32 @@ class Scene:
         self.beacon = None                    # (x, y, z, far) 등대 빛
         self.top = (x, P.height(x, z), z, 0.0)   # 가장 키 큰 것 (x, 꼭대기 y, z, 땅 위 높이)
         self.tags = {}                        # 요소 → [시도, 놓임, 필수, 대체 없음]
+        # v3 검토 반영: 같은 틀 장면이 같은 자리에 같은 소품인 도장처럼 보였다 (가족 묘역 89%). 장면마다 배치를 흔든다:
+        # 좌우 뒤집기, 앞뒤·좌우 배율, 요소마다 자리 흔들기, 꾸밈 요소 빼기·바꾸기 (필수 요소는 빼거나 바꾸지 않는다)
+        rng = P.rng
+        self.mx = -1.0 if rng.random() < 0.5 else 1.0
+        self.sx, self.sz = rng.uniform(*SCENE_VARY_SCALE), rng.uniform(*SCENE_VARY_SCALE)
 
     def at(self, lx, lz):
         return (self.x + self.r[0] * lx + self.f[0] * lz, self.z + self.r[1] * lx + self.f[1] * lz)
 
-    def put(self, a, lx, lz, yaw=None, ayaw=None, loose=False, slope=None, must=False, req=False, tag=None, **kw):
+    def put(self, a, lx, lz, yaw=None, ayaw=None, loose=False, slope=None, must=False, req=False, tag=None, vary=True, **kw):
         """yaw: 장면 앞 기준 회전(도), ayaw: 절대 회전. loose: 장면 안 다른 소품과의 겹침은 보지 않는다 (땅·길·물은 본다).
         must: 장면의 중심 소품 — 보통 검사로 안 되면 loose 로 한 번 더. must·req 는 필수 요소 (계획 vs 실제 집계에서
         틀 인스턴스의 20% 넘게 빠지면 생성 실패). slope: loose 로 놓을 때 기울기 한계 (v3: 0.6 → 0.35)"""
         tag = tag or a
+        if vary:
+            rng = self.P.rng
+            opt = not (must or req)
+            if opt and rng.random() < SCENE_VARY_DROP:
+                return False                                   # 이 장면에는 없는 꾸밈 요소
+            if opt and a in SCENE_SWAP and rng.random() < SCENE_VARY_SWAP:
+                a = str(rng.choice(SCENE_SWAP[a]))             # 비슷한 다른 소품으로
+            sig = SCENE_VARY_JIT[0] if must else (SCENE_VARY_JIT[1] if req else SCENE_VARY_JIT[2])
+            lx = self.mx * lx * self.sx + rng.normal(0, sig)
+            lz = lz * self.sz + rng.normal(0, sig)
+            if yaw is not None and self.mx < 0:
+                yaw = -yaw
         rec = self.tags.setdefault(tag, [0, 0, False, 0])
         rec[0] += 1
         rec[2] = rec[2] or must or req
@@ -2171,8 +2201,8 @@ class Scene:
             hz = (m.get("_size") or [0, 0, 0])[2] * o["s"]
             top = o["p"][1] + hz
             lt = m.get("light")
-            if lt and lt.get("far"):
-                self.beacon = (o["p"][0], o["p"][1] + lt["offset"][2] * o["s"], o["p"][2], float(lt["far"]))
+            if lt and (lt.get("far") or o.get("far")):
+                self.beacon = (o["p"][0], o["p"][1] + lt["offset"][2] * o["s"], o["p"][2], float(o.get("far") or lt["far"]))
             self._top(o["p"][0], top, o["p"][2], top - g)
         elif len(P.trees) > t0:
             tr = P.trees[-1]
@@ -2216,6 +2246,15 @@ class Scene:
             st[4] += skip
 
 
+SCENE_VARY_SCALE = (0.86, 1.18)      # 장면마다 틀 배치의 좌우·앞뒤 배율
+SCENE_VARY_JIT = (0.35, 0.55, 0.8)   # 요소 자리 흔들기 (m, 표준편차): 중심 소품, 필수 요소, 꾸밈 요소
+SCENE_VARY_DROP = 0.18               # 꾸밈 요소를 이 장면에서 빼는 비율
+SCENE_VARY_SWAP = 0.3                # 꾸밈 요소를 비슷한 다른 소품으로 바꾸는 비율
+SCENE_SWAP = {"rubble": ("rock_c", "bone_pile", "stump"), "bone_pile": ("rubble", "bones_scatter"), "rock_a": ("rock_c", "rubble"),
+              "rock_b": ("rock_flat",), "rock_flat": ("rock_b",), "grave_slab_a": ("grave_slab_b", "grave_cross", "grave_slab_c"),
+              "grave_slab_b": ("grave_slab_a", "grave_sunken"), "grave_slab_c": ("grave_cross", "grave_slab_a"), "grave_cross": ("grave_slab_c", "grave_slab_b"),
+              "pillar_b": ("rubble", "pillar_a"), "stump": ("roots", "rubble"), "bones_scatter": ("skull", "bone_pile"),
+              "statue_angel": ("statue_reaper", "grave_obelisk"), "flower_lily": ("bush_dead",), "skull": ("bones_scatter",)}
 BOX_GROUND = {"wall_ruin_a", "wall_ruin_b", "arch_ruin", "pillar_b", "mausoleum_small", "sarcophagus", "cart_broken", "tent_torn",
               "log_fallen", "gallows", "iron_fence", "stone_wall_low", "standing_stone", "cliff_b", "grave_tomb", "well"}
 
@@ -2283,7 +2322,7 @@ def sc_chapel(S, rng):
 def sc_shrine(S, rng):
     S.floor("path", 2.4)
     S.put("shrine_roadside", 0, 0, yaw=rng.normal(0, 4), must=True, stamp=("path", 1.4))
-    S.put("standing_stone", -2.4, -1.2, yaw=rng.normal(0, 12), s=rng.uniform(1.2, 1.3), req=True, tag="waystone")   # 이정표 선돌
+    S.put("standing_stone", -2.4, -1.2, yaw=rng.normal(0, 12), s=rng.uniform(1.25, 1.35), req=True, tag="waystone", ground_margin=0.15)   # 이정표 선돌
     for k in range(3):
         S.put("candles", rng.uniform(-0.9, 0.9), rng.uniform(1.3, 1.9), loose=True)
     S.put("lantern", 2.1, 0.7, yaw=-20 + rng.normal(0, 8))
@@ -2312,8 +2351,8 @@ def sc_barrow(S, rng):
         S.put("standing_stone", lx, lz, ayaw=yaw_to(S.x - x, S.z - z) + rng.normal(0, 8), s=rng.uniform(0.85, 1.1),
               tilt=tl, req=True, stamp=("dirt", 1.0))
     for sd in (-1, 1):                                                # 입구 돌: 키 큰 두 개가 길 쪽 입구를 지킨다
-        S.put("standing_stone", sd * 1.9, 9.9, yaw=rng.normal(0, 5), s=rng.uniform(1.25, 1.3), req=True, tag="entrance_stone",
-              stamp=("dirt", 1.0))
+        S.put("standing_stone", sd * 1.9, 9.9, yaw=rng.normal(0, 5), s=rng.uniform(1.25, 1.32), req=True, tag="entrance_stone",
+              stamp=("dirt", 1.0), ground_margin=0.15)
     S.put("grave_sunken", 0, 6.9, yaw=rng.normal(0, 5), stamp=("mud", 1.3), tag="entrance_pit")   # 둔덕 발치의 어두운 입구
     for k in range(3):
         S.put("candles", rng.uniform(-1.4, 1.4), rng.uniform(7.9, 8.8), loose=True)
@@ -2347,10 +2386,15 @@ def sc_camp(S, rng):
 def sc_crystal(S, rng):
     S.floor("moss", 4.2)
     S.put("soul_crystal", 0, 0, s=1.3, yaw=rng.uniform(0, 360), must=True, stamp=("rock", 1.4))
-    S.put("cliff_b", rng.uniform(-0.6, 0.6), -3.4, yaw=rng.normal(0, 25), s=rng.uniform(0.36, 0.42), req=True, tag="rock_spire",
-          stamp=("rock", 1.2))                                             # 수정이 솟은 바위 기둥 (세로 실루엣)
+    # w4: 바위 기둥은 진짜 선돌로 (cliff_b 를 줄인 기둥은 벽돌 굴뚝처럼 읽혔다). 세로 실루엣 3.6~4.1 m
+    S.put("standing_stone", rng.uniform(-0.6, 0.6), -3.4, yaw=rng.normal(0, 25), s=rng.uniform(1.22, 1.38), req=True, tag="rock_spire",
+          stamp=("rock", 1.2), tilt=9, ground_margin=0.2)
     for k in range(int(rng.integers(1, 3))):
-        S.put("soul_crystal", *polar(rng, 2.4, 3.8), s=rng.uniform(0.7, 1.0), tag="soul_crystal_small")
+        n0, b0 = len(S.P.objects), S.beacon
+        if S.put("soul_crystal", *polar(rng, 2.4, 3.8), s=rng.uniform(0.7, 0.85), tag="soul_crystal_small") and len(S.P.objects) > n0 \
+                and S.P.objects[-1]["a"] == "soul_crystal":
+            S.P.objects[-1]["far"] = SMALL_GLOW_FAR          # 곁의 작은 수정은 가까이서만 (등대 빛은 가운데 큰 수정 하나)
+            S.beacon = b0
     S.put("rock_b", *polar(rng, 3.5, 5.5))
     S.put("rock_flat", *polar(rng, 3.5, 5.5))
     for k in range(2):
@@ -2465,11 +2509,11 @@ def sc_pyre(S, rng):
     """화장터: 엇갈려 쌓은 통나무 장작더미, 재 바닥, 뼈·해골, 잉걸불, 깃발 둘, 장작더미 둘레의 돌"""
     S.floor("ash", 5.0)
     b = rng.uniform(0, 180)
-    if S.put("log_fallen", 0, 0, ayaw=S.fy + b, s=0.8, req=True, tag="pyre_log", stamp=("ash", 1.5), align=0.3):
+    if S.put("log_fallen", 0, 0, ayaw=S.fy + b, s=0.8, req=True, tag="pyre_log", stamp=("ash", 1.5), align=0.3, vary=False):
         g = S.P.objects[-1]["p"][1]
         for k, (up, s_) in enumerate(((0.5, 0.72), (0.95, 0.62))):       # 엇갈려 쌓은 장작
             S.put("log_fallen", rng.normal(0, 0.15), rng.normal(0, 0.15), ayaw=S.fy + b + 90 * (k + 1) + rng.normal(0, 8), s=s_,
-                  y=g + up, tilt=3, align=False, loose=True, tag="pyre_log_top")
+                  y=g + up, tilt=3, align=False, loose=True, tag="pyre_log_top", vary=False)
     for sd in (-1, 1):
         S.put("banner_torn", sd * 4.4, -2.6, yaw=rng.normal(0, 15), s=rng.uniform(1.2, 1.3), req=True)
     for k in range(8):
@@ -2485,9 +2529,196 @@ def sc_pyre(S, rng):
     S.fx("soulfire", 2.0, up=0.6)
 
 
+# ───── 산기슭 장면 (v3 검토 반영: 산기슭 가장자리 70 m 띠가 장면·채움 모두에서 빠져 비었다) ─────
+FOOT_SCENES = {   # 틀: (차지하는 반지름 m, 발치 안쪽 거리 범위 dd (m, 음수 = 걸을 수 있는 쪽), 수)
+    "cave_tomb":    (8.5, (-13.0, -7.0), 9),     # 벼랑 밑 무덤 굴 입구: 벽에 기댄 아치·양옆 절벽 바위·어두운 구덩이·관·초·등불
+    "cliff_shrine": (7.0, (-11.0, -5.5), 9),     # 벼랑에 기댄 사당: 사당·석상·벽에 박힌 담·초·꽃·등불
+    "rockfall":     (9.0, (-24.0, -9.0), 11),    # 낙석 더미: 무너진 절벽 덩이·바위 기둥·깔린 수레와 유해·등불 (골 어귀 너덜 위)
+    "cairns":       (8.0, (-62.0, -24.0), 10),   # 돌무더기 탑: 쌓은 돌탑 몇·선돌·해골·꽃·등불
+}
+FOOT_SCENE_GAP = 90.0          # 산기슭 장면 사이 최소 (m)
+
+
+def sc_cave_tomb(S, rng):
+    """벼랑 밑 무덤 굴 입구. 뒤(−lz)가 벽"""
+    S.floor("dirt", 5.0)
+    S.floor("rock", 4.0, 0, -3.0)
+    S.put("arch_ruin", 0, -3.2, yaw=rng.normal(0, 3), must=True, stamp=("rock", 1.2), ground_margin=0.25)
+    for sd in (-1, 1):                                          # 입구를 감싼 벼랑 바위 (반쯤 묻힘)
+        sc_ = rng.uniform(0.5, 0.68)
+        h_ = 8.6 * sc_
+        S.put("cliff_a" if rng.random() < 0.6 else "cliff_c", sd * rng.uniform(5.0, 6.2), -4.4, yaw=sd * rng.uniform(55, 80), s=sc_,
+              req=True, tag="tomb_rock", slope=None, ground="box", ground_margin=h_ * 0.4, align=0.3, align_max=15, loose=True)
+    S.put("grave_sunken", 0, -1.0, yaw=rng.normal(0, 4), stamp=("mud", 1.4), req=True, tag="tomb_pit")      # 굴로 내려가는 어두운 입구
+    for sd in (-1, 1):
+        if rng.random() < 0.75:
+            S.put("pillar_a", sd * 2.7, -1.6, yaw=rng.uniform(0, 360), s=rng.uniform(0.7, 1.0))
+    for k in range(int(rng.integers(1, 3))):
+        S.put("coffin", rng.choice([-1, 1]) * rng.uniform(2.0, 3.4), rng.uniform(0.8, 2.6), yaw=rng.uniform(-40, 40))
+    for k in range(3):
+        S.put("candles", rng.uniform(-1.2, 1.2), rng.uniform(0.2, 0.8), loose=True)
+    for k in range(int(rng.integers(2, 5))):
+        S.put("skull", *polar(rng, 1.0, 4.5), loose=True)
+    S.put("bones_scatter", *polar(rng, 1.5, 4.0), loose=True)
+    S.put("lantern", rng.choice([-1, 1]) * rng.uniform(2.6, 3.6), rng.uniform(2.0, 3.2), yaw=rng.uniform(0, 360), req=True, tag="lamp")
+    S.fx("soulfire", 2.0, 0, -2.4, up=0.8)
+
+
+def sc_cliff_shrine(S, rng):
+    """벼랑에 기댄 사당. 뒤(−lz)가 벽"""
+    S.floor("path", 3.2)
+    S.put("wall_ruin_a", 0, -3.4, yaw=rng.normal(0, 4), tag="back_wall", loose=True, slope=0.45)   # 사당 뒤 담 (벼랑 앞)
+    S.put("shrine_roadside", 0, -1.4, yaw=rng.normal(0, 4), must=True, stamp=("path", 1.3))
+    S.put("statue_reaper" if rng.random() < 0.5 else "statue_angel", rng.choice([-1, 1]) * rng.uniform(2.0, 2.8), -2.2,
+          yaw=rng.normal(0, 10), req=True, tag="statue")
+    if rng.random() < 0.6:
+        S.put("cliff_c", rng.choice([-1, 1]) * rng.uniform(4.5, 6.0), -5.5, yaw=rng.uniform(0, 360), s=rng.uniform(0.4, 0.55), slope=None,
+              ground="box", ground_margin=2.2, align=0.3, align_max=15, loose=True, tag="side_rock")
+    for k in range(4):
+        S.put("candles", rng.uniform(-1.4, 1.4), rng.uniform(-0.4, 0.6), loose=True)
+    for k in range(4):
+        S.put("flower_lily", *polar(rng, 1.4, 3.8), loose=True)
+    for k in range(int(rng.integers(1, 3))):
+        S.put("skull", rng.uniform(-1.2, 1.2), rng.uniform(-0.6, 0.2), loose=True)
+    S.put("lantern", rng.choice([-1, 1]) * rng.uniform(1.8, 2.8), rng.uniform(0.8, 2.0), yaw=rng.uniform(0, 360), req=True, tag="lamp")
+    S.put("standing_stone", rng.choice([-1, 1]) * rng.uniform(3.2, 4.2), rng.uniform(-3.4, -2.2), yaw=rng.uniform(0, 360), s=rng.uniform(1.2, 1.32),
+          tag="waystone", stamp=("dirt", 1.0), ground_margin=0.15)     # w4: 사당 곁 선돌 (세로 실루엣 3.6 m 넘게. 대체 사당은 2.2 m)
+    S.fx("wisps", 5, 0, -1.0, up=1.0)
+
+
+def sc_rockfall(S, rng):
+    """낙석 더미: 벽에서 무너져 내린 큰 덩이 (골 어귀). 뒤(−lz)가 벽"""
+    S.floor("rock", 6.0)
+    sc_ = rng.uniform(0.42, 0.58)
+    S.put("cliff_c" if rng.random() < 0.6 else "cliff_a", 0, -1.0, yaw=rng.uniform(0, 360), s=sc_, must=True, slope=None, ground="box",
+          ground_margin=5.5 * sc_ * 0.3, align=0.5, align_max=20, tilt=18, stamp=("rock", 1.3))
+    S.put("cliff_b", rng.uniform(-3.0, 3.0), -4.2, yaw=rng.uniform(0, 360), s=rng.uniform(0.44, 0.52), req=True, tag="spire", slope=None,
+          ground="box", ground_margin=0.6, tilt=14, loose=True)                                     # 기운 바위 기둥 (세로 실루엣)
+    for k in range(int(rng.integers(3, 6))):
+        n_ = "rock_b" if rng.random() < 0.6 else "rock_flat"
+        s3 = rng.uniform(0.55, 1.05)
+        S.put(n_, *polar(rng, 3.0, 8.0), s=s3, slope=None, ground="box", align_max=30, ground_margin=0.35 * s3)
+    for k in range(int(rng.integers(3, 6))):
+        S.put("rubble" if rng.random() < 0.6 else "rock_c", *polar(rng, 2.0, 8.0))
+    S.put("cart_broken", rng.uniform(-3.0, 3.0), rng.uniform(2.0, 4.0), yaw=rng.uniform(0, 360), tag="crushed_cart", loose=True, slope=0.5)   # 깔린 수레
+    S.put("skeleton_remains", rng.uniform(-2.0, 2.0), rng.uniform(1.5, 3.5), yaw=rng.uniform(0, 360), loose=True)
+    for k in range(2):
+        S.put("skull", *polar(rng, 1.5, 6.0), loose=True)
+    if rng.random() < 0.6:
+        S.put("dead_tree_c", rng.choice([-1, 1]) * rng.uniform(5.0, 7.0), rng.uniform(0.0, 4.0), s=rng.uniform(0.9, 1.15))
+    S.put("lantern", rng.uniform(-4.0, 4.0), rng.uniform(4.5, 6.0), yaw=rng.uniform(0, 360), tilt=12, req=True, tag="lamp")   # 누군가 두고 간 등불
+
+
+def sc_cairns(S, rng):
+    """돌무더기 탑: 납작한 돌 위에 돌을 쌓은 탑 몇 (길 잃은 망자를 위한 표지)"""
+    S.floor("moss", 5.5)
+    n = int(rng.integers(3, 6))
+    a0 = rng.uniform(0, 2 * math.pi)
+    for k in range(n):
+        a = a0 + k / n * 2 * math.pi + rng.uniform(-0.3, 0.3)
+        d = rng.uniform(1.5, 5.5) if k else 0.0
+        cairn(S, rng, math.cos(a) * d, math.sin(a) * d, big=(k == 0))
+    S.put("standing_stone", rng.uniform(-3.0, 3.0), -rng.uniform(4.5, 6.0), yaw=rng.uniform(0, 360), s=rng.uniform(1.2, 1.32), req=True,
+          tag="waystone", stamp=("dirt", 1.0), ground_margin=0.18)            # w4: 진짜 선돌 3.17 m × 1.2~1.32 (세로 실루엣 3.6 m 넘게)
+    for k in range(3):
+        S.put("flower_lily", *polar(rng, 1.0, 6.0), loose=True)
+    for k in range(int(rng.integers(1, 4))):
+        S.put("skull", *polar(rng, 0.8, 5.0), loose=True)
+    S.put("candles", rng.uniform(-0.8, 0.8), rng.uniform(0.9, 1.4), loose=True)
+    S.put("lantern", rng.uniform(-3.0, 3.0), rng.uniform(3.0, 5.0), yaw=rng.uniform(0, 360), req=True, tag="lamp")
+
+
+def cairn(S, rng, lx, lz, big=False):
+    """돌탑 하나: 납작한 돌(rock_flat) 위에 바위(rock_b)·납작한 돌을 차례로 얹는다 (높이 1.6~2.8 m)"""
+    P = S.P
+    n0 = len(P.objects)
+    s0 = rng.uniform(0.62, 0.78) if big else rng.uniform(0.45, 0.62)
+    if not S.put("rock_flat", lx, lz, yaw=rng.uniform(0, 360), s=s0, slope=0.4, ground="box", align_max=8, tilt=2, tag="cairn", vary=False) \
+            or len(P.objects) == n0:
+        return
+    b = P.objects[-1]
+    x, y, z = b["p"]
+    y += 0.80 * s0 * 0.82
+    lay = [("rock_b", 0.62, 1.87), ("rock_flat", 0.62, 0.8), ("rock_b", 0.42, 1.87)] + ([("rock_flat", 0.4, 0.8)] if big else [])
+    for nm, k, hz in lay:
+        sk = s0 * k * rng.uniform(0.9, 1.1)
+        ox, oz = rng.normal(0, 0.08), rng.normal(0, 0.08)
+        ok = P.put(nm, x + ox, z + oz, yaw=rng.uniform(0, 360), s=sk, y=y - 0.12 * hz * sk, check=False, tilt=4, occupy=False)
+        if not ok:
+            break
+        S.n += 1
+        top = y + hz * sk * 0.75
+        S._top(x, top, z, top - P.height(x, z))
+        y = top
+    if big:
+        P.put("skull", x, z, y=y - 0.02, check=False, occupy=False)
+
+
+def foot_scene_ok(W, P, x, z, R):
+    """산기슭 장면 자리: 가운데는 고르고, 둘레 8 점 중 벽 쪽(발치 dd > −4 m)은 가팔라도 되고 나머지는 걸을 수 있는 땅"""
+    (bx0, bz0), (bx1, bz1) = BOUNDS
+    if not (bx0 - 10 < x < bx1 + 10 and bz0 - 10 < z < bz1 + 10):
+        return False
+    if not P.ok_ground(x, z, R * 0.6, road=True, water=True, slope=0.35):
+        return False
+    if sample(W.road_dist, x, z) < sample(W.road_hw, x, z) + R + 4:
+        return False
+    if not P.free(x, z, R * 0.75):
+        return False
+    for k in range(8):
+        a = k / 8 * 2 * math.pi
+        px, pz = x + math.cos(a) * R, z + math.sin(a) * R
+        if P.under_water(px, pz, 0.2):
+            return False
+        if sample(W.dd, px, pz) < -4.0 and sample(W.slope, px, pz) > 0.55:
+            return False
+    return True
+
+
+def lay_foot_scenes(W, P):
+    """산기슭 장면: 벽 발치 안쪽 띠(FOOT_SCENES 의 dd 범위)에 벼랑 밑 무덤 굴·벼랑 사당·낙석 더미·돌무더기 탑.
+    앞(+lz)은 벽에서 안쪽(걸을 수 있는 쪽)을 본다. 장소·문 둘레와 숲 안은 뺀다"""
+    rng = P.rng
+    t0 = time.time()
+    pois = [((p if p else W.bridge_p), r) for (_, _, p, r) in POIS if r < 150]
+    gate_d = np.hypot(W.X - GATE[0], W.Z - GATE[1])
+    got = collections.Counter()
+    placed = [tuple(s_["p"]) for s_ in W.scenes]
+    order = []
+    for kind, (R, (d0, d1), n) in FOOT_SCENES.items():
+        order += [kind] * n
+    rng.shuffle(order)
+    picks = {}
+    for kind, (R, (d0, d1), n) in FOOT_SCENES.items():
+        m = (W.dd > d0) & (W.dd < d1) & (gate_d > 140) & (W.slope < 0.3) & (W.forest_plan < 0.25)
+        w = m.astype(np.float32)
+        if kind == "rockfall":
+            w *= 0.25 + ss(0.42 - W.spur, 0.0, 0.2)           # 골 어귀(너덜 부채꼴) 쪽
+        picks[kind] = in_mask(W, w)
+    for kind in order:
+        R, (d0, d1), n = FOOT_SCENES[kind]
+        for _ in range(160):
+            p = picks[kind](rng)
+            if p is None:
+                break
+            x, z = p
+            if any((x - a) ** 2 + (z - b) ** 2 < FOOT_SCENE_GAP ** 2 for a, b in placed):
+                continue
+            if any((x - c[0]) ** 2 + (z - c[1]) ** 2 < (r + R + 20) ** 2 for c, r in pois):
+                continue
+            (ix, iz), _, yin = foot_frame(W, x, z)
+            rec = lay_scene(W, P, kind, x, z, yaw=yin, feature="mountain_foot", ok_fn=foot_scene_ok)
+            if rec:
+                placed.append((x, z))
+                got[kind] += 1
+                break
+    log("산기슭 장면 %d 곳 %s, %.1f 초" % (sum(got.values()), dict(got), time.time() - t0))
+
+
 SCENE_FN = {"execution": sc_execution, "chapel": sc_chapel, "shrine": sc_shrine, "barrow": sc_barrow, "camp": sc_camp,
             "crystal": sc_crystal, "family": sc_family, "battle": sc_battle, "outpost": sc_outpost, "graves": sc_graves,
-            "farmstead": sc_farmstead, "pyre": sc_pyre}
+            "farmstead": sc_farmstead, "pyre": sc_pyre,
+            "cave_tomb": sc_cave_tomb, "cliff_shrine": sc_cliff_shrine, "rockfall": sc_rockfall, "cairns": sc_cairns}
 
 
 def scene_ok(W, P, x, z, R):
@@ -2523,10 +2754,11 @@ def face_road(W, x, z):
     return yaw_to(bp[0] - x, bp[1] - z), math.sqrt(best)
 
 
-def lay_scene(W, P, kind, x, z, yaw=None, feature=None, hamlet=-1):
-    """장면 하나. 자리 검사 → 가운데 자리 고르기(지형) → 틀 → 등대 빛·세로 요소 보충 → 둘레. 성공하면 W.scenes 항목"""
-    R = SCENES[kind][0]
-    if not scene_ok(W, P, x, z, R) or not type_allowed(W, kind, x, z):
+def lay_scene(W, P, kind, x, z, yaw=None, feature=None, hamlet=-1, ok_fn=None):
+    """장면 하나. 자리 검사 → 가운데 자리 고르기(지형) → 틀 → 등대 빛·세로 요소 보충 → 둘레. 성공하면 W.scenes 항목.
+    ok_fn: 자리 검사를 바꾼다 (산기슭 장면: 벽 쪽 둘레는 가파라도 된다)"""
+    R = SCENES[kind][0] if kind in SCENES else FOOT_SCENES[kind][0]
+    if not (ok_fn or scene_ok)(W, P, x, z, R) or not type_allowed(W, kind, x, z):
         return None
     rng = P.rng
     fy, droad = face_road(W, x, z)
@@ -3229,28 +3461,37 @@ def lay_fields(W, P):
 #  - 물가·장면 둘레 유령 백합, 불·전장 장면 둘레 재
 # 줄 소품 상한(FILL_BUDGET)을 넘으면 그 줄은 소품 없이 턱(지형)만 남는다
 FILL_SEED = 6262
-FILL_BUDGET = {"wall": 700, "fence": 420, "hedge": 1500, "hedge_tree": 210, "stones": 1700, "post": 80}   # 줄 소품 상한 (그리는 물체 수).
-#   밤 눈높이에서 가장 잘 읽히는 것은 밝은 돌담이라 돌담 몫을 크게 (대체 돌담은 1.5 m 조각이라 4 m 새 소품이 오면 같은 길이에 물체 수가 약 1/2.6)
-FILL_GROVES = 40             # 나무 무리 수
+FILL_BUDGET = {"wall": 1300, "fence": 480, "hedge": 1300, "hedge_tree": 380, "stones": 1600, "post": 110}   # 줄 소품 상한 (그리는 물체 수).
+#   밤 눈높이에서 가장 잘 읽히는 것은 밝은 돌담이라 돌담 몫을 크게. w4: 진짜 낮은 돌담(4.1 m 한 칸)이 생겨 1300 칸 = 약 5.4 km.
+#   돌담 칸은 META cull 로는 795 m 까지 그려져 WORLD_CULL 로 약 330 m 에서 끈다 (그리는 물체 수 예산 2,000)
+FILL_GROVES = 60             # 나무 무리 수 (w4: 40 → 60)
 FILL_GROVE_TREES = (5, 11)   # 무리마다 고목 수
 FILL_GROVE_GAP = 68.0        # 나무 무리 사이 (m)
 FILL_OUTCROP_GAP = 62.0      # 바위 노두 사이 (m)
 FILL_CLUMPS = 500            # 작은 덩이 (바위 덩이·덤불 덩이·쓰러진 나무 자리) 수: 눈높이 20~40 m 마다 걸리게. 짧은 거리에서 사라지는 값싼 소품만
 FILL_CLUMP_GAP = 26.0        # 작은 덩이 사이 (m)
-FILL_SINGLES = 2900          # 낱개 (큰 바위·큰 덤불·돌무더기·그루터기) 수
-FILL_SINGLE_GAP = 10.0       # 낱개 사이 최소 (m)
+FILL_SINGLES = 6000          # 낱개 (큰 바위·큰 덤불·돌무더기·그루터기·밝은 돌) 수. w4: 2900 → 6000
+FILL_SINGLE_GAP = 7.5        # 낱개 사이 최소 (m). w4: 10 → 7.5
+FILL_SINGLE_PALE = 0.6       # w4: 낱개 중 밝은 돌(작은 선돌·무너진 돌담 토막·큰 바위) 몫
+FILL_HUTS = 220              # w4: 무너진 움막·우리 터 (낮은 돌담 토막 2~4 개가 네모로 둘러선 자리, 문이나 무너진 쪽이 비었다). 들판의 작은 구조
+FILL_HUT_GAP = 42.0          # 움막 터 사이 (m)
+SINGLE_CULL = 0.016          # w4: 밝은 돌 낱개가 사라지는 화면 높이 (objects[].cull. 작은 선돌 약 110 m, 돌담 토막 약 200 m, 큰 바위 약 240 m)
 FILL_SINGLE_PATCH = 0.8      # 낱개를 넓은 얼룩(약 120 m 무늬)으로 몰아 놓는 세기. 0 = 고르게 (소금·후추처럼 보인다), 클수록 무리와 빈터가 뚜렷
 FILL_OUTCROPS = 40           # 바위 노두 수
-FILL_BARROWS = 9             # 작은 무덤 둔덕 (장면 '선돌 무덤 둔덕'보다 작고 빛이 없다)
-FILL_STONES = 22             # 외딴 선돌 (멀리 보이는 세로 실루엣)
-FILL_ROWS = 3                # 선돌 줄
+FILL_BARROWS = 12            # 작은 무덤 둔덕 (장면 '선돌 무덤 둔덕'보다 작고 빛이 없다). w4: 둔덕마다 작은 선돌 고리
+FILL_STONES = 60             # 외딴 선돌 (멀리 보이는 세로 실루엣). w4: 진짜 선돌(삼각형 368 개)이 싸서 22 → 60
+FILL_ROWS = 12               # 선돌 줄 (능선·마루를 따라). w4: 3 → 12
+FILL_ROW_GAP = 140.0         # 선돌 줄 사이 (m)
+FILL_BANNERS = 28            # w4: 들판 전장 흔적 깃발 (언덕 마루·능선의 찢긴 깃발 1~2 + 발치 유해). 멀리서 읽히는 세로 실루엣
+FILL_CRYSTALS = 16           # w4: 들판 영혼 수정 무리 (움푹한 곳·도랑 가). 큰 수정 하나가 등대 빛, 곁의 작은 수정은 가까이서만 켠다
+FILL_GROVE_FIRE = 0.45       # w4: 나무 무리 중 버려진 모닥불(등대 빛, 따뜻한 점)을 두는 비율
+SMALL_GLOW_FAR = 45.0        # w4: 곁에 놓는 작은 발광 소품(작은 수정)의 끄는 거리 (objects[].far 로 META 의 140 m 를 줄인다. 등대 빛은 큰 것 하나만)
 FILL_SHRINES = 5             # 길가 작은 사당 (굽은 곳)
 FILL_CARTS = 6               # 길가 부서진 수레 자리
 FILL_MILESTONE = (110.0, 170.0)   # 이정표 돌 간격 (길을 따라 m)
 FILL_ROAD_RUN = ((35.0, 95.0), (25.0, 80.0))    # 길가 경계: (이어지는 길이, 끊긴 길이) m. 장면 자리는 저절로 끊긴다
-FIELD_TREES = 0.2            # lay_fields 외톨이 고목 배율 (v3 구조 전 1.0. 고목은 나무 무리·산울타리 나무로)
+FIELD_TREES = 0.35           # lay_fields 외톨이 고목 배율 (v3 구조 전 1.0. 고목은 나무 무리·산울타리 나무로. w4: 0.2 → 0.35, 하늘에 비치는 실루엣)
 FIELD_SCATTER = 0.3          # lay_fields 흩뿌림(외톨이 나무·덤불·바위) 배율 (v3 구조 전 1.0). 장소 둘레(용의 무덤·호수·늪)는 줄이지 않는다
-FILL_WALL_BURY = 0.15        # 밭 경계 돌담의 묻힘 한계 (높이 비율, 기본 BURY_MAX 0.25). 넘으면 밑을 고르고, 그래도 넘으면 비운다
 
 
 def along_yaw(tx, tz):
@@ -3276,15 +3517,44 @@ class FillLog:
 
 
 FILL_STYLE = {   # 줄 성격 → 구간 모양 비율 (hedge 산울타리, wall 낮은 돌담, fence 쇠 울타리, stones 무너진 돌줄, none 빈 턱·둑)
-    "hedge":  {"hedge": 0.62, "stones": 0.14, "fence": 0.06, "wall": 0.06, "none": 0.12},
-    "wall":   {"wall": 0.45, "stones": 0.33, "hedge": 0.12, "none": 0.1},
-    "fence":  {"fence": 0.55, "hedge": 0.2, "stones": 0.12, "none": 0.13},
-    "stones": {"stones": 0.62, "hedge": 0.16, "wall": 0.07, "none": 0.15},
-    "scarp":  {"none": 0.5, "stones": 0.32, "hedge": 0.18},
-    "cross":  {"hedge": 0.4, "stones": 0.3, "fence": 0.12, "none": 0.18},
+    # v3 검토 반영: 밤 눈높이에서 가장 잘 읽히는 것은 밝은 돌이다. 돌담을 늘리고 어두운 산울타리를 줄였다 (세운 돌담은 비탈에서 칸이 끊겨 덜 놓인다)
+    # w4: 진짜 낮은 돌담·쇠 울타리가 생겨 돌담 몫을 더 올렸다 (어두운 덤불 산울타리는 풀에 묻힌다)
+    "hedge":  {"hedge": 0.3, "stones": 0.12, "fence": 0.08, "wall": 0.38, "none": 0.12},
+    "wall":   {"wall": 0.68, "stones": 0.18, "hedge": 0.07, "none": 0.07},
+    "fence":  {"fence": 0.52, "hedge": 0.12, "stones": 0.08, "wall": 0.16, "none": 0.12},
+    "stones": {"stones": 0.45, "hedge": 0.1, "wall": 0.28, "none": 0.17},
+    "scarp":  {"none": 0.4, "stones": 0.27, "hedge": 0.11, "wall": 0.22},
+    "cross":  {"hedge": 0.2, "stones": 0.24, "fence": 0.12, "wall": 0.32, "none": 0.12},
 }
-FILL_RUN = (7.0, 24.0)       # 줄 구간 길이 (m)
-FILL_GAP = (4.0, 13.0)       # 구간 사이 끊긴 곳 (m). 6 m 넘게 끊기면 눈에는 다른 것으로 읽힌다
+FILL_SCARP_CLEAR = 1.7       # 밭 턱 위 가장자리에서 줄 소품까지 (m). 턱 비탈(RELIEF_RISER) 위에 걸치면 바닥 상자가 기울어 한쪽이 묻힌다
+FILL_STEP_DH = 0.36          # 돌담·울타리 한 칸 양 끝 땅 높이 차가 키의 이 비율을 넘으면 그 칸은 비운다 (턱을 가로지르면 칸을 끊는다. 칸마다 세워 놓으므로 계단처럼 높이가 바뀐다)
+FILL_UPRIGHT_BURY = 0.42     # 세운 울타리의 묻힘 한계 (높이 비율: 비탈 오르막 쪽이 이만큼까지 묻힌다. 한쪽 끝 50% 넘게 묻힌 것이 없게)
+FILL_WALL_SLOPE = 0.3        # 세운 돌담을 놓는 땅 기울기 한계. w4: 진짜 돌담은 깊이 0.89 m 라 (대체 조각 1.5 m) 옆 비탈 0.3 에서도 오르막 쪽 묻힘이 약 0.27 m
+FILL_WALL_LEAN = 5.0         # w4: 돌담이 비탈을 따라 기울 수 있는 최대 각(도). 조금만 따르면 오르막 끝 묻힘이 약 0.2 m 준다 (v3 검토: 크게 기운 담은 안 된다)
+FILL_WALL_BURY = 0.3         # 세운 돌담의 묻힘 한계 (manifest 높이 1.29 m 비율. 땅속 밑동 0.3 m 가 있어 내리막 쪽도 뜨지 않는다)
+FILL_RUN = (10.0, 30.0)      # 줄 구간 길이 (m). w4: 7~24 → 10~30 (줄이 줄로 읽히게)
+FILL_GAP = (3.0, 10.0)       # 구간 사이 끊긴 곳 (m). 6 m 넘게 끊기면 눈에는 다른 것으로 읽힌다 (w4: 4~13 → 3~10)
+
+
+FILL_WISP_GROVE = 0.6        # 나무 무리 중 약한 떠도는 빛(영혼 빛 + 불티 효과)을 두는 비율. 둔덕·선돌 줄은 모두
+
+
+def field_wisp(W, P, rng, x, z, up=(1.4, 2.4)):
+    """들판 무리의 약한 떠도는 빛: 작은 점광원(등대 빛 아님, LightCuller 기본 규칙) + 불티 효과(wisps). 광원 예산이 넘는 곳에서는
+    trim_lights 가 초·버섯 다음으로 뺀다 (weak)"""
+    if P.under_water(x, z, 0.2):
+        return
+    y = P.height(x, z) + rng.uniform(*up)
+    W.lights.append({"p": [round(x, 2), round(y, 2), round(z, 2)], "c": list(SPIRIT if rng.random() < 0.55 else SOUL),
+                     "i": round(float(rng.uniform(1.4, 2.0)), 2), "r": round(float(rng.uniform(5.0, 6.5)), 1), "flicker": True, "weak": True})
+    W.fx.append({"type": "wisps", "p": [float(x), y - 0.6, float(z)], "r": round(float(rng.uniform(5.0, 8.0)), 1)})
+
+
+def step_ok(P, x, z, tv, ln, hgt):
+    """줄 소품 한 칸(가운데 x, z, 방향 tv, 길이 ln)의 양 끝과 가운데 땅 높이 차가 키 × FILL_STEP_DH 안인가 (턱을 가로지르면 그 칸은 비운다)"""
+    hx, hz = tv[0] * ln / 2, tv[1] * ln / 2
+    a, b, c = P.height(x - hx, z - hz), P.height(x, z), P.height(x + hx, z + hz)
+    return max(a, b, c) - min(a, b, c) <= FILL_STEP_DH * hgt
 
 
 def fill_line(W, P, rng, F, pts, kind, src, up=None):
@@ -3297,7 +3567,7 @@ def fill_line(W, P, rng, F, pts, kind, src, up=None):
     tang = np.gradient(c, axis=0)
     tang /= np.linalg.norm(tang, axis=1, keepdims=True) + 1e-9
     nrm = np.stack([-tang[:, 1], tang[:, 0]], 1)
-    shift = 0.0 if up is None else (RELIEF_RISER / 2 + 0.7) * up        # 밭 턱이면 턱 위(오르막 쪽) 가장자리에
+    shift = 0.0 if up is None else (RELIEF_RISER / 2 + FILL_SCARP_CLEAR) * up   # 밭 턱이면 턱 위(오르막 쪽), 턱 비탈에서 떨어진 평평한 곳에
     mix = FILL_STYLE.get(kind, FILL_STYLE["hedge"])
     styles, sp_ = list(mix), np.array(list(mix.values()))
     budget = FILL_BUDGET
@@ -3327,21 +3597,24 @@ def fill_line(W, P, rng, F, pts, kind, src, up=None):
             ty = along_yaw(*tv)
             step = 3.0
             if st == "wall":
-                s = rng.uniform(0.92, 1.12)
+                # v3 검토 반영: 같은 조각 실루엣이 1.5 m 마다 되풀이되지 않게 yaw 180° 뒤집기·배율·높이를 섞는다. 기울이지 않고 세운다
+                s = rng.uniform(1.0, 1.18)                      # w4: 원점 위 0.99 m × 배율 = 갓돌까지 1.0~1.17 m (풀 0.4~0.8 m 위로 드러나게)
                 ln = seg_len(P, "stone_wall_low", s)
                 x, z, tv, i = at(pos + ln / 2)
-                if F.n["wall"] < budget["wall"] and P.put("stone_wall_low", x, z, yaw=along_yaw(*tv) + (180 if rng.random() < 0.5 else 0) + rng.normal(0, 3),
-                                                          s=s, slope=0.55, ground="box", r=1.1, bury_max=FILL_WALL_BURY):
+                if F.n["wall"] < budget["wall"] and step_ok(P, x, z, tv, ln, 1.2 * s) and \
+                        P.put("stone_wall_low", x, z, yaw=along_yaw(*tv) + (180 if rng.random() < 0.5 else 0) + rng.normal(0, 4), s=s, slope=FILL_WALL_SLOPE,
+                              ground="box", r=1.1, bury_max=FILL_WALL_BURY, align=1.0, align_max=FILL_WALL_LEAN, tilt=2,
+                              ground_margin=rng.uniform(0.0, 0.08) * 1.2 * s):         # 높이 섞기 (조금씩 다르게 묻는다)
                     F.n["wall"] += 1
                     got.append((x, z))
-                step = ln * 0.96
+                step = ln * rng.uniform(0.9, 1.0)
             elif st == "fence":
                 s = rng.uniform(0.96, 1.04)
                 ln = seg_len(P, "iron_fence", s)
                 x, z, tv, i = at(pos + ln / 2)
-                lean = rng.random() < 0.12
-                if F.n["fence"] < budget["fence"] and P.put("iron_fence", x, z, yaw=along_yaw(*tv) + rng.normal(0, 2), s=s, slope=0.55,
-                                                            ground="box", r=0.9, tilt=14 if lean else 3):
+                if F.n["fence"] < budget["fence"] and step_ok(P, x, z, tv, ln, 1.7 * s) and \
+                        P.put("iron_fence", x, z, yaw=along_yaw(*tv) + rng.normal(0, 2), s=s, slope=0.55, ground="box", r=0.9, tilt=3, align=False,
+                              bury_max=FILL_UPRIGHT_BURY):
                     F.n["fence"] += 1
                     got.append((x, z))
                 step = ln * 0.98
@@ -3351,7 +3624,7 @@ def fill_line(W, P, rng, F, pts, kind, src, up=None):
                     if P.put(nm, x + rng.normal(0, 0.6), z + rng.normal(0, 0.6), s=rng.uniform(0.95, 1.25), stamp=("leaves", 1.6)):
                         F.n["hedge_tree"] += 1
                         got.append((x, z))
-                    next_tree = pos + rng.uniform(12, 24)
+                    next_tree = pos + rng.uniform(6, 12)                  # 산울타리 사이 고목을 자주 (덤불만으로는 밤에 풀에 묻힌다. w4: 8~16 → 6~12 m)
                 nm = "bush_dead" if rng.random() < 0.82 else "bramble"           # 가시덤불은 멀리까지 그려져(그리는 물체 수) 조금만
                 s = rng.uniform(1.25, 1.6) if nm == "bush_dead" else rng.uniform(1.1, 1.35)
                 if F.n["hedge"] < budget["hedge"] and P.put(nm, x + rng.normal(0, 0.35), z + rng.normal(0, 0.35), s=s, r=0.6, stamp=("leaves", 1.3)):
@@ -3360,9 +3633,12 @@ def fill_line(W, P, rng, F, pts, kind, src, up=None):
                 step = rng.uniform(2.4, 3.4)
             elif st == "stones":                                 # 무너진 돌줄 (낮은 돌무더기·바위가 줄지어)
                 r_ = rng.random()                                # 풀 위로 드러나게 큰 돌 위주 (돌무더기·작은 돌은 사이에)
-                if r_ < 0.25:
+                if r_ < 0.2:                                     # w4: 쓰러져 가는 돌 말뚝 (작은 선돌, 1.0~1.4 m, 밝은 돌). 줄이 풀 위로 읽히게
+                    ok = P.put("standing_stone", x + rng.normal(0, 0.3), z + rng.normal(0, 0.3), yaw=ty + rng.normal(0, 25),
+                               s=rng.uniform(0.32, 0.45), slope=0.45, tilt=14, ground="box", ground_margin=0.12, bury_max=0.4)
+                elif r_ < 0.4:
                     ok = P.put("rubble", x + rng.normal(0, 0.3), z + rng.normal(0, 0.3), yaw=ty + rng.normal(0, 20), s=rng.uniform(1.3, 1.6), slope=0.6)
-                elif r_ < 0.8 and sample(W.slope, x, z) < 0.32:
+                elif r_ < 0.82 and sample(W.slope, x, z) < 0.32:
                     ok = P.put("rock_a", x + rng.normal(0, 0.3), z + rng.normal(0, 0.3), s=rng.uniform(1.25, 1.65), slope=0.32)
                 else:
                     ok = P.put("rock_c", x + rng.normal(0, 0.3), z + rng.normal(0, 0.3), s=rng.uniform(1.5, 1.9), slope=0.6)
@@ -3390,8 +3666,8 @@ def fill_line(W, P, rng, F, pts, kind, src, up=None):
                 if P.put("pillar_a", px, pz, s=rng.uniform(0.46, 0.54), slope=0.6, tilt=4):
                     F.n["post"] += 1
             gates += 1
-        elif st == "fence" and r_ < 0.6:                         # 쓰러진 울타리 한 칸
-            P.put("fence", x, z, yaw=along_yaw(*tv) + rng.normal(0, 25), tilt=28, slope=0.6, ground="box", r=0.9)
+        elif st == "fence" and r_ < 0.6:                         # 끊긴 울타리 자리: 부서진 기둥 하나
+            P.put("pillar_a", x, z, s=rng.uniform(0.34, 0.42), slope=0.5, tilt=5)
         pos += gap
     for st, got in runs:
         F.lines.append({"t": st, "src": src, "kind": kind, "pts": [[round(float(a), 1), round(float(b), 1)] for a, b in got]})
@@ -3462,6 +3738,34 @@ def fill_singles(W, P, rng, F, open_):
         if np.any((pois[:, 0] - x) ** 2 + (pois[:, 1] - z) ** 2 < pois[:, 2] ** 2):
             continue
         hv, cv = sample(W.hollow, x, z), sample(W.crest, x, z) + 0.7 * ssf(sample(W.slope, x, z), 0.15, 0.35)
+        # w4: 밤 눈높이에서 읽히는 밝은 돌 낱개 (작은 선돌·무너진 돌담 토막·큰 바위). 어두운 rock_a·덤불은 25 m 밖에서 풀에 묻혔다
+        #     (검토자 자리 렌더). 가까이서만 그리면 되니 사라지는 화면 높이를 크게 (SINGLE_CULL: 120~250 m 에서 사라진다)
+        q_ = rng.random()
+        if q_ < FILL_SINGLE_PALE and sample(W.slope, x, z) < 0.4:
+            n0 = len(P.objects)
+            u_ = rng.random()
+            if u_ < 0.42:                                     # 작은 선돌 (1.1~1.7 m, 기울기도)
+                ok = P.put("standing_stone", x, z, s=rng.uniform(0.35, 0.55), slope=0.4, tilt=16, ground="box", ground_margin=0.1, bury_max=0.4,
+                           pad=False)
+                t = "pale_stone"
+            elif u_ < 0.72:                                   # 무너진 돌담 토막 (2.5~3.5 m, 0.6~0.85 m)
+                gx_, gz_ = sample(W.gx, x, z), sample(W.gz, x, z)
+                yw_ = (along_yaw(-gz_, gx_) if abs(gx_) + abs(gz_) > 0.02 else rng.uniform(0, 360)) + rng.normal(0, 15) + (180 if rng.random() < 0.5 else 0)
+                ok = P.put("stone_wall_low", x, z, yaw=yw_, s=rng.uniform(0.62, 0.85), slope=0.3, ground="box", align=1.0, align_max=FILL_WALL_LEAN,
+                           bury_max=FILL_WALL_BURY, ground_margin=rng.uniform(0.0, 0.12), pad=False)
+                t = "wall_bit"
+            else:                                             # 큰 바위 (1.4~2 m)
+                ok = P.put("rock_b", x, z, s=rng.uniform(0.85, 1.1), slope=None, ground="box", align_max=30)
+                t = "big_rock"
+            if ok and len(P.objects) > n0:
+                P.objects[-1]["cull"] = SINGLE_CULL
+                if rng.random() < 0.3:
+                    P.put("rock_c", x + rng.normal(0, 1.4), z + rng.normal(0, 1.4), s=rng.uniform(0.9, 1.3), slope=0.6)
+            if ok:
+                grid.setdefault(k, []).append((x, z))
+                got[t] += 1
+                n += 1
+            continue
         r_ = rng.random() * (1.0 + hv + cv)
         # 풀(키 0.4~0.8 m) 위로 드러나게 키 1.4 m 넘는 것만 (그루터기·돌무더기처럼 낮은 것은 고사리에 묻힌다)
         if r_ < 0.6 + cv:                                     # 큰 바위 (가끔 둘). 밤에 밝게 읽히는 돌을 덤불보다 많이
@@ -3493,6 +3797,47 @@ def fill_singles(W, P, rng, F, open_):
     F.n["single"] = n
 
 
+FOOT_WALL_DD = (16.0, 30.0)    # w4: 산기슭 경계 돌담이 지나는 발치 안쪽 거리 범위 (m, 느린 노이즈로 오르내린다)
+FOOT_WALL_KINDS = (("wall", 0.55), ("stones", 0.25), ("fence", 0.08), ("hedge", 0.12))
+
+
+def foot_wall_lines(W, P):
+    """w4: 산기슭 띠(벽 발치 안쪽 16~30 m)를 따라 도는 옛 경계 줄. 산 밑을 걸을 때 벽 앞이 비지 않게 (검토 V1·V4·V7·V8).
+    bounds 둘레를 3 m 마다 돌며 안쪽으로 걸어 들어가 발치 거리 dd 가 −D 아래가 되는 점을 잇는다. 길·물·숲·장소·봉인문 둘레는 끊는다"""
+    (bx0, bz0), (bx1, bz1) = BOUNDS
+    pois = [((p if p else W.bridge_p), r) for (_, _, p, r) in POIS]
+    side_pts = []
+    for (ax, az, ex, ez, ix, iz, L) in ((bx0, bz0, 1, 0, 0, 1, bx1 - bx0), (bx1, bz0, 0, 1, -1, 0, bz1 - bz0),
+                                        (bx1, bz1, -1, 0, 0, -1, bx1 - bx0), (bx0, bz1, 0, -1, 1, 0, bz1 - bz0)):
+        for t in np.arange(30.0, L - 30.0, 3.0):
+            x0, z0 = ax + ex * t, az + ez * t
+            D = FOOT_WALL_DD[0] + (FOOT_WALL_DD[1] - FOOT_WALL_DD[0]) * (0.5 + 0.5 * float(perlin(np.float32(x0 * 0.012), np.float32(z0 * 0.012), 9101)))
+            q = None
+            for k in range(0, 260, 2):
+                x, z = x0 + ix * k, z0 + iz * k
+                if sample(W.dd, x, z) < -D:
+                    q = (x, z)
+                    break
+            side_pts.append(q)
+    runs, cur = [], []
+    for q in side_pts + [None]:
+        ok = q is not None
+        if ok:
+            x, z = q
+            ok = (sample(W.road_dist, x, z) > sample(W.road_hw, x, z) + 6 and not P.under_water(x, z, 0.3) and sample(W.forest_plan, x, z) < 0.2
+                  and sample(W.slope, x, z) < 0.35 and math.hypot(x - GATE[0], z - GATE[1]) > 150
+                  and all((x - c[0]) ** 2 + (z - c[1]) ** 2 > (r + 15) ** 2 for c, r in pois))
+            if ok and cur and math.hypot(x - cur[-1][0], z - cur[-1][1]) > 9.0:
+                ok = None                              # 능선 밑동에서 건너뛴다: 줄을 끊고 새로 시작
+        if ok:
+            cur.append(q)
+        else:
+            if len(cur) >= 8:
+                runs.append(cur)
+            cur = [q] if ok is None else []
+    return runs
+
+
 def lay_fill(W, P):
     """장면과 장면 사이를 잇는 중간 크기의 것 (v3 채움). 앞 단계(장면·숲·산기슭) 뒤, 들판 흩뿌림(lay_fields) 앞"""
     t0 = time.time()
@@ -3502,7 +3847,8 @@ def lay_fill(W, P):
     h = W.h
     hb = box_blur(h, 18)
     W.hollow = (ss(-(h - hb), 0.25, 1.4) * (1 - ss(W.mount, 0.05, 0.2))).astype(np.float32)
-    open_ = ((W.mount < 0.22) & (W.slope < 0.42)).astype(np.float32) * (1 - ss(W.forest_plan, 0.08, 0.25))
+    # w4: 숲 가장자리 띠(숲 계획 0.08~0.25, 나무가 거의 없는 곳)가 숲에도 채움에도 들지 않아 비었다 (검토 V6). 채움을 숲 계획 0.22~0.45 까지 들인다
+    open_ = ((W.mount < 0.22) & (W.slope < 0.42)).astype(np.float32) * (1 - ss(W.forest_plan, 0.22, 0.45))
     ex = ((W.X - GRAVE_C[0]) / (GRAVE_R[0] + 15)) ** 2 + ((W.Z - GRAVE_C[1]) / (GRAVE_R[1] + 15)) ** 2
     open_ *= ss(ex, 1.0, 1.25)
     # 늪·호수 둘레 빈 띠를 좁힌다 (장소 흩뿌림은 장소 원 안까지라, 원 밖 20~40 m 띠가 아무도 채우지 않는 빈 땅이 됐다)
@@ -3517,6 +3863,18 @@ def lay_fill(W, P):
         ln = W.relief_lines[i]
         fill_line(W, P, rng, F, ln["pts"], ln["kind"], "cross" if ln["A"] <= 0 and ln["kind"] == "cross" else "field",
                   up=ln["up"] if ln["A"] > 0.25 else None)
+
+    # 1b) w4: 산기슭 경계 줄 (벽 발치 안쪽 16~30 m 를 따라 도는 옛 돌담·돌줄)
+    fk, fp_ = [k_ for k_, _ in FOOT_WALL_KINDS], np.array([p_ for _, p_ in FOOT_WALL_KINDS])
+    nfoot = 0
+    for run in foot_wall_lines(W, P):
+        c, Lr = resample(np.asarray(run, np.float64), 3.0)
+        # 둘레 3 m 걸음의 잔 흔들림을 편다 (이웃 5 점 평균)
+        if len(c) > 5:
+            k_ = np.ones(5) / 5.0
+            c = np.stack([np.convolve(np.pad(c[:, i], 2, mode="edge"), k_, "valid") for i in range(2)], 1)
+        nfoot += fill_line(W, P, rng, F, c, str(rng.choice(fk, p=fp_ / fp_.sum())), "foot")
+    log("  산기슭 경계 줄: 소품 %d, 줄 소품 %s" % (nfoot, dict(F.n)))
 
     pois_small = [((p if p else W.bridge_p), r) for (_, _, p, r) in POIS if r < 150]
     # 2) 길가 물건 (길가 경계보다 먼저 자리를 잡는다): 이정표 돌, 작은 사당 (굽은 곳), 부서진 수레 자리
@@ -3689,10 +4047,23 @@ def lay_fill(W, P):
         if rng.random() < 0.5:
             x, z = gp(0.4)
             P.put("roots", x, z)
-        if rng.random() < 0.55:                                  # 버섯 무리 (그루터기·통나무 둘레에 몇 개)
+        # v3 검토 반영: 들판 앞쪽에 보이는 빛이 적었다. 나무 무리마다 발광 버섯 무리, 반쯤은 약한 떠도는 빛
+        for q in range(1 + (rng.random() < 0.35)):              # 발광 버섯 무리 (그루터기·통나무 둘레)
+            x, z = gp(0.4)
+            for q2 in range(int(rng.integers(3, 7))):
+                P.put("mushroom_glow" if rng.random() < 0.7 else "mushroom_toxic", x + rng.normal(0, 1.1), z + rng.normal(0, 1.1))
+        if rng.random() < FILL_WISP_GROVE:
+            x, z = gp(0.3)
+            field_wisp(W, P, rng, x, z)
+        if rng.random() < FILL_GROVE_FIRE:                          # w4: 버려진 모닥불 (등대 빛. 차가운 밤 들판의 따뜻한 점)
             x, z = gp(0.35)
-            for q in range(int(rng.integers(2, 5))):
-                P.put("mushroom_glow" if rng.random() < 0.7 else "mushroom_toxic", x + rng.normal(0, 1.2), z + rng.normal(0, 1.2))
+            if P.put("campfire", x, z, slope=0.25, stamp=("ash", 1.2)):
+                yb = rng.uniform(0, 360)
+                for sd in (-1, 1):
+                    t_ = math.radians(yb + 90 * sd)
+                    P.put("log_fallen", x + math.sin(t_) * 2.3, z + math.cos(t_) * 2.3, yaw=yb + rng.normal(0, 8), s=0.7, ground="box")
+                P.put("skull", x + rng.normal(0, 1.4), z + rng.normal(0, 1.4))
+                P.stamps.append((x, z, 2.4, "dirt"))
         P.stamps.append((cx, cz, R * 0.85, "leaves"))
         P.stamps.append((cx + rng.normal(0, R * 0.3), cz + rng.normal(0, R * 0.3), R * 0.5, "moss"))
         F.items.append({"t": "grove", "p": [round(cx, 1), round(cz, 1)], "r": round(R * el, 1), "trees": got})
@@ -3725,6 +4096,11 @@ def lay_fill(W, P):
             P.put("rock_a" if rng.random() < 0.4 else "rock_c", cx + math.cos(a) * d, cz + math.sin(a) * d, slope=0.5)
         P.stamps.append((cx, cz, rng.uniform(5.0, 8.0), "rock"))
         P.stamps.append((cx + rng.normal(0, 4), cz + rng.normal(0, 4), rng.uniform(4.0, 6.0), "moss"))
+        if rng.random() < 0.5:                                     # 바위 그늘의 발광 버섯
+            a, d = rng.uniform(0, 2 * math.pi), rng.uniform(2.5, 5.0)
+            for q in range(int(rng.integers(3, 6))):
+                P.put("mushroom_glow" if rng.random() < 0.6 else "mushroom_toxic", cx + math.cos(a) * d + rng.normal(0, 1.0),
+                      cz + math.sin(a) * d + rng.normal(0, 1.0))
         F.items.append({"t": "outcrop", "p": [round(cx, 1), round(cz, 1)], "main": main[0], "h": round(hgt * 0.72, 2)})
 
     # 5b) 작은 덩이: 바위 덩이(비탈·마루), 덤불 덩이(움푹한 곳), 쓰러진 나무 자리(그루터기·뿌리·통나무). 가까이서만 보이는 값싼 소품
@@ -3763,6 +4139,50 @@ def lay_fill(W, P):
             ncl[t] += 1
             F.items.append({"t": t, "p": [round(cx, 1), round(cz, 1)], "n": int(got)})
 
+    # 5b2) w4: 무너진 움막·우리 터. 낮은 돌담 토막(× 0.75~0.95, 3.1~3.9 m) 2~4 개가 네모(3.5~5 × 4~6 m)로 둘러서고 한쪽(문·무너진 곳)이 빈다.
+    #      안에 돌무더기, 가끔 모서리 선돌(문설주)이나 고목. 들판 어디서 봐도 20~30 m 안에 사람이 살던 흔적이 걸리게
+    wh = (open_ * (W.slope < 0.25) * (0.5 + 0.5 * W.hollow + 0.3 * W.crest)).astype(np.float32)
+    huts = fill_pick(W, P, rng, wh, FILL_HUTS, FILL_HUT_GAP, avoid_scene=12.0, avoid_poi=12.0, road_min=8.0)
+    nhut = 0
+    for (cx, cz) in huts:
+        gx_, gz_ = sample(W.gx, cx, cz), sample(W.gz, cx, cz)
+        base = along_yaw(-gz_, gx_) if abs(gx_) + abs(gz_) > 0.02 else rng.uniform(0, 360)    # 긴 벽이 등고선을 따라
+        base += rng.normal(0, 12)
+        hw_, hd_ = rng.uniform(1.8, 2.5), rng.uniform(2.0, 3.0)
+        t_ = math.radians(base)
+        ax_, az_ = math.cos(t_), -math.sin(t_)             # 로컬 X (along_yaw 의 긴 축) 방향
+        bx_, bz_ = -az_, ax_
+        sides = [(0, hd_, base), (0, -hd_, base + 180), (hw_, 0, base + 90), (-hw_, 0, base - 90)]
+        miss = int(rng.integers(0, 4))
+        got = 0
+        for k_, (u, v, yw) in enumerate(sides):
+            if k_ == miss or (got >= 2 and rng.random() < 0.25):
+                continue
+            px, pz = cx + ax_ * u + bx_ * v, cz + az_ * u + bz_ * v
+            n0 = len(P.objects)
+            sc_ = rng.uniform(0.75, 0.95)
+            if P.put("stone_wall_low", px, pz, yaw=yw + (180 if rng.random() < 0.5 else 0) + rng.normal(0, 4), s=sc_, slope=0.3, ground="box",
+                     align=1.0, align_max=FILL_WALL_LEAN, bury_max=FILL_WALL_BURY, ground_margin=rng.uniform(0.0, 0.15), pad=False, r=0.9) \
+                    and len(P.objects) > n0:
+                P.objects[-1]["cull"] = SINGLE_CULL
+                got += 1
+        if got == 0:
+            continue
+        for q in range(int(rng.integers(1, 3))):
+            P.put("rubble" if rng.random() < 0.6 else "rock_c", cx + rng.normal(0, 0.8), cz + rng.normal(0, 0.8), s=rng.uniform(0.8, 1.2), slope=0.5)
+        if rng.random() < 0.35:
+            sd = 1 if rng.random() < 0.5 else -1
+            n0 = len(P.objects)
+            if P.put("standing_stone", cx + ax_ * hw_ * sd + bx_ * (hd_ + 0.4), cz + az_ * hw_ * sd + bz_ * (hd_ + 0.4), s=rng.uniform(0.4, 0.55),
+                     slope=0.4, tilt=8, ground="box", ground_margin=0.1, bury_max=0.4, pad=False) and len(P.objects) > n0:
+                P.objects[-1]["cull"] = SINGLE_CULL
+        elif rng.random() < 0.25:
+            P.put("dead_tree_b" if rng.random() < 0.5 else "dead_tree_c", cx + rng.normal(0, 4.5), cz + rng.normal(0, 4.5), s=rng.uniform(0.85, 1.1))
+        P.stamps.append((cx, cz, rng.uniform(3.0, 4.2), "dirt"))
+        F.items.append({"t": "hut", "p": [round(cx, 1), round(cz, 1)], "n": int(got)})
+        nhut += 1
+    log("  움막 터 %d" % nhut)
+
     # 5c) 낱개: 줄 가장자리·도랑 둑·움푹한 곳·마루·비탈 꺾이는 곳에 큰 덤불·큰 바위·돌무더기·그루터기 하나씩.
     #     짧은 거리(80~260 m)에서 사라지는 값싼 소품이라 그리는 물체 수에는 적게 든다. 눈높이 20~40 m 마다 무엇인가 걸리게
     fill_singles(W, P, rng, F, open_)
@@ -3771,9 +4191,15 @@ def lay_fill(W, P):
     barrow_sc = [s_["p"] for s_ in W.scenes if s_["type"] == "barrow"]
     far_barrow = lambda x, z: all((x - a) ** 2 + (z - b) ** 2 > 150 ** 2 for a, b in barrow_sc)
     wb = (W.crest + 0.5 * ss(-W.slope, -0.2, -0.05)) * open_
-    bars = fill_pick(W, P, rng, wb.astype(np.float32), FILL_BARROWS, 130.0, avoid_scene=25.0, road_min=12.0, extra_ok=far_barrow)
+    bars = fill_pick(W, P, rng, wb.astype(np.float32), FILL_BARROWS * 3, 130.0, avoid_scene=25.0, road_min=12.0, extra_ok=far_barrow)
+    upright = np.array([(o["p"][0], o["p"][2]) for o in P.objects if o["a"] in ("stone_wall_low", "iron_fence", "standing_stone", "fence")]) \
+        if P.objects else np.zeros((0, 2))
     for (cx, cz) in bars:
+        if sum(1 for it in F.items if it["t"] == "barrow") >= FILL_BARROWS:
+            break
         R = rng.uniform(6.5, 8.5)
+        if len(upright) and np.min((upright[:, 0] - cx) ** 2 + (upright[:, 1] - cz) ** 2) < (R + 3.0) ** 2:
+            continue                                    # w4: 먼저 세운 돌담·울타리·선돌이 둔덕에 한쪽만 묻히지 않게
         if not P.terraform(cx, cz, 0.0, R, "mound", rng.uniform(0.9, 1.35), max_slope=0.55):
             continue
         fy = rng.uniform(0, 360)
@@ -3781,6 +4207,18 @@ def lay_fill(W, P):
         hx, hz = cx + math.sin(t) * R * 0.55, cz + math.cos(t) * R * 0.55
         P.put("standing_stone", hx, hz, yaw=fy + rng.normal(0, 8), s=rng.uniform(0.55, 0.72), slope=None, ground="box", ground_margin=0.35)
         P.put("grave_sunken", cx + rng.normal(0, 0.6), cz + rng.normal(0, 0.6), yaw=fy, s=rng.uniform(0.95, 1.15), slope=0.6)
+        # w4: 둔덕 발치의 작은 선돌 고리 (1.3~1.9 m, 몇은 빠지고 몇은 기울었다). 장면 '선돌 무덤 둔덕'보다 작고 성기다
+        nr = int(rng.integers(6, 10))
+        a0 = rng.uniform(0, 2 * math.pi)
+        for q in range(nr):
+            if rng.random() < 0.2:
+                continue
+            a = a0 + (q + rng.uniform(-0.15, 0.15)) / nr * 2 * math.pi
+            rx_, rz_ = cx + math.cos(a) * (R + 0.6), cz + math.sin(a) * (R + 0.6)
+            if (rx_ - hx) ** 2 + (rz_ - hz) ** 2 < 2.5 ** 2:
+                continue
+            P.put("standing_stone", rx_, rz_, yaw=yaw_to(cx - rx_, cz - rz_) + rng.normal(0, 10), s=rng.uniform(0.42, 0.6),
+                  slope=0.5, ground="box", ground_margin=0.15, tilt=16 if rng.random() < 0.25 else None, bury_max=0.4)
         for q in range(int(rng.integers(2, 4))):
             a = rng.uniform(0, 2 * math.pi)
             P.put("rock_c", cx + math.cos(a) * R * 0.8, cz + math.sin(a) * R * 0.8, s=rng.uniform(0.9, 1.3), slope=0.6)
@@ -3789,6 +4227,9 @@ def lay_fill(W, P):
         for q in range(int(rng.integers(2, 5))):
             a = rng.uniform(0, 2 * math.pi)
             P.put("flower_lily", cx + math.cos(a) * (R + 0.8), cz + math.sin(a) * (R + 0.8))
+        for q in range(int(rng.integers(2, 4))):                 # 선돌 발치의 초 (발광 부품)
+            P.put("candles", hx + rng.normal(0, 0.7), hz + rng.normal(0, 0.7), slope=0.6)
+        field_wisp(W, P, rng, cx, cz, up=(1.8, 2.4))
         P.reserve(cx, cz, R * 0.7)
         P.stamps.append((cx, cz, R * 0.9, "moss"))
         F.items.append({"t": "barrow", "p": [round(cx, 1), round(cz, 1)], "r": round(R, 1)})
@@ -3800,7 +4241,7 @@ def lay_fill(W, P):
             for q in range(int(rng.integers(1, 3))):
                 P.put("rock_c", cx + rng.normal(0, 1.6), cz + rng.normal(0, 1.6), slope=0.6)
             F.items.append({"t": "stone", "p": [round(cx, 1), round(cz, 1)], "s": round(s, 2)})
-    rows = fill_pick(W, P, rng, ws.astype(np.float32), FILL_ROWS, 250.0, avoid_scene=25.0, road_min=14.0)
+    rows = fill_pick(W, P, rng, ws.astype(np.float32), FILL_ROWS, FILL_ROW_GAP, avoid_scene=25.0, road_min=14.0)
     for (cx, cz) in rows:
         gx_, gz_ = sample(W.gx, cx, cz), sample(W.gz, cx, cz)
         tv = np.array([-gz_, gx_]) if abs(gx_) + abs(gz_) > 1e-3 else np.array([1.0, 0.0])
@@ -3812,10 +4253,58 @@ def lay_fill(W, P):
             o = (q - (n - 1) / 2) * sp
             x, z = cx + tv[0] * o + rng.normal(0, 0.4), cz + tv[1] * o + rng.normal(0, 0.4)
             if P.put("standing_stone", x, z, yaw=along_yaw(*tv) + rng.normal(0, 10), s=rng.uniform(0.45, 0.7) * (1.15 if q == n // 2 else 1.0),
-                     slope=0.45, ground="box", ground_margin=0.35):
+                     slope=0.45, ground="box", ground_margin=0.25, bury_max=0.4):
                 got += 1
         if got:
             F.items.append({"t": "stone_row", "p": [round(cx, 1), round(cz, 1)], "n": got})
+            for q in range(int(rng.integers(4, 8))):                  # 선돌 발치 발광 버섯
+                o = (rng.uniform(-0.5, 0.5) * n) * sp
+                P.put("mushroom_glow", cx + tv[0] * o + rng.normal(0, 1.0), cz + tv[1] * o + rng.normal(0, 1.0))
+            field_wisp(W, P, rng, cx, cz)
+
+    # 6b) w4: 들판 전장 흔적 깃발 (언덕 마루·능선). 찢긴 깃발 1~2 (4~5 m 세로 실루엣) + 발치의 쓰러진 전사·해골
+    wfl = ((W.crest * 1.3 + 0.3 * ss(W.slope, 0.05, 0.2) + 0.15) * open_).astype(np.float32)
+    flags = fill_pick(W, P, rng, wfl, FILL_BANNERS, 110.0, avoid_scene=25.0, road_min=12.0)
+    nflag = 0
+    for (cx, cz) in flags:
+        got = 0
+        for q in range(1 + (rng.random() < 0.45)):
+            x, z = (cx, cz) if q == 0 else (cx + rng.normal(0, 3.0), cz + rng.normal(0, 3.0))
+            got += P.put("banner_torn", x, z, s=rng.uniform(0.95, 1.2), slope=0.4, tilt=11)
+        if not got:
+            continue
+        for q in range(int(rng.integers(1, 3))):
+            P.put("skeleton_remains", cx + rng.normal(0, 2.4), cz + rng.normal(0, 2.4), slope=0.5)
+        for q in range(int(rng.integers(1, 4))):
+            P.put("skull", cx + rng.normal(0, 3.0), cz + rng.normal(0, 3.0), slope=0.6)
+        P.put("rubble" if rng.random() < 0.5 else "rock_c", cx + rng.normal(0, 2.5), cz + rng.normal(0, 2.5), slope=0.6)
+        P.stamps.append((cx, cz, rng.uniform(2.5, 3.8), "dirt"))
+        F.items.append({"t": "banner", "p": [round(cx, 1), round(cz, 1)], "n": int(got)})
+        nflag += 1
+    # 6c) w4: 들판 영혼 수정 무리 (움푹한 곳·도랑 가). 큰 수정 하나가 등대 빛, 곁의 작은 수정은 가까이서만 켠다 (SMALL_GLOW_FAR).
+    #     장소 둘레(광원이 몰린 곳)는 피한다
+    wcr = ((W.hollow * 1.5 + 0.1) * open_ * (W.slope < 0.3)).astype(np.float32)
+    crys = fill_pick(W, P, rng, wcr, FILL_CRYSTALS, 150.0, avoid_scene=30.0, avoid_poi=110.0, road_min=14.0)
+    ncry = 0
+    for (cx, cz) in crys:
+        if not P.put("soul_crystal", cx, cz, s=rng.uniform(0.9, 1.15), slope=0.3, stamp=("rock", 1.3)):
+            continue
+        for q in range(int(rng.integers(1, 3))):
+            a, d = rng.uniform(0, 2 * math.pi), rng.uniform(1.9, 3.2)
+            n0 = len(P.objects)
+            if P.put("soul_crystal", cx + math.cos(a) * d, cz + math.sin(a) * d, s=rng.uniform(0.6, 0.78), slope=0.4) and len(P.objects) > n0:
+                P.objects[-1]["far"] = SMALL_GLOW_FAR
+        for q in range(int(rng.integers(1, 3))):
+            a, d = rng.uniform(0, 2 * math.pi), rng.uniform(3.0, 5.5)
+            P.put("rock_b" if rng.random() < 0.5 else "rock_flat", cx + math.cos(a) * d, cz + math.sin(a) * d, s=rng.uniform(0.7, 1.0), slope=None,
+                  ground="box", align_max=30, stamp=("rock", 1.2))
+        for q in range(int(rng.integers(3, 6))):
+            P.put("mushroom_glow", cx + rng.normal(0, 2.2), cz + rng.normal(0, 2.2))
+        W.fx.append({"type": "wisps", "p": [float(cx), P.height(cx, cz) + 1.0, float(cz)], "r": 6})
+        P.stamps.append((cx, cz, 4.0, "moss"))
+        F.items.append({"t": "crystal", "p": [round(cx, 1), round(cz, 1)]})
+        ncry += 1
+    log("  들판 깃발 %d, 들판 수정 무리 %d" % (nflag, ncry))
 
     # 7) 마른 도랑: 바닥 돌·둑의 뿌리·덤불·유령 백합
     for dt in W.ditches:
@@ -3879,6 +4368,7 @@ def lay_fill(W, P):
             continue
         if P.put("flower_lily", x, z, slope=0.6):
             shore += 1
+    F.items.extend(getattr(W, "foot_items", []))         # 벼랑 밑동 바위 무리 (lay_mountain_foot)
     P.rng = main_rng
     W.fill = F
     log("  작은 덩이:", dict(ncl))
@@ -3952,6 +4442,110 @@ def lay_effects(W, P):
         W.lights.append({"p": [round(x, 2), round(P.height(x, z) + 2.2, 2), round(z, 2)], "c": SOUL, "i": 3.0, "r": 8.0, "flicker": True})
 
 
+BEACON_LAMP = "lantern"        # 발광 소품이 없는 등대 빛 자리에 두는 발광 소품 (새 소품 화로·영혼 수정·사당이 생기면 그 소품이 맡는다)
+BEACON_EMIT_H = 0.9            # 등대 빛을 맡길 발광 소품의 최소 키 (m). 초·버섯·연꽃은 100 m 밖에서 점 하나라 맡기지 않는다
+BEACON_NEAR = 1.6              # 등대 빛과 발광 소품 광원 사이 최대 거리 (m, 땅 위 평면)
+# w4: 장면 틀마다 등대 빛을 맡을 발광 소품 (없으면 BEACON_LAMP). 같은 등불이 장면마다 되풀이되지 않게 진짜 화로·영혼 수정을 쓴다
+BEACON_BY_SCENE = {"barrow": ("soul_crystal", (0.85, 1.0)), "battle": ("brazier", None), "chapel": ("brazier", None),
+                   "pyre": ("brazier", None), "crossroad": ("brazier", None)}
+
+
+def beacon_emitters(W, P):
+    """v3 검토 반영: Unity 점광원은 광원 자체가 화면에 보이지 않는다 (밝혀진 땅만 보인다). 그래서 등대 빛(far)은 반드시
+    발광 부품이 있는 소품의 광원이어야 한다. 따로 놓은 등대 빛(objects.json lights 의 far)마다:
+      1) BEACON_NEAR 안에 키 BEACON_EMIT_H 넘는 발광 소품의 광원이 있으면 그 소품에 far 를 넘기고 (objects[].far) 따로 놓은 빛은 뺀다
+      2) 없으면 그 자리 둘레에 등불(BEACON_LAMP)을 두고 far 를 넘긴다
+      3) 둘 다 안 되면: 물 위(늪·호수의 도깨비불)는 등대 빛을 그만두고 (far 를 빼서) 보통 도깨비불로 남긴다. 그 밖은 남기고 센다 (목표 0)
+    w4: 장면의 등대 빛은 틀마다 다른 발광 소품(BEACON_BY_SCENE: 무덤 둔덕 = 영혼 수정, 전장·예배당·화장터 = 화로)이 맡는다.
+    장면 기록(_scenes.json)의 beacon 자리도 고친다"""
+    emit = []
+    for k, o in enumerate(P.objects):
+        m = P.meta.get(o["a"], {})
+        lt = m.get("light")
+        if not lt or m.get("kind") == "tree":
+            continue
+        hz = (m.get("_size") or [0, 0, 0])[2] * o["s"]
+        if hz < BEACON_EMIT_H:
+            continue
+        q = quat_mat(o["q"])
+        ox, oy, oz = -lt["offset"][0] * o["s"], lt["offset"][2] * o["s"], -lt["offset"][1] * o["s"]   # 소품 Blender 축 (x, y, z) → Unity 로컬 (−x, z, −y) (SPEC C_o)
+        wx = q[0, 0] * ox + q[0, 1] * oy + q[0, 2] * oz
+        wz = q[2, 0] * ox + q[2, 1] * oy + q[2, 2] * oz
+        wy = q[1, 0] * ox + q[1, 1] * oy + q[1, 2] * oz
+        emit.append((o["p"][0] + wx, o["p"][1] + wy, o["p"][2] + wz, k))
+    E = np.array([(a, c) for a, b, c, k in emit], np.float64) if emit else np.zeros((0, 2))
+    keep, moved, lamps, bare, wet = [], 0, collections.Counter(), [], 0
+    rng = P.rng
+    scene_by_beacon = {}
+    for sc_ in W.scenes:
+        if sc_.get("beacon"):
+            scene_by_beacon[(round(sc_["beacon"][0], 1), round(sc_["beacon"][2], 1))] = sc_
+    for l in W.lights:
+        if not l.get("far"):
+            keep.append(l)
+            continue
+        x, y, z = l["p"]
+        new_b = None
+        if len(E):
+            d2 = (E[:, 0] - x) ** 2 + (E[:, 1] - z) ** 2
+            j = int(np.argmin(d2))
+            if d2[j] <= BEACON_NEAR ** 2:
+                o = P.objects[emit[j][3]]
+                o["far"] = max(float(o.get("far", 0.0)), float(l["far"]))
+                new_b = (emit[j][0], emit[j][1], emit[j][2], o["far"])
+                moved += 1
+        sc_ = scene_by_beacon.get((round(x, 1), round(z, 1)))
+        if new_b is None:
+            spots = [(0.0, 0.0)] + [(math.cos(t) * r_, math.sin(t) * r_) for r_, n_ in ((1.0, 6), (2.0, 8), (3.2, 10), (5.0, 12), (7.5, 14),
+                                                                                       (10.0, 16), (12.5, 18))
+                                     for t in np.linspace(0, 2 * math.pi, n_, endpoint=False) + rng.uniform(0, 1)]
+            pref, psc = BEACON_BY_SCENE.get(sc_["type"], (BEACON_LAMP, None)) if sc_ is not None else (BEACON_LAMP, None)
+            if pref not in P.meta:
+                pref, psc = BEACON_LAMP, None
+            ok = False
+            for lamp in ([pref, BEACON_LAMP] if pref != BEACON_LAMP else [BEACON_LAMP]):
+                for chk in (True, False):
+                    for (dx, dz) in spots:
+                        px, pz = x + dx, z + dz
+                        if not chk and not P.ok_ground(px, pz, 0.5, True, True, 0.6):
+                            continue
+                        n0 = len(P.objects)
+                        s_ = rng.uniform(*psc) if (psc and lamp == pref) else None
+                        if P.put(lamp, px, pz, yaw=rng.uniform(0, 360), s=s_, slope=0.6, check=chk) and len(P.objects) > n0:
+                            o = P.objects[-1]
+                            o["far"] = float(l["far"])
+                            lt = P.meta[lamp]["light"]
+                            new_b = (o["p"][0], o["p"][1] + lt["offset"][2] * o["s"], o["p"][2], o["far"])
+                            ok = True
+                            break
+                    if ok:
+                        break
+                if ok:
+                    break
+            if ok:
+                lamps[lamp] += 1
+            elif P.under_water(x, z, 0.0) or P.under_water(x, z, 0.6):
+                l.pop("far", None)                     # 물 위 도깨비불: 등대 빛을 그만두고 보통 빛으로
+                keep.append(l)
+                wet += 1
+                continue
+            else:
+                keep.append(l)
+                bare.append((round(x, 1), round(z, 1)))
+                continue
+        if sc_ is not None and new_b is not None:
+            sc_["beacon"] = [round(float(v), 2) for v in new_b]
+    W.lights = keep
+    log("등대 빛 발광체: 발광 소품에 넘김 %d, 발광 소품을 둠 %d %s, 물 위라 보통 빛으로 %d, 발광체 없이 남은 등대 빛 %d %s" % (
+        moved, sum(lamps.values()), dict(lamps), wet, len(bare), bare[:6]))
+
+
+# w4: 월드에서 소품이 사라지는 화면 높이(LODGroup 마지막 전환 높이)를 META.cull 보다 크게 덮어쓴다 (objects[].cull, SPEC.md).
+# 진짜 돌담·깃발·선돌이 META.cull 로 700~1000 m 까지 그려져 숲 가장자리에서 그리는 물체 수(예산 2,000)를 넘겼다.
+# 그 거리에서는 몇 화소라 보이지 않는다. 값 → 크기 1 에서 사라지는 거리: 돌담 4.14 / (1.04 × 0.012) ≈ 330 m, 깃발 ≈ 510 m,
+# 선돌 ≈ 435 m, 쓰러진 나무 ≈ 320 m, 큰 바위 ≈ 380 m, 낮은 기둥 ≈ 320 m
+WORLD_CULL = {"stone_wall_low": 0.012, "banner_torn": 0.008, "standing_stone": 0.007, "log_fallen": 0.016, "rock_b": 0.01, "pillar_a": 0.012}
+
 LIGHT_TRIM = {"candles": 0, "mushroom_glow": 0, "mushroom_toxic": 0, "lotus_glow": 1}   # 광원 예산을 넘는 곳에서 먼저 빼는 작은 광원
 # LightCuller 정책 (Assets/_Necro/Scripts/World/LightCuller.cs 기본값과 맞춘다): 광원마다 끄는 거리 = far(있으면) 또는
 # clamp(range × 12, 30, 200). 그 거리 안의 광원이 '켜 둘 후보'이고, 후보가 maxActive(48)를 넘으면 (거리/끄는 거리) 비율이 큰 것부터 꺼진다
@@ -3977,11 +4571,11 @@ def trim_lights(W, P, limit=46, step=4.0):
             pos.append((o["p"][0], o["p"][2]))
             pri.append(LIGHT_TRIM.get(o["a"], 9))
             src.append(k)
-            rad.append(cull_radius(lt.get("range", 8.0), lt.get("far")) + CULL_HYST)
-    for l in W.lights:
+            rad.append(cull_radius(lt.get("range", 8.0), o.get("far") or lt.get("far")) + CULL_HYST)
+    for li, l in enumerate(W.lights):
         pos.append((l["p"][0], l["p"][2]))
-        pri.append(9)
-        src.append(-1)
+        pri.append(2 if l.get("weak") else 9)               # 약한 떠도는 빛은 초·버섯 다음으로 뺀다
+        src.append(-2 - li)
         rad.append(cull_radius(l["r"], l.get("far")) + CULL_HYST)
     L = np.array(pos, np.float64)
     pri = np.array(pri)
@@ -4012,6 +4606,11 @@ def trim_lights(W, P, limit=46, step=4.0):
         dd = (gx - L[j, 0]) ** 2 + (gz - L[j, 1]) ** 2
         cnt -= (dd <= R2[j]).astype(np.int32)
         n80 -= (dd < 6400.0).astype(np.int32)
+    dropl = set(-2 - src[j] for j in np.nonzero(~alive)[0] if src[j] <= -2)
+    if dropl:
+        W.lights = [l for li, l in enumerate(W.lights) if li not in dropl]
+    for l in W.lights:
+        l.pop("weak", None)
     drop = set(src[j] for j in np.nonzero(~alive)[0] if src[j] >= 0)
     if drop:
         for k in drop:
@@ -4022,7 +4621,8 @@ def trim_lights(W, P, limit=46, step=4.0):
         remap = {old: new for new, old in enumerate(keep_idx)}
         P.boxed = [(remap[k], f) for (k, f) in P.boxed if k in remap]
         P.objects = [P.objects[k] for k in keep_idx]
-    nfar = sum(1 for l in W.lights if l.get("far")) + sum(1 for o in P.objects if (P.meta.get(o["a"], {}).get("light") or {}).get("far"))
+    nfar = sum(1 for l in W.lights if l.get("far")) + sum(1 for o in P.objects if (P.meta.get(o["a"], {}).get("light") or {}).get("far") or o.get("far"))
+    log("  약한 떠도는 빛 뺌 %d 개" % len(dropl))
     log("광원 예산 (LightCuller 정책 흉내): 켜 둘 후보 최대 %d → %d (작은 광원 %d 개 뺌, 한도 %d / maxActive %d), 80 m 안 최대 %d → %d, "
         "점광원 합 %d, 등대 빛(far) %d" % (before, int(cnt.max()), removed, limit, CULL_ACTIVE, before80, int(n80.max()), int(alive.sum()), nfar))
 
@@ -4365,6 +4965,10 @@ def save_all(W, P, out, water):
     json.dump({"prototypes": P.protos, "instances": P.trees}, open(os.path.join(data, "trees.json"), "w"), separators=(",", ":"))
     for f in W.fx:
         f["p"] = [round(float(v), 2) for v in f["p"]]
+    for o in P.objects:                    # w4: 소품별 컬링 높이 덮어쓰기 (WORLD_CULL, objects[].cull)
+        c = WORLD_CULL.get(o["a"])
+        if c and "cull" not in o:                # 이미 정한 것(낱개 SINGLE_CULL)은 그대로
+            o["cull"] = c
     json.dump({"objects": P.objects, "lights": W.lights, "water": water, "fx": W.fx},
               open(os.path.join(data, "objects.json"), "w"), ensure_ascii=False, separators=(",", ":"))
     hs = sample(W.h, *SPAWN)
@@ -4562,6 +5166,7 @@ def main():
     log("배치: 작은 장면")
     forest_plan(W)
     lay_vignettes(W, P, seed)
+    lay_foot_scenes(W, P)
     log("배치: 숲·산기슭·들판")
     for c, R, dens, fseed, cl in FORESTS:
         lay_forest(W, P, c, R, dens, fseed, clearings=cl)
@@ -4571,6 +5176,7 @@ def main():
     scene_report(W, P)
     scene_zones(W)
     lay_effects(W, P)
+    beacon_emitters(W, P)
     trim_lights(W, P)
     log("지형 고치기: 큰 소품 밑 평탄화 %d 번, 평탄화로도 안 돼 뺀 큰 소품 %d 개 %s, 기울기 넘어 되돌림 %d 번" % (
         P.pads, P.pad_reject, dict(P.pad_reject_by), P.tf_undo))

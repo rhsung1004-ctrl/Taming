@@ -929,10 +929,10 @@ def grave_slab_a():
     # contrast·pivot: 밝은 곳은 그대로, 어두운 곳은 더 어둡게 (게임 시점 p90/평균 대비를 이전보다 크게). gain: 평균은 이전 ±10%
     # v3c: 버려진 묘비답게 — 윗변·받침 윗면 이끼 덩어리(moss 0.45 → 0.95, 덩어리 크게), 꼭대기에서 흘러내린 빗물 때(rain),
     # 받침과 만나는 곳 위로 튄 흙물(splash, 받침 윗면 z 0.15)
-    m = paint3("slab_a", 'stone', h=1.1, k=1.0, moss=0.95, moss_patch=1.7, moss_low=0.7, moss_low_h=0.4, dirt=0.7, dirt_h=0.2,
+    m = paint3("slab_a", 'stone', h=1.1, k=1.0, moss=1.0, moss_patch=1.3, moss_low=0.7, moss_low_h=0.4, dirt=0.7, dirt_h=0.2,
                tooling=0.45, streaks=0.35, stains=0.8, lichen=0.5, edge=0.8, edge_w=0.009, edge_gain=0.85, edge_mode='attr',
-               piece_val=0.06, cavity=1.0, contrast=0.3, pivot=0.2, gain=1.12, rain=1.0, rain_h=0.8,
-               splash=0.9, splash_z=0.15, splash_h=0.18)
+               piece_val=0.06, cavity=1.0, contrast=0.3, pivot=0.2, gain=1.12, rain=1.0, rain_h=0.7, rain_color=(0.2, 0.24, 0.21),
+               splash=0.95, splash_z=0.15, splash_h=0.22, light=0.85)
     blotch(m, (0.3, 0.31, 0.27), 3.5, 0.65, 0.45, 0.62)     # v3c: 물때·풍화 얼룩 (넓고 부드럽게 — 새로 다듬은 돌처럼 고르지 않게)
     set_mat(body, m)
     print("LOW grave_slab_a", tri_count(low))

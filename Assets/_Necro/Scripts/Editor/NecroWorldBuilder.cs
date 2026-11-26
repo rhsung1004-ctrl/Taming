@@ -46,7 +46,7 @@ namespace Necro.EditorTools
         // ───────────── 읽은 데이터 ─────────────
         class LayerDesc { public string name, albedo, normal; public float tile = 6f, smoothness = 0.05f; }
         class DetailDesc { public string asset; public float maxPerCell = 3f, minScale = 0.8f, maxScale = 1.3f; }
-        class ObjDesc { public string a; public Vector3 p; public Quaternion q = Quaternion.identity; public float s = 1f; }
+        class ObjDesc { public string a; public Vector3 p; public Quaternion q = Quaternion.identity; public float s = 1f; public float far; public float cull; }   // far: 이 소품 광원의 끄는 거리 덮어쓰기 (0 = 없음), cull: 사라지는 화면 높이 덮어쓰기 (0 = 프리팹 그대로)
         class LightDesc { public Vector3 p; public Color c; public float i, r, far; public bool flicker; }   // far: 끄는 거리 덮어쓰기 (0 = 없음)
         class WaterDesc { public Vector3 p; public Vector2 size; public float yaw; }
         class FxDesc { public string type; public Vector3 p; public float r; }
@@ -430,6 +430,8 @@ namespace Necro.EditorTools
                         else o.q = new Quaternion(q[0] / len, q[1] / len, q[2] / len, q[3] / len);   // (x, y, z, w) Unity 좌표
                     }
                     o.s = (float)ctx.Num(d, "s", where, 1, false);
+                    o.far = Mathf.Max(0f, (float)ctx.Num(d, "far", where, 0, false));     // 등대 빛 소품 (발광 부품이 있는 소품의 광원을 멀리까지)
+                    o.cull = Mathf.Clamp((float)ctx.Num(d, "cull", where, 0, false), 0f, 0.5f);   // 월드에서 더 일찍 사라지게 (먼 돌담·깃발 그리는 물체 수 줄이기)
                     w.objects.Add(o);
                 }
 
@@ -885,9 +887,38 @@ namespace Necro.EditorTools
                 go.transform.localRotation = o.q;
                 go.transform.localScale = Vector3.one * o.s;
                 if (go.GetComponentInChildren<Light>(true) != null) st.propLights++;
+                if (o.cull > 0f) RaiseCull(go, o.cull);
+                if (o.far > 0f)
+                {
+                    // 등대 빛: 발광 부품이 있는 소품의 광원을 LightCuller 가 far 에서 끈다 (광원 자체는 화면에 보이지 않으므로 등대 빛은 발광체 위에 둔다)
+                    foreach (var lt in go.GetComponentsInChildren<Light>(true))
+                    {
+                        var cd = lt.GetComponent<LightCullDistance>();
+                        if (cd == null) cd = lt.gameObject.AddComponent<LightCullDistance>();
+                        cd.far = o.far;
+                        PrefabUtility.RecordPrefabInstancePropertyModifications(cd);   // 프리팹에 이미 있던 컴포넌트 값을 바꾼 것도 장면에 남게
+                    }
+                }
                 st.props++;
             }
             if (st.skippedObjects > 0) warnings.Add("소품 " + st.skippedObjects + "개를 뺐어요 (프리팹 없음)");
+        }
+
+        // objects[].cull: 이 놓인 소품의 LODGroup 마지막 전환 높이(사라지는 화면 높이)를 cull 로 올린다 (프리팹 값이 더 크면 그대로).
+        // 앞 LOD 들은 순서가 뒤집히지 않게 바로 뒤 LOD 보다 조금 크게 맞춘다 (perf_common.load_instances 와 같은 규칙)
+        static void RaiseCull(GameObject go, float cull)
+        {
+            var lg = go.GetComponent<LODGroup>();
+            if (lg == null) return;
+            var lods = lg.GetLODs();
+            int n = lods.Length;
+            if (n == 0 || lods[n - 1].screenRelativeTransitionHeight >= cull) return;
+            lods[n - 1].screenRelativeTransitionHeight = cull;
+            for (int i = n - 2; i >= 0; i--)
+                if (lods[i].screenRelativeTransitionHeight <= lods[i + 1].screenRelativeTransitionHeight)
+                    lods[i].screenRelativeTransitionHeight = Mathf.Min(0.99f, lods[i + 1].screenRelativeTransitionHeight + 0.002f);
+            lg.SetLODs(lods);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(lg);   // 프리팹 인스턴스의 값 바꾸기를 장면에 남긴다 (안 하면 다시 열 때 프리팹 값으로 돌아갈 수 있다)
         }
 
         static void BuildLights(WorldData w, Stats st)

@@ -271,7 +271,7 @@ def props(cam_u, radius=None):
         g = groups.setdefault(d["a"], ([], [], []))
         g[0].append(tuple(u2b(p))); g[1].append(tuple(Mb.to_euler('XYZ'))); g[2].append(d["s"])
         li = MAN.get(d["a"], {}).get("light")
-        if li and (p[0] - cx) ** 2 + (p[2] - cz) ** 2 < cull_r(li.get("range", 8.0), li.get("far")) ** 2:
+        if li and (p[0] - cx) ** 2 + (p[2] - cz) ** 2 < cull_r(li.get("range", 8.0), d.get("far") or li.get("far")) ** 2:   # 소품별 far (등대 빛 소품)
             off = Mb @ (Vector(li["offset"]) * d["s"])
             lights.append((u2b(p) + off, li["color"], li["intensity"], li["range"]))
     protos = TREES["prototypes"]
