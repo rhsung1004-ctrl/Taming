@@ -41,6 +41,7 @@ namespace Necro.EditorTools
         // 풀 밀도 배율. 풀 프로토타입이 useDensityScaling = true 라 모든 풀이 고르게 줄어든다
         // (품질 설정의 terrainDetailDensityScale 이 한 번 더 곱해진다). 1 = 생성기 밀도 그대로
         const float DetailDensity = 0.75f;
+        const int MaxDetails = 12;          // detail_0/1/2.png (RGBA × 3): 풀 6종 + 땅 잡동사니 6종
         static readonly string[] FxTypes = { "mist", "wisps", "soulfire", "fireflies" };
         static readonly string Title = "1장 오픈월드 만들기";
 
@@ -66,7 +67,7 @@ namespace Necro.EditorTools
             public float fogDensity;
             public Vector2 mapMin, mapSize;                       // 지도 그림이 덮는 범위 (world.json map, 없으면 지형 전체)
             public ushort[] heights;                              // heightRes × heightRes, 행 = Z(남→북), 열 = X(서→동)
-            public Color32[] splat0, splat1, detail0, detail1;   // GetPixels32: 행 0 = 아래 줄 = 남쪽
+            public Color32[] splat0, splat1, detail0, detail1, detail2;   // GetPixels32: 행 0 = 아래 줄 = 남쪽. detail2 = 땅 잡동사니
             public List<string> treeProtos = new List<string>();
             public List<float[]> trees = new List<float[]>();     // [proto, x, z, yawDeg, scale]
             public List<ObjDesc> objects = new List<ObjDesc>();
@@ -269,8 +270,8 @@ namespace Necro.EditorTools
             var details = ctx.Arr(root, "details", "전체", false);
             if (details != null)
             {
-                if (details.Count > 8) ctx.Fail("details", "풀 종류는 8개까지입니다 (지금 " + details.Count + ")");
-                for (int i = 0; i < details.Count && i < 8; i++)
+                if (details.Count > MaxDetails) ctx.Fail("details", "풀·잡동사니 종류는 " + MaxDetails + "개까지입니다 (지금 " + details.Count + ")");
+                for (int i = 0; i < details.Count && i < MaxDetails; i++)
                 {
                     string where = "details[" + i + "]";
                     var d = ctx.Obj(details[i], where);
@@ -358,6 +359,7 @@ namespace Necro.EditorTools
             if (w.layers.Count > 4) w.splat1 = LoadPng("splat_1.png", w.splatRes, errors);
             if (w.details.Count > 0) w.detail0 = LoadPng("detail_0.png", w.detailRes, errors);
             if (w.details.Count > 4) w.detail1 = LoadPng("detail_1.png", w.detailRes, errors);
+            if (w.details.Count > 8) w.detail2 = LoadPng("detail_2.png", w.detailRes, errors);   // 땅 잡동사니
 
             ReadTrees(w, errors);
             ReadObjects(w, errors, warnings);
@@ -804,7 +806,7 @@ namespace Necro.EditorTools
                     {
                         if (channelToProto[k] < 0) continue;
                         long sum;
-                        var px = k < 4 ? w.detail0 : w.detail1;
+                        var px = k < 4 ? w.detail0 : k < 8 ? w.detail1 : w.detail2;
                         td.SetDetailLayer(0, 0, channelToProto[k], NecroWorldGrid.TileDetails(px, k & 3, w.detailRes, n, tx, tz, w.details[k].maxPerCell, k, out sum));
                         st.details += sum;
                     }
