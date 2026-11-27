@@ -22,6 +22,7 @@ Assets/_Necro/Art/World/Ch1/
     height.r16                높이: uint16 리틀엔디언, 2049 × 2049, 행 = Z(남→북), 열 = X(서→동). 0~65535 → 0~world.height m
     splat_0.png, splat_1.png  지형 층 무게 RGBA (층 0~3, 4~7). 2048 × 2048. PNG 맨 윗줄 = 북쪽 끝
     detail_0.png, detail_1.png 풀 밀도 RGBA (풀 종류 0~3, 4~7). 2048 × 2048 (1m 칸). 0~255 → 칸당 0~maxPerCell 개
+    detail_2.png              땅 잡동사니 밀도 RGBA (details 8~11: 작은 돌·잔가지·뼈 조각·마른 잎 …). details 가 8 개 넘을 때만 있다
                               화소 정렬: splat/detail 화소 (열 i, 아래에서 j 번째 줄) = 높이 격자점 (x = i, z = j) 의 값.
                               Unity 도구는 알파맵을 그 위치에서 읽고, 풀 칸 c([c, c+1) m)는 화소 c, c+1 (가로·세로 넷)의 평균을 쓴다
     trees.json                지형 나무 인스턴스
@@ -47,7 +48,7 @@ Assets/_Necro/Art/World/Ch1/
   "layers": [                         // 지형 층 (최대 8). 순서 = splat 채널 순서
     {"name": "grass", "albedo": "ground_grass_albedo.jpg", "normal": "ground_grass_normal.png", "tile": 6.0, "smoothness": 0.05}
   ],
-  "details": [                        // 풀 종류 (최대 8). 순서 = detail 채널 순서
+  "details": [                        // 풀·땅 잡동사니 종류 (최대 12). 순서 = detail 채널 순서 (0~3 detail_0, 4~7 detail_1, 8~11 detail_2)
     {"asset": "grass_a", "maxPerCell": 3, "minScale": 0.8, "maxScale": 1.3}
   ],
   "pois": [                           // 이름 있는 장소 (발견 알림, 지도 표시)
@@ -115,7 +116,7 @@ META 항목은 `Tools/BlenderKit/README.md` 참고. 단 `kind` 는 다섯 가지
 | `scatter` | objects.json (작은 흩뿌림: 해골·초·꽃·버섯. 풀에 가리지 않게 둘레 풀을 조금 넓게 걷는다) | 일반 프리팹 (prop 과 같다) |
 | `landmark` | objects.json (큰 구조물) | 일반 프리팹 (가림 컬링의 가리는 쪽) |
 | `tree` | trees.json | 지형 나무 프로토타입 (충돌은 캡슐, `collider: none` 이면 없음) |
-| `detail` | world.json `details` + detail_*.png | 지형 풀 (전용 재질 `Foliage_Detail`) |
+| `detail` | world.json `details` + detail_*.png | 지형 풀 (전용 재질 `Foliage_Detail`). 땅 잡동사니(clutter 묶음)도 kind detail 이지만 재질 슬롯이 Main 이라 소품과 같은 굽기 재질(URP Lit, 인스턴싱 켬)로 그린다 |
 
 ## cliffs.bin (산 벽 덮개, w6a)
 

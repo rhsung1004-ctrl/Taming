@@ -2,7 +2,7 @@
 # 1장 오픈월드 생성기 (버려진 묘지 들판, 지형 2 km × 2 km, 걸어 다니는 범위 1.33 km)
 #   python3 worldgen.py <출력 폴더(Ch1)> <소품 manifest.json 또는 manifest_*.json 이 있는 폴더> [씨앗]
 # 결과 (규격: SPEC.md)
-#   <출력>/Data~/world.json, height.r16, splat_0/1.png, detail_0/1.png, trees.json, objects.json, cliffs.bin (산 벽 덮개, cliffskin.py)
+#   <출력>/Data~/world.json, height.r16, splat_0/1.png, detail_0/1/2.png (2 = 땅 잡동사니), trees.json, objects.json, cliffs.bin (산 벽 덮개, cliffskin.py)
 #   <출력>/Terrain/ground_*  (groundtex.py 가 만든다. 없으면 여기서 부른다)
 #   <출력>/map.png, <출력>/_overview.png, <출력>/_scenes.json (확인용, Unity 로 가져가지 않아도 됨)
 import sys, os, json, math, time, glob, collections
@@ -89,6 +89,23 @@ DETAILS = [  # 풀 종류, 칸(1 m²)당 최대 포기 수, 크기
     # 포기당 200 삼각형쯤인 저폴리 풀이 나오면 3, 2 로 되돌린다
     ("grass_a", 2, 0.85, 1.35), ("grass_b", 2, 0.8, 1.25), ("grass_dead", 1.5, 0.8, 1.3),
     ("fern_a", 2, 0.75, 1.3), ("weeds", 2, 0.8, 1.35), ("reed", 3, 0.85, 1.25)]
+# 2단계 C: 땅 잡동사니 (BlenderKit clutter 묶음, kind detail). manifest 에 있는 것만 DETAILS 뒤에 붙는다 (detail_2.png).
+# 눈높이 0~30 m 가 '풀만 깔린 둔덕'으로 보이는 것을 푼다. 풀처럼 지형 detail 인스턴싱이라 그리는 물체 예산을 쓰지 않는다.
+# 크기는 BlenderKit 권장보다 크게 잡았다 (돌 8 cm·잔가지 3 cm 그대로는 눈높이 8 m 넘으면 안 읽혔다)
+CLUTTER = [  # 이름, 칸(1 m²)당 최대 개수, 크기, 최대 기울기(도)
+    ("pebbles_a", 0.6, 1.0, 1.9, 35), ("twigs_a", 0.55, 0.9, 1.5, 25), ("bones_bits", 0.45, 1.0, 1.6, 25),
+    ("leaf_litter", 0.6, 0.9, 1.6, 14), ("shrub_dry", 0.32, 0.95, 1.75, 30), ("mushrooms_glow", 0.4, 0.9, 1.6, 20)]
+CLUTTER_ROCK = ("rock_", "cliff_", "rubble", "standing_stone", "boulder")
+CLUTTER_RUIN = ("wall_ruin", "stone_wall_low", "pillar", "arch_ruin", "stair_ruin", "crypt", "cathedral", "watchtower",
+                "gate_great", "well", "mausoleum", "shrine", "obelisk", "statue", "altar")
+CLUTTER_GRAVE = ("grave_", "coffin", "sarcophagus", "skeleton_remains", "bone", "dragon_", "gallows", "hanging_cage",
+                 "banner_torn", "cart_broken", "tent_torn", "campfire", "spike")
+CLUTTER_TREE = ("dead_tree", "tree_giant", "stump", "log_fallen", "roots")
+
+
+def detail_list(meta):
+    """world.json details 순서: 풀 6종 + manifest 에 있는 잡동사니"""
+    return [d for d in DETAILS] + [c[:4] for c in CLUTTER if c[0] in meta]
 
 # 죽은 나무(dead_tree_a/b/c) 개수 배율. 지금 LOD 가 둘뿐이라 먼 숲(400 m 너머)이 삼각형을 많이 쓴다.
 # 먼 거리용 LOD2 가 생기면 1.0 으로 되돌린다
@@ -5254,7 +5271,82 @@ def details(W, P):
         clear[rs, cs] *= ss(dd, rr * 0.7, rr + 0.6)
     for k in d:
         d[k] = np.clip(d[k] * clear, 0, 1)
+    clutter_density(W, P, d, dry, clear)
     W.det = d
+
+
+def _near_map(shape, pts, inner, outer):
+    """점 (x, z, r) 둘레 띠: r+inner 안은 1, r+outer 에서 0"""
+    m = np.zeros(shape, np.float32)
+    for x, z, r in pts:
+        R = r + outer
+        rs, cs, dd = disk(shape, x, z, R)
+        v = ss(-dd, -R, -(r + inner))
+        np.maximum(m[rs, cs], v, out=m[rs, cs])
+    return m
+
+
+def clutter_density(W, P, d, dry, clear):
+    """2단계 C: 땅 잡동사니 밀도 (0~1). 놓을 곳에 몰고, 50~150 m 큰 무늬로 짙고 옅음을 준다 (고른 점박이 금지)"""
+    active = [c for c in CLUTTER if c[0] in P.meta]
+    if not active:
+        return
+    X, Z, h, sl, lw = W.X, W.Z, W.h, W.slope, W.lw
+    shape = h.shape
+    pts = {"rock": [], "ruin": [], "grave": [], "tree": []}
+    for o in P.objects:
+        a = o["a"]
+        fp = float(P.meta.get(a, {}).get("footprint", 1.0)) * float(o.get("s", 1.0))
+        x, z = o["p"][0], o["p"][2]
+        if a.startswith(CLUTTER_ROCK):
+            pts["rock"].append((x, z, fp))
+        elif a.startswith(CLUTTER_TREE):
+            pts["tree"].append((x, z, fp))
+        elif a.startswith(CLUTTER_GRAVE):
+            pts["grave"].append((x, z, fp))
+        elif a.startswith(CLUTTER_RUIN):
+            pts["ruin"].append((x, z, fp))
+    for t in P.trees:                                  # 지형 나무 (고목 숲)
+        pts["tree"].append((t[1], t[2], 1.2 * t[4]))
+    rock_n = _near_map(shape, pts["rock"], 0.3, 3.0)
+    ruin_n = _near_map(shape, pts["ruin"], 0.3, 3.5)
+    grave_n = _near_map(shape, pts["grave"], 0.5, 4.0)
+    tree_n = _near_map(shape, pts["tree"], 0.5, 4.5)
+    macro = ss(fbm(X, Z, 1 / 110, 3, 2101), -0.45, 0.4)         # 큰 무늬 (짙은 들판 / 옅은 들판)
+    clump = ss(fbm(X, Z, 1 / 18, 2, 2102), -0.1, 0.45)          # 덩이 (몇 m 크기로 모인다)
+    clump2 = ss(fbm(X, Z, 1 / 9, 2, 2103), 0.0, 0.5)
+    hw = W.road_hw
+    road_c = ss(W.road_dist, hw - 0.2, hw + 0.5)                # 길 위는 비우고 길가 바로 옆부터
+    path_edge = ss(W.road_dist, hw - 0.2, hw + 0.4) * (1 - ss(W.road_dist, hw + 1.5, hw + 3.5))
+    ex = ((X - GRAVE_C[0]) / GRAVE_R[0]) ** 2 + ((Z - GRAVE_C[1]) / GRAVE_R[1]) ** 2
+    gy = ss(-ex, -1.25, -0.8)
+    pf = W.place_floor
+    fedge = ss(W.forest, 0.08, 0.3) * (1 - ss(W.forest, 0.55, 0.85))
+    field = np.clip(lw["grass"] + lw["dirt"] + lw["moss"] * 0.6, 0, 1) * (1 - W.forest)
+    hollow = W.hollow
+    crest = W.crest
+    damp = np.zeros(shape, np.float32)
+    for c, r, lev in ((SWAMP, SWAMP_R + 40, W.swamp_level), (LAKE, LAKE_R + 30, W.lake_level)):
+        dd = np.sqrt((X - c[0]) ** 2 + (Z - c[1]) ** 2)
+        damp = np.maximum(damp, (dd < r) * ss(-(h - lev), -2.5, -0.2))
+    keep = road_c * (1 - lw["path"] * 0.85) * (1 - 0.6 * pf)     # dry: 물 위는 0 (details 의 dry)
+    out = {}
+    out["pebbles_a"] = np.maximum.reduce([rock_n * 0.95, ruin_n * 0.75, path_edge * 0.6,
+                                          ss(sl, 0.25, 0.6) * 0.5, W.apron * 0.5, lw["rock"] * 0.4]) * (0.45 + 0.55 * macro) * (0.6 + 0.4 * clump2)
+    out["twigs_a"] = np.maximum.reduce([tree_n * 0.95, W.forest * 0.65, fedge * 0.55]) * (0.4 + 0.6 * clump) * (0.5 + 0.5 * macro)
+    out["bones_bits"] = np.maximum.reduce([grave_n * 0.9, gy * 0.55]) * (0.45 + 0.55 * clump2) * (0.6 + 0.4 * macro)
+    out["leaf_litter"] = np.maximum.reduce([W.forest * 0.85, tree_n * 0.75, lw["leaves"] * 0.6, hollow * 0.45 * field]) * (0.35 + 0.65 * clump) * (0.5 + 0.5 * macro)
+    out["shrub_dry"] = np.maximum.reduce([field * (0.18 + 0.45 * crest + 0.25 * W.dry), fedge * 0.6, rock_n * 0.45, ruin_n * 0.4]) \
+        * (0.15 + 0.85 * clump) * (0.3 + 0.7 * macro) * (1 - gy * 0.75)
+    out["mushrooms_glow"] = np.maximum.reduce([W.forest * 0.7 * clump2, tree_n * W.forest * 0.6, damp * 0.6, hollow * 0.35 * (W.forest + 0.3)]) \
+        * ss(clump, 0.25, 0.7)
+    for name, _, _, _, mslope in active:
+        flat = 1 - ss(sl, math.tan(math.radians(mslope)) * 0.8, math.tan(math.radians(mslope)) * 1.1)
+        d[name] = np.clip(out[name] * flat * keep * dry * clear, 0, 1).astype(np.float32)
+    (bx0, bz0), (bx1, bz1) = BOUNDS
+    win = (slice(bz0, bz1), slice(bx0, bx1))
+    log("땅 잡동사니: " + ", ".join("%s 평균 %.3f (약 %s 개)" % (n, float(d[n][win].mean()), format(int(d[n][win].sum() * m), ","))
+                                  for n, m, _, _, _ in active))
 
 
 # ─────────────────────────── 물 ───────────────────────────
@@ -5396,10 +5488,15 @@ def save_all(W, P, out, water):
         img = np.flipud(q[..., k * 4:(k + 1) * 4])
         Image.fromarray(np.ascontiguousarray(img), 'RGBA').save(os.path.join(data, "splat_%d.png" % k))
     log("저장: 풀")
-    dn = [n for n, _, _, _ in DETAILS]
-    ch = [W.det[n] for n in dn] + [z] * (8 - len(dn))
-    save_png_rgba(os.path.join(data, "detail_0.png"), ch[0:4])
-    save_png_rgba(os.path.join(data, "detail_1.png"), ch[4:8])
+    dl = detail_list(P.meta)
+    dn = [n for n, _, _, _ in dl]
+    nimg = (len(dn) + 3) // 4
+    ch = [W.det[n] for n in dn] + [z] * (nimg * 4 - len(dn))
+    for k in range(nimg):                  # detail_0/1.png = 풀, detail_2.png = 땅 잡동사니 (있을 때)
+        save_png_rgba(os.path.join(data, "detail_%d.png" % k), ch[k * 4:(k + 1) * 4])
+    stale = os.path.join(data, "detail_%d.png" % nimg)
+    if os.path.exists(stale):
+        os.remove(stale)
     log("저장: 나무·소품")
     json.dump({"prototypes": P.protos, "instances": P.trees}, open(os.path.join(data, "trees.json"), "w"), separators=(",", ":"))
     for f in W.fx:
@@ -5422,7 +5519,7 @@ def save_all(W, P, out, water):
         "spawn": {"p": [SPAWN[0], round(hs + 0.1, 2), SPAWN[1]], "yaw": 0},
         "layers": [{"name": n, "albedo": "ground_%s_albedo.jpg" % n, "normal": "ground_%s_normal.png" % n, "tile": t, "smoothness": sm}
                    for n, t, sm in LAYERS],
-        "details": [{"asset": a, "maxPerCell": m, "minScale": lo, "maxScale": hi} for a, m, lo, hi in DETAILS],
+        "details": [{"asset": a, "maxPerCell": m, "minScale": lo, "maxScale": hi} for a, m, lo, hi in detail_list(P.meta)],
         "pois": pois,
         "fog": {"color": [0.13, 0.11, 0.22], "density": 0.0048},
         "bounds": {"min": list(BOUNDS[0]), "max": list(BOUNDS[1])},

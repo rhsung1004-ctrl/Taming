@@ -414,7 +414,7 @@ def grass_np(cam_u, fwd_u, radius=70.0, seed=3):
     rng = np.random.default_rng(seed)
     dets = W["details"]
     imgs = []
-    for k in range(2):
+    for k in range((len(dets) + 3) // 4):       # detail_0/1 = 풀, detail_2 = 땅 잡동사니 (있을 때)
         img = bpy.data.images.load(os.path.join(DATA, "detail_%d.png" % k))
         img.colorspace_settings.name = 'Non-Color'
         img.alpha_mode = 'CHANNEL_PACKED'
