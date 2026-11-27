@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -85,6 +86,8 @@ namespace Necro.EditorTools
             public int tiles, layers, detailProtos, treeProtos, trees, props, propLights, lights, water, fx, pois;
             public long details;
             public int skippedTrees, skippedObjects;
+            public int cliffChunks;
+            public long cliffTris;            // 산 벽 덮개: 조각마다 가장 고운 LOD 의 삼각형 합
         }
 
         // ───────────── 메뉴 ─────────────
@@ -161,6 +164,7 @@ namespace Necro.EditorTools
                 (st.skippedTrees > 0 ? " (뺀 것 " + st.skippedTrees + ")" : "") +
                 "\n소품 " + st.props.ToString("N0") + "개 (그중 광원 달린 것 " + st.propLights + ")" + (st.skippedObjects > 0 ? " (뺀 것 " + st.skippedObjects + ")" : "") +
                 ", 따로 놓은 광원 " + st.lights + ", 물 " + st.water + ", 효과 " + st.fx + ", 이름 있는 장소 " + st.pois +
+                (st.cliffChunks > 0 ? "\n산 벽 덮개 " + st.cliffChunks + "조각 (가장 고운 LOD 삼각형 " + st.cliffTris.ToString("N0") + ")" : "") +
                 "\n걸린 시간 " + sw.Elapsed.TotalSeconds.ToString("0.0") + "초" + (warnings.Count > 0 ? ", 경고 " + warnings.Count + "개 (아래)" : "") +
                 "\nPlay 를 누르고 걸어 다니며 확인하세요. M = 지도, F3 = 분위기 바꾸기.";
             Debug.Log(summary);
@@ -514,6 +518,7 @@ namespace Necro.EditorTools
             var terrains = BuildTerrain(w, manifest, warnings, st);
 
             // 소품·광원·물·효과
+            BuildCliffs(w, warnings, st);
             BuildObjects(w, warnings, st);
             BuildLights(w, st);
             BuildWater(w, st);
@@ -852,6 +857,332 @@ namespace Necro.EditorTools
             t.reflectionProbeUsage = ReflectionProbeUsage.Off;
             t.allowAutoConnect = true;
             t.groupingID = 0;
+        }
+
+        // ───────────── 산 벽 덮개 (cliffs.bin) ─────────────
+        // Unity 지형은 텍스처를 위에서 내려 찍어(UV = XZ) 가파른 산 벽에서 무늬가 세로로 늘어나 30~75 m 앞에서 매끈한 커튼처럼 보였다.
+        // 월드 생성기(Tools/WorldGen/cliffskin.py)가 걸어 다니는 범위에서 보이는 가파른 면을 옆에서 투영한 UV 의 메쉬 조각으로 내보낸다
+        // (규격: Tools/WorldGen/SPEC.md '산 벽 덮개'). 덮개는 지형 앞 0.35~3 m 에 지층 턱·처마·절리 요철을 띠고, 가장자리는 지형 속에 묻힌다.
+        // 재질은 URP Lit (지형 바위 층 텍스처를 옆에서 붙이고, 지층 밝기 띠를 Detail Albedo ×2 로 곱한다). 충돌체는 없다 (걷기·탈출은 지형 충돌체 그대로).
+        // 파일이 없으면 (예전 데이터) 조용히 건너뛴다.
+        public const string CliffFile = "cliffs.bin";
+        const string CliffMeshPath = GeneratedFolder + "/CliffSkin.asset";       // 조각 메쉬 모음 (하위 에셋, 다시 만들 때 통째로 바꾼다)
+        const string CliffStrataPath = GeneratedFolder + "/CliffStrata.asset";   // 지층 밝기 띠 (선형 색, 128 = ×1)
+        const string CliffMatPath = WorldMatFolder + "/CliffSkin.mat";
+        const string CliffRootName = "Cliffs";
+        const string LitShaderName = "Universal Render Pipeline/Lit";
+        const float LodScreenK = 1.041f;                // 2 × tan(55° / 2): 시야 55° 에서 화면 높이 = 크기 / (이 값 × 거리)
+
+        class CliffLevel
+        {
+            public int ni, nj, nverts, nquads;
+            public float y0, dy;
+            public float[] cols;          // ni × (기준선 x, z, 바깥 법선 x, z)
+            public float[] range;         // t, u, v 의 (최소, 최대)
+            public byte[] quads, diags;   // 칸 비트: 인덱스 j × (ni − 1) + i, 바이트 안 낮은 비트부터
+            public byte[] verts;          // nverts × 8 바이트: t, u, v (u16) · 법선 8면체 (i8 × 2)
+        }
+        class CliffChunk { public Vector3 center; public int first; public CliffLevel[] levels; }
+        class CliffData
+        {
+            public float tile, lodSize, stripQ0, stripLen, stripPeriod;
+            public float[] lodEnd;
+            public int shadowLods, stripN, stripW;
+            public byte[] strip;          // 줄 stripN × 칸 stripW × RGBA (줄 r = 지층 높이, 칸 c = 둘레 방향)
+            public List<CliffChunk> chunks = new List<CliffChunk>();
+        }
+
+        static CliffData ReadCliffs(string path)
+        {
+            using (var fs = File.OpenRead(path))
+            using (var gz = new GZipStream(fs, CompressionMode.Decompress))
+            using (var br = new BinaryReader(gz))
+            {
+                var magic = br.ReadBytes(4);
+                if (magic.Length != 4 || magic[0] != 'N' || magic[1] != 'C' || magic[2] != 'L' || magic[3] != 'F')
+                    throw new InvalidDataException("머리 글자가 NCLF 가 아니에요");
+                int ver = br.ReadInt32();
+                if (ver != 1) throw new InvalidDataException("형식 판 " + ver + " 은 몰라요 (1 만 읽어요). 월드 생성기와 Unity 도구를 같은 판으로 맞춰 주세요");
+                var cd = new CliffData();
+                cd.tile = br.ReadSingle();
+                cd.lodSize = br.ReadSingle();
+                int nl = br.ReadInt32();
+                if (nl < 1 || nl > 8) throw new InvalidDataException("LOD 수가 이상해요: " + nl);
+                cd.lodEnd = new float[nl];
+                for (int i = 0; i < nl; i++) cd.lodEnd[i] = br.ReadSingle();
+                cd.shadowLods = br.ReadInt32();
+                cd.stripQ0 = br.ReadSingle();
+                cd.stripLen = br.ReadSingle();
+                cd.stripN = br.ReadInt32();
+                cd.stripW = br.ReadInt32();
+                cd.stripPeriod = br.ReadSingle();
+                if (cd.stripN < 1 || cd.stripW < 1 || cd.stripN * cd.stripW > (1 << 22)) throw new InvalidDataException("지층 띠 크기가 이상해요");
+                cd.strip = br.ReadBytes(cd.stripN * cd.stripW * 4);
+                int nch = br.ReadInt32();
+                for (int c = 0; c < nch; c++)
+                {
+                    var ch = new CliffChunk();
+                    ch.center = new Vector3(br.ReadSingle(), br.ReadSingle(), br.ReadSingle());
+                    ch.first = br.ReadInt32();
+                    ch.levels = new CliffLevel[nl];
+                    for (int L = 0; L < nl; L++)
+                    {
+                        var lv = new CliffLevel();
+                        lv.ni = br.ReadUInt16();
+                        lv.nj = br.ReadUInt16();
+                        lv.nverts = br.ReadInt32();
+                        lv.nquads = br.ReadInt32();
+                        lv.y0 = br.ReadSingle();
+                        lv.dy = br.ReadSingle();
+                        lv.cols = new float[lv.ni * 4];
+                        for (int i = 0; i < lv.cols.Length; i++) lv.cols[i] = br.ReadSingle();
+                        lv.range = new float[6];
+                        for (int i = 0; i < 6; i++) lv.range[i] = br.ReadSingle();
+                        int nb = ((lv.ni - 1) * (lv.nj - 1) + 7) / 8;
+                        lv.quads = br.ReadBytes(nb);
+                        lv.diags = br.ReadBytes(nb);
+                        lv.verts = br.ReadBytes(lv.nverts * 8);
+                        if (lv.verts.Length != lv.nverts * 8) throw new InvalidDataException("파일이 중간에 끊겼어요 (조각 " + c + ")");
+                        ch.levels[L] = lv;
+                    }
+                    cd.chunks.Add(ch);
+                }
+                return cd;
+            }
+        }
+
+        static bool Bit(byte[] b, int k) { return (b[k >> 3] & (1 << (k & 7))) != 0; }
+
+        // 8면체 2 바이트 → 단위 법선 (cliffskin._oct 의 반대)
+        static Vector3 OctNormal(sbyte ox, sbyte oy)
+        {
+            float x = ox / 127f, y = oy / 127f;
+            float z = 1f - Mathf.Abs(x) - Mathf.Abs(y);
+            if (z < 0f)
+            {
+                float tx = (1f - Mathf.Abs(y)) * (x >= 0f ? 1f : -1f);
+                float ty = (1f - Mathf.Abs(x)) * (y >= 0f ? 1f : -1f);
+                x = tx; y = ty;
+            }
+            return new Vector3(x, y, z).normalized;
+        }
+
+        // 한 LOD 격자 → 메쉬 (조각 가운데 기준 좌표). 칸 (i, j): a=(i,j) b=(i+1,j) c=(i+1,j+1) d=(i,j+1), 대각선 0 → abc·acd, 1 → abd·bcd
+        static Mesh CliffMesh(CliffLevel lv, Vector3 center, string name)
+        {
+            int ni = lv.ni, nj = lv.nj, nqi = ni - 1;
+            var index = new int[ni * nj];
+            for (int k = 0; k < index.Length; k++) index[k] = -1;
+            for (int j = 0; j < nj - 1; j++)
+                for (int i = 0; i < nqi; i++)
+                    if (Bit(lv.quads, j * nqi + i))
+                    {
+                        index[j * ni + i] = 0; index[j * ni + i + 1] = 0;
+                        index[(j + 1) * ni + i] = 0; index[(j + 1) * ni + i + 1] = 0;
+                    }
+            int n = 0;
+            for (int k = 0; k < index.Length; k++) if (index[k] == 0) index[k] = n++;
+            if (n != lv.nverts) throw new InvalidDataException("정점 수가 칸 비트와 맞지 않아요 (" + n + " / " + lv.nverts + ")");
+            var pos = new Vector3[n];
+            var nrm = new Vector3[n];
+            var uv = new Vector2[n];
+            float ts = (lv.range[1] - lv.range[0]) / 65535f, us = (lv.range[3] - lv.range[2]) / 65535f, vs = (lv.range[5] - lv.range[4]) / 65535f;
+            var b = lv.verts;
+            for (int k = 0, v = 0; k < index.Length; k++)
+            {
+                if (index[k] < 0) continue;
+                int i = k % ni, j = k / ni, o = v * 8;
+                float t = lv.range[0] + (b[o] | (b[o + 1] << 8)) * ts;
+                float u = lv.range[2] + (b[o + 2] | (b[o + 3] << 8)) * us;
+                float q = lv.range[4] + (b[o + 4] | (b[o + 5] << 8)) * vs;
+                float cx = lv.cols[i * 4], cz = lv.cols[i * 4 + 1], nx = lv.cols[i * 4 + 2], nz = lv.cols[i * 4 + 3];
+                pos[v] = new Vector3(cx + nx * t - center.x, lv.y0 + j * lv.dy - center.y, cz + nz * t - center.z);
+                uv[v] = new Vector2(u, q);                         // m 단위 (재질 타일링이 1 / tile)
+                nrm[v] = OctNormal(unchecked((sbyte)b[o + 6]), unchecked((sbyte)b[o + 7]));
+                v++;
+            }
+            var tris = new int[lv.nquads * 6];
+            int w = 0;
+            for (int j = 0; j < nj - 1; j++)
+                for (int i = 0; i < nqi; i++)
+                {
+                    int qk = j * nqi + i;
+                    if (!Bit(lv.quads, qk)) continue;
+                    if (w + 6 > tris.Length) throw new InvalidDataException("칸 수가 머리 값보다 많아요");
+                    int a = index[j * ni + i], bb = index[j * ni + i + 1], c = index[(j + 1) * ni + i + 1], d = index[(j + 1) * ni + i];
+                    if (Bit(lv.diags, qk)) { tris[w++] = a; tris[w++] = bb; tris[w++] = d; tris[w++] = bb; tris[w++] = c; tris[w++] = d; }
+                    else { tris[w++] = a; tris[w++] = bb; tris[w++] = c; tris[w++] = a; tris[w++] = c; tris[w++] = d; }
+                }
+            var mesh = new Mesh { name = name };
+            mesh.indexFormat = n > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16;
+            mesh.vertices = pos;
+            mesh.normals = nrm;
+            mesh.uv = uv;
+            mesh.triangles = tris;
+            mesh.RecalculateTangents();                            // 바위 노멀맵 (u = 둘레 방향, v = 위)
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        // 지층 밝기 띠: stripW × stripN 선형 텍스처 (행 r = 지층 높이 q0 + (r + 0.5) × len / stripN, 열 = 둘레 방향, stripPeriod m 마다 되풀이)
+        static Texture2D CliffStrataTexture(CliffData cd)
+        {
+            AssetDatabase.DeleteAsset(CliffStrataPath);
+            var tex = new Texture2D(cd.stripW, cd.stripN, TextureFormat.RGBA32, true, true)
+            {
+                name = "CliffStrata", wrapModeU = TextureWrapMode.Repeat, wrapModeV = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, anisoLevel = 4
+            };
+            var px = new Color32[cd.stripW * cd.stripN];
+            for (int k = 0; k < px.Length; k++)
+                px[k] = new Color32(cd.strip[k * 4], cd.strip[k * 4 + 1], cd.strip[k * 4 + 2], 255);
+            tex.SetPixels32(px);
+            tex.Apply(true, false);
+            AssetDatabase.CreateAsset(tex, CliffStrataPath);
+            return tex;
+        }
+
+        // 덮개 재질 (URP Lit). 이미 있으면 Inspector 에서 고친 색·매끈함은 두고 텍스처·타일링·지층 띠만 다시 맞춘다
+        static Material CliffMaterial(WorldData w, CliffData cd, Texture2D strata, List<string> warnings)
+        {
+            var m = AssetDatabase.LoadAssetAtPath<Material>(CliffMatPath);
+            if (m == null)
+            {
+                var sh = Shader.Find(LitShaderName);
+                if (sh == null) { warnings.Add("산 벽 덮개: 셰이더 " + LitShaderName + " 를 찾지 못해 건너뛰었어요 (URP 설정 확인)"); return null; }
+                LayerDesc rockLayer = null;
+                foreach (var l in w.layers) if (l.name == "rock") rockLayer = l;
+                m = new Material(sh) { name = "CliffSkin" };
+                m.SetColor("_BaseColor", Color.white);
+                m.SetFloat("_Smoothness", rockLayer != null ? rockLayer.smoothness : 0.12f);
+                m.SetFloat("_Metallic", 0f);
+                m.enableInstancing = true;
+                AssetDatabase.CreateAsset(m, CliffMatPath);
+            }
+            LayerDesc rock = null;
+            foreach (var l in w.layers) if (l.name == "rock") rock = l;
+            string albName = rock != null ? rock.albedo : "ground_rock_albedo.jpg";
+            string nrmName = rock != null ? rock.normal : "ground_rock_normal.png";
+            var alb = AssetDatabase.LoadAssetAtPath<Texture2D>(TerrainTexFolder + "/" + albName);
+            var nrm = string.IsNullOrEmpty(nrmName) ? null : AssetDatabase.LoadAssetAtPath<Texture2D>(TerrainTexFolder + "/" + nrmName);
+            if (alb == null) warnings.Add("산 벽 덮개: 바위 텍스처 " + TerrainTexFolder + "/" + albName + " 가 없어 흰 재질로 그려요 (git lfs pull)");
+            m.SetTexture("_BaseMap", alb);
+            m.SetTextureScale("_BaseMap", new Vector2(1f / cd.tile, 1f / cd.tile));   // UV 가 m 단위 → 텍스처 한 장 = tile m
+            m.SetTextureOffset("_BaseMap", Vector2.zero);
+            if (nrm != null)
+            {
+                m.SetTexture("_BumpMap", nrm);
+                m.SetFloat("_BumpScale", 1f);
+                m.EnableKeyword("_NORMALMAP");
+            }
+            // 지층 밝기 띠: 디테일 UV = (UV × _BaseMap_ST) × _DetailAlbedoMap_ST → u = 둘레 m / stripPeriod, v = (q − q0) / len
+            m.SetTexture("_DetailAlbedoMap", strata);
+            m.SetTextureScale("_DetailAlbedoMap", new Vector2(cd.tile / Mathf.Max(1f, cd.stripPeriod), cd.tile / cd.stripLen));
+            m.SetTextureOffset("_DetailAlbedoMap", new Vector2(0f, -cd.stripQ0 / cd.stripLen));
+            m.SetFloat("_DetailAlbedoMapScale", 1f);                // 1 → _DETAIL_MULX2 (색 × 띠 × 2)
+            m.SetFloat("_DetailNormalMapScale", 1f);
+            m.EnableKeyword("_DETAIL_MULX2");
+            m.DisableKeyword("_DETAIL_SCALED");
+            EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        static void BuildCliffs(WorldData w, List<string> warnings, Stats st)
+        {
+            string path = DataPath(CliffFile);
+            if (!File.Exists(path)) return;                       // 예전 데이터 (덮개 없음)
+            Progress("산 벽 덮개 읽는 중", 0.58f);
+            CliffData cd;
+            try { cd = ReadCliffs(path); }
+            catch (System.Exception e)
+            {
+                warnings.Add("산 벽 덮개(" + DataFolder + "/" + CliffFile + ")를 읽지 못해 건너뛰었어요: " + e.Message);
+                return;
+            }
+            var strata = CliffStrataTexture(cd);
+            var mat = CliffMaterial(w, cd, strata, warnings);
+            if (mat == null) return;
+            AssetDatabase.DeleteAsset(CliffMeshPath);
+            Object container = null;
+            var root = new GameObject(CliffRootName).transform;
+            var flags = StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic;
+            GameObjectUtility.SetStaticEditorFlags(root.gameObject, flags);
+            for (int c = 0; c < cd.chunks.Count; c++)
+            {
+                if (c % 20 == 0) Progress("산 벽 덮개 " + c + " / " + cd.chunks.Count, 0.58f + 0.02f * c / Mathf.Max(1, cd.chunks.Count));
+                var ch = cd.chunks[c];
+                var go = new GameObject("Cliff_" + c);
+                go.transform.SetParent(root, false);
+                go.transform.localPosition = ch.center;
+                GameObjectUtility.SetStaticEditorFlags(go, flags);
+                var lods = new List<LOD>();
+                bool counted = false;
+                for (int L = Mathf.Clamp(ch.first, 0, ch.levels.Length - 1); L < ch.levels.Length; L++)
+                {
+                    var lv = ch.levels[L];
+                    float h = cd.lodSize / (LodScreenK * cd.lodEnd[L]);
+                    if (lv.nquads == 0) { lods.Add(new LOD(h, new Renderer[0])); continue; }   // 그 거리에서는 그리지 않는다
+                    var mesh = CliffMesh(lv, ch.center, "Cliff_" + c + "_LOD" + L);
+                    if (container == null) { AssetDatabase.CreateAsset(mesh, CliffMeshPath); container = mesh; }
+                    else AssetDatabase.AddObjectToAsset(mesh, container);
+                    var lgo = new GameObject("LOD" + L);
+                    lgo.transform.SetParent(go.transform, false);
+                    lgo.AddComponent<MeshFilter>().sharedMesh = mesh;
+                    var mr = lgo.AddComponent<MeshRenderer>();
+                    mr.sharedMaterial = mat;
+                    mr.shadowCastingMode = L < cd.shadowLods ? ShadowCastingMode.On : ShadowCastingMode.Off;   // 처마 그늘은 가까운 LOD 만
+                    mr.receiveShadows = true;
+                    mr.reflectionProbeUsage = ReflectionProbeUsage.Off;
+                    GameObjectUtility.SetStaticEditorFlags(lgo, flags);
+                    lods.Add(new LOD(h, new Renderer[] { mr }));
+                    if (!counted) { st.cliffTris += lv.nquads * 2L; counted = true; }
+                }
+                var lg = go.AddComponent<LODGroup>();
+                lg.fadeMode = LODFadeMode.None;
+                lg.SetLODs(lods.ToArray());
+                lg.localReferencePoint = Vector3.zero;              // 조각 가운데 (cliffskin 과 성능 검사도 이 점까지 거리로 LOD 를 고른다)
+                lg.size = cd.lodSize;
+                st.cliffChunks++;
+            }
+            AssetDatabase.SaveAssets();
+        }
+
+        // Tools → Necro → 월드 → 3. 산 벽 덮개만 다시 만들기: 열려 있는 1장 월드 장면의 덮개(Cliffs)만 데이터에서 다시 만든다
+        [MenuItem("Tools/Necro/월드/3. 산 벽 덮개만 다시 만들기", priority = 103)]
+        public static void RebuildCliffsMenu()
+        {
+            var scene = EditorSceneManager.GetActiveScene();
+            if (scene.path != ScenePath)
+            {
+                EditorUtility.DisplayDialog(Title, "1장 월드 장면(" + ScenePath + ")을 연 뒤에 눌러 주세요.", "확인");
+                return;
+            }
+            if (!File.Exists(DataPath(CliffFile)))
+            {
+                EditorUtility.DisplayDialog(Title, "산 벽 덮개 데이터가 없어요: " + DataFolder + "/" + CliffFile + "\n(월드 생성기 결과를 다시 받았는지 확인해 주세요)", "확인");
+                return;
+            }
+            var errors = new List<string>();
+            var warnings = new List<string>();
+            WorldData w;
+            try
+            {
+                EditorUtility.DisplayProgressBar(Title, "데이터 읽는 중", 0f);
+                w = ReadData(errors, warnings);
+                if (w == null || errors.Count > 0)
+                {
+                    Debug.LogError("[Necro] 월드 데이터를 읽지 못했어요\n" + string.Join("\n", errors.ToArray()));
+                    return;
+                }
+                var old = GameObject.Find(CliffRootName);
+                if (old != null) Object.DestroyImmediate(old);
+                var st = new Stats();
+                BuildCliffs(w, warnings, st);
+                EditorSceneManager.MarkSceneDirty(scene);
+                EditorSceneManager.SaveScene(scene);
+                Debug.Log("[Necro] 산 벽 덮개를 다시 만들었어요: " + st.cliffChunks + "조각, 가장 고운 LOD 삼각형 " + st.cliffTris.ToString("N0"));
+            }
+            finally { EditorUtility.ClearProgressBar(); }
+            if (warnings.Count > 0) Debug.LogWarning("[Necro] 산 벽 덮개 경고\n" + string.Join("\n", warnings.ToArray()));
         }
 
         // ───────────── 소품 ─────────────

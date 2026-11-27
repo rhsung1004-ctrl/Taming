@@ -43,6 +43,9 @@ WOOD_BURNT = ((0.015, 0.012, 0.011), (0.1, 0.068, 0.05), (0.24, 0.19, 0.16))
 ASH_COL = (0.32, 0.31, 0.3)
 SHADOW_GREY = (0.12, 0.1, 0.15)
 MOSS_OLIVE = (0.085, 0.11, 0.06)       # 이끼: 올리브·회갈색 쪽 (청록으로 튀지 않게)          # paint3 틈 그늘 (기본 보라 (0.16, 0.1, 0.3) 보다 덜 파랗게)
+# (k9) 낮은 돌담 칠 고침용: 돌 색 (밝은 색 sRGB 0.69 → 0.58, 모서리 0.81 → 0.69) + 짙은 올리브 이끼 (최종 sRGB 명도 0.2 이하, hue 95~105°)
+FIELD_STONE_K9 = ((0.06, 0.058, 0.06), (0.29, 0.282, 0.272), (0.43, 0.42, 0.405))
+MOSS_WALL_K9 = (0.0115, 0.019, 0.0095)     # gain 1.45 를 곱한 뒤 (0.017, 0.028, 0.014)
 
 # kit.load_fbx 가 FBX 의 Foliage·Glow 재질을 진짜로 착각하지 않게 먼저 만든다 (assets_graves 와 같은 이유)
 if kit.sc is not None:
@@ -379,11 +382,15 @@ def stone_wall_low():
     print("STONES stone_wall_low", n_st)
     body = acc.obj("wall_low")
     base = carve(body, 0.008, *STONE3(1.0, wear=1.4, cracks=0.55), seed=41, base=True)
-    m = paint3("stone_wall_low_src", FIELD_STONE, h=1.05, k=1.0, moss=0.6, moss_color=MOSS_OLIVE, moss_patch=1.6, moss_low=0.7,
-               moss_low_h=0.3, dirt=0.75, dirt_h=0.22, streaks=0.1, edge=0.5, edge_w=0.014, edge_gain=0.9, piece_var=0.6, piece_val=0.2,
-               grime=0.55, grime_h=0.1, cavity=1.0, ao=0.42, stains=0.55, lichen=0.3, lichen_color=(0.46, 0.47, 0.4), lichen_scale=16.0,
-               contrast=0.22, gain=1.12, hue_var=0.12, shadow=SHADOW_GREY, splash=0.7, splash_z=0.06, splash_h=0.16, light=0.9)
-    G.blotch(m, (0.33, 0.32, 0.27), 2.6, 0.45, 0.46, 0.62)      # 넓은 물때 (돌마다 고르지 않게)
+    # (k9) 칠만 고침 — 월드 검토(wr2 7번): 밤 조명에서 윗면이 흰 지그재그·흰 판돌 더미로 떴다 (알베도 p90 0.56, lum>0.7 1.6%,
+    # 이끼 명도 0.29). 돌 색을 낮추고(FIELD_STONE_K9), 위 밝기(light)·대비·gain·닳은 모서리·흰 지의류를 줄이고,
+    # 이끼(짙은 올리브, 최종 명도 0.2 이하)·밑동 이끼·흙물·튄 흙·줄눈 때를 더했다. 형태·저폴리·UV 는 그대로
+    m = paint3("stone_wall_low_src", FIELD_STONE_K9, h=1.05, k=1.0, moss=0.85, moss_color=MOSS_WALL_K9, moss_patch=1.5, moss_low=0.9,
+               moss_low_h=0.42, dirt=0.75, dirt_h=0.3, streaks=0.1, edge=0.3, edge_w=0.012, edge_gain=0.85, edge_break=0.45,
+               piece_var=0.5, piece_val=0.16, grime=0.6, grime_h=0.12, cavity=0.8, ao=0.42, stains=0.6, lichen=0.1,
+               lichen_color=(0.24, 0.245, 0.21), lichen_scale=16.0, contrast=0.0, gain=1.45, hue_var=0.1, shadow=SHADOW_GREY,
+               splash=0.85, splash_z=0.06, splash_h=0.2, light=0.62)
+    G.blotch(m, (0.33, 0.32, 0.27), 2.6, 0.5, 0.46, 0.62)       # 넓은 물때 (돌마다 고르지 않게)
     set_mat(body, m)
     low = kit.decimated(base, 7600)
     delete(base)

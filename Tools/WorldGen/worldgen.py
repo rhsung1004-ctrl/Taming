@@ -2,7 +2,7 @@
 # 1장 오픈월드 생성기 (버려진 묘지 들판, 지형 2 km × 2 km, 걸어 다니는 범위 1.33 km)
 #   python3 worldgen.py <출력 폴더(Ch1)> <소품 manifest.json 또는 manifest_*.json 이 있는 폴더> [씨앗]
 # 결과 (규격: SPEC.md)
-#   <출력>/Data~/world.json, height.r16, splat_0/1.png, detail_0/1.png, trees.json, objects.json
+#   <출력>/Data~/world.json, height.r16, splat_0/1.png, detail_0/1.png, trees.json, objects.json, cliffs.bin (산 벽 덮개, cliffskin.py)
 #   <출력>/Terrain/ground_*  (groundtex.py 가 만든다. 없으면 여기서 부른다)
 #   <출력>/map.png, <출력>/_overview.png, <출력>/_scenes.json (확인용, Unity 로 가져가지 않아도 됨)
 import sys, os, json, math, time, glob, collections
@@ -5720,6 +5720,13 @@ def main():
     paint(W, P)
     details(W, P)
     save_all(W, P, out, water)
+    # w6a: 산 벽 덮개 (cliffskin.py → Data~/cliffs.bin). 저장한 높이(height.r16, Unity 와 같은 값)와 놓인 소품으로 만든다
+    import cliffskin
+    data = os.path.join(out, "Data~")
+    hq = np.fromfile(os.path.join(data, "height.r16"), "<u2").reshape(RES, RES).astype(np.float32) * (HMAX / 65535.0)
+    W.cliffs = cliffskin.build(hq, BOUNDS, GATE, P.objects, P.meta, data, strata_seed=967, strata_thick=FACE_STEP_VAR, tilt=FACE_TILT,
+                               lut_seed=968, log=log)
+    del hq
     save_map(W, P, out)
     terr = os.path.join(out, "Terrain")
     if not all(os.path.exists(os.path.join(terr, "ground_%s_albedo.jpg" % n)) for n, _, _ in LAYERS):

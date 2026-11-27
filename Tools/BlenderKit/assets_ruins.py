@@ -961,6 +961,8 @@ def box_spalls(rng, n, half, zr, depth=(0.012, 0.03), size=(0.07, 0.16)):
     return out
 
 def pillar_a():
+    """온전한 기둥. v3 (k7b): wall_ruin_a 레시피 (carve+STONE3, paint_block3, cage 굽기). 홈(플루트) 능선마다 닳은 모서리가
+    나란한 흰 줄이 되지 않게 모서리 빛은 좁고 약하게"""
     rng = random.Random(31)
     blocks = Acc()
     rings = column_base(rng, blocks)
@@ -984,16 +986,17 @@ def pillar_a():
     for r_ in rings:
         chip(r_, rng, 4, (0.04, 0.08), sharp_deg=25, bite=0.35)
     body = join([shaft, blk] + rings)
-    sculpt(body, 0.007, STONE_LAYERS(1.2, wear=1.4, cracks=0.7), seed=3)
-    set_mat(body, paint("pillar_a_src", 'stone', moss=0.7, streaks=0.7, dirt=0.75, edge=0.6))
-    low = low_of(body, 6000)
+    base = carve(body, 0.006, *STONE3(1.2, wear=1.3, cracks=0.7), seed=3, base=True)
+    set_mat(body, paint_block3("pillar_a_src", h=3.95, k=1.2, moss=0.7, edge=0.6, edge_w=0.012, moss_low_h=0.8))
+    low = low_of(base, 6000)
+    delete(base)
     tgt = copy(low)
     v = Vine(random.Random(5), leaf=(0.05, 0.08), leaf_p=0.34)
     ivy_grow(v, tgt, (-0.3, -0.1, 0.56), seed=5, length=2.8, max_roots=6, gravity=0.15, adhesion=0.9)   # 몸통 한쪽을 타고 오른다
     ivy_grow(v, tgt, (-0.45, 0.2, 0.04), seed=9, length=1.3, max_roots=4)
     delete(tgt)
     print("IVY tris", v.tris())
-    return finish("pillar_a", [body], [low], extras=v.objects(), size=1024, extr=0.035)
+    return finish3("pillar_a", [body], [low], extras=v.objects(), size='auto', cage=0.008, cage_reach=0.08, uv_margin=0.002)
 
 
 # ───────────────────────── 봉인의 제단 ─────────────────────────
@@ -1300,6 +1303,7 @@ def wall_ruin_a():
                    uv_margin=0.001)
 
 def wall_ruin_b():
+    """ㄱ자 벽 모서리. v3 (k7b): wall_ruin_a 레시피 — 깨진 블록(damage), carve+STONE3, 저폴리는 바탕에서, paint_block3, cage 굽기 2048"""
     rng = random.Random(202)
     gap = 0.028
     # 벽 A: 뒤쪽 (x 방향), 벽 B: 왼쪽 (y 방향, 안쪽 면이 +x)
@@ -1310,8 +1314,10 @@ def wall_ruin_b():
     blocks = Acc()
     zsA = [-0.14, 0.26] + courses(rng, 0.26, 2.2)[1:]
     zsB = [-0.14, 0.26] + courses(rng, 0.26, 2.0)[1:]
-    ashlar(blocks, rng, -1.5, 1.5, zsA, topA, -0.35, 0.35, gap=gap, ragged=(0.0, 0.25), plinth=0.04, M=MA)
-    ashlar(blocks, rng, -1.15, 1.13, zsB, topB, -0.35, 0.35, gap=gap, ragged=(0.25, 0.0), plinth=0.04, M=MB)
+    ashlar(blocks, rng, -1.5, 1.5, zsA, topA, -0.35, 0.35, gap=gap, ragged=(0.0, 0.25), plinth=0.04, M=MA,
+           damage=(0.14, random.Random(708)))
+    ashlar(blocks, rng, -1.15, 1.13, zsB, topB, -0.35, 0.35, gap=gap, ragged=(0.25, 0.0), plinth=0.04, M=MB,
+           damage=(0.14, random.Random(709)))
     bo = blocks.obj("wallb_blocks")
     core = Acc()
     core.add(core_prism(-1.5, 1.5, topA, -0.35, 0.35, -0.14), MA)
@@ -1325,16 +1331,18 @@ def wall_ruin_b():
     po = pile.obj("wallb_pile")
     rub = top_rubble(rng, topA, -1.35, 1.4, -0.35, 0.35, 20, MA) + top_rubble(rng, topB, -1.05, 1.05, -0.35, 0.35, 16, MB)
     body = join([bo, co, po] + rub + ext)
-    sculpt(body, 0.01, STONE_LAYERS(1.2, wear=1.35, cracks=0.6), seed=23)
-    set_mat(body, paint("wall_ruin_b_src", 'stone', moss=0.85, dirt=0.75, streaks=0.7, ao=0.45))
-    low = low_of(body, 6600)
+    base = carve(body, 0.009, *STONE3(1.2, wear=1.2, cracks=0.6), seed=23, base=True)
+    set_mat(body, paint_block3("wall_ruin_b_src", h=2.1, k=1.2))
+    low = low_of(base, 6600)
+    delete(base)
     tgt = copy(low)
     v = Vine(random.Random(4), leaf=(0.05, 0.08), leaf_p=0.4)
     ivy_grow(v, tgt, (-0.85, 0.7, 0.05), seed=4, length=2.2, max_roots=7)
     ivy_grow(v, tgt, (1.1, 0.75, 0.05), seed=6, length=1.2, max_roots=4)
     delete(tgt)
     print("IVY tris", v.tris())
-    return finish("wall_ruin_b", [body], [low], extras=v.objects(), size=2048, extr=0.05, lod1=0.35, lod2=0.12)
+    return finish3("wall_ruin_b", [body], [low], extras=v.objects(), size=2048, cage=0.01, cage_reach=0.1, lod1=0.35, lod2=0.12,
+                   uv_margin=0.001)
 
 
 # ───────────────────────── 부서진 뾰족 아치 문 ─────────────────────────
@@ -1357,6 +1365,7 @@ def pier(acc, rng, x0, x1, y0, y1, zs, gap=0.026, plinth=0.06, skip_top=None):
                             (0, 0, R(rng.uniform(-0.6, 0.6)))))
 
 def arch_ruin():
+    """뾰족 아치 문. v3 (k7b): wall_ruin_a 레시피 (아치 위 벽 블록 damage, carve+STONE3, paint_block3, cage 굽기 2048)"""
     rng = random.Random(303)
     y0, y1 = -0.45, 0.45
     W, h_s, rise, T, gap = 2.4, 2.6, 2.0, 0.38, 0.026          # 폭 2.4 에 2.0 솟은 뾰족 아치 (꼭대기 바깥 약 5m)
@@ -1383,7 +1392,8 @@ def arch_ruin():
     for tag, bm, c in arch_stones(random.Random(1), W, h_s, rise, T - 0.06, 7, -0.16, 0.16, 0.0, skip=(5,), chips=(0, 0)):
         blocks.add(bm, TR((0, 0, 0)) @ Matrix.Identity(4))
     span = Acc()
-    ashlar(span, rng, -2.0, 2.0, zs2, top, y0 + 0.03, y1 - 0.03, gap=gap, ragged=(0.0, 0.0), missing=0.02, skin=(0.32, 0.4))
+    ashlar(span, rng, -2.0, 2.0, zs2, top, y0 + 0.03, y1 - 0.03, gap=gap, ragged=(0.0, 0.0), missing=0.02, skin=(0.32, 0.4),
+           damage=(0.14, random.Random(710)))
     so = span.obj("arch_span")
     cut(so, zone_prism(arch_outline(W, h_s, rise, grow=T + gap, z_bottom=-0.5), y0, y1), voxel=0.012)
     core = Acc()
@@ -1408,9 +1418,10 @@ def arch_ruin():
         return (Vector((abs(x), z)) - Vector((cx_, h_s))).length > r_ + T + 0.08
     rub = top_rubble(rng, top, -1.95, 1.95, y0, y1, 26, keep=outside_arch)
     body = join([bo, so, co, fa] + rub + ext)
-    sculpt(body, 0.012, STONE_LAYERS(1.3, wear=1.3, cracks=0.6), seed=31)
-    set_mat(body, paint("arch_ruin_src", 'stone', moss=0.8, dirt=0.7, streaks=0.8, ao=0.5))
-    low = low_of(body, 15000)
+    base = carve(body, 0.01, *STONE3(1.3, wear=1.2, cracks=0.6), seed=31, base=True)
+    set_mat(body, paint_block3("arch_ruin_src", h=5.0, k=1.3, ao=0.5))
+    low = low_of(base, 15000)
+    delete(base)
     tgt = copy(low)
     v = Vine(random.Random(3), leaf=(0.05, 0.085), leaf_p=0.42)
     ivy_grow(v, tgt, (-2.05, -0.2, 0.05), seed=3, length=3.6, max_roots=9)
@@ -1425,7 +1436,8 @@ def arch_ruin():
         for yy in (y0 + 0.08,):
             hang_strand(v, (x * 0.98, yy, z - 0.02), ln * rng.uniform(0.7, 1.1), rng, face=(-sx * 0.3, -1, 0))
     print("IVY tris", v.tris())
-    return finish("arch_ruin", [body], [low], extras=v.objects(), size=2048, extr=0.06, lod1=0.35, lod2=0.12)
+    return finish3("arch_ruin", [body], [low], extras=v.objects(), size=2048, cage=0.01, cage_reach=0.1, lod1=0.35, lod2=0.12,
+                   uv_margin=0.001)
 
 
 # ───────────────────────── 무너진 돌계단 ─────────────────────────
@@ -1443,6 +1455,7 @@ def crack_cutters(rng, p0, direction, length, normal=(0, 0, 1), width=0.014, dep
     return out
 
 def stair_ruin():
+    """무너진 돌계단. v3 (k7b): wall_ruin_a 레시피. 디딤판 높이·깊이(걷는 면)는 이전과 같다 (형태 조립은 그대로, 조각만 바꿈)"""
     rng = random.Random(404)
     n_st, rise_, tread = 8, 0.1875, 0.32
     y_front = -1.32
@@ -1498,7 +1511,8 @@ def stair_ruin():
         else:
             topf = profile([(-1.4, 0.5), (-0.7, 0.9), (-0.2, 1.15), (0.2, 0.75), (0.8, 0.55), (1.6, 0.4)])
         zs = [-0.12, 0.28] + courses(rng, 0.28, 2.3, (0.26, 0.34))[1:]
-        ashlar(side, rng, -1.4, 1.6, zs, topf, -0.14, 0.14, gap=0.026, blen=(0.4, 0.7), skin=(0.12, 0.13), ragged=(0.0, 0.1), missing=0.0, M=M)
+        ashlar(side, rng, -1.4, 1.6, zs, topf, -0.14, 0.14, gap=0.026, blen=(0.4, 0.7), skin=(0.12, 0.13), ragged=(0.0, 0.1), missing=0.0, M=M,
+               damage=(0.1, random.Random(711 + sx)))
         side.add(core_prism(-1.4, 1.6, topf, -0.14, 0.14, -0.12, inset=0.035), M)
     so2 = side.obj("stair_sides")
     # 계단 밑 심: 왼쪽은 계단 모양, 오른쪽 위는 무너진 경사
@@ -1539,16 +1553,18 @@ def stair_ruin():
     rubble_pile(fallen, rng, (1.05, -1.55, 0), 0.4, 6, (0.12, 0.24), 0.25, extra=ext)
     fa = fallen.obj("stair_fallen")
     body = join([so, so2, co, fa] + ext)
-    sculpt(body, 0.01, STONE_LAYERS(1.2, wear=1.3, cracks=0.65), seed=41)
-    set_mat(body, paint("stair_ruin_src", 'stone', moss=0.85, dirt=0.7, streaks=0.6, ao=0.45))
-    low = low_of(body, 10000)
+    base = carve(body, 0.009, *STONE3(1.2, wear=1.2, cracks=0.65), seed=41, base=True)
+    set_mat(body, paint_block3("stair_ruin_src", h=2.1, k=1.2))
+    low = low_of(base, 10000)
+    delete(base)
     tgt = copy(low)
     v = Vine(random.Random(2), leaf=(0.045, 0.07), leaf_p=0.5)
     ivy_grow(v, tgt, (-1.52, -1.0, 0.05), seed=2, length=2.0, max_roots=10)
     ivy_grow(v, tgt, (1.0, 0.2, 0.6), seed=5, length=1.2, max_roots=6)
     delete(tgt)
     print("IVY tris", v.tris())
-    return finish("stair_ruin", [body], [low], extras=v.objects(), size=2048, extr=0.05, lod1=0.35, lod2=0.12)
+    return finish3("stair_ruin", [body], [low], extras=v.objects(), size=2048, cage=0.01, cage_reach=0.1, lod1=0.35, lod2=0.12,
+                   uv_margin=0.001)
 
 
 # ───────────────────────── 쇠붙이 (울타리·문·등불) ─────────────────────────
@@ -1695,6 +1711,7 @@ def stone_post(acc, rng, x, y, w, h, base=(0.14, 0.06), cap=True, broken=None):
     return z + 0.24
 
 def pillar_b():
+    """부러진 기둥 + 토막. v3 (k7b): pillar_a 와 같은 칠·굽기"""
     rng = random.Random(55)
     sx, sy = -0.55, 0.35
     blocks = Acc()
@@ -1732,16 +1749,17 @@ def pillar_b():
         lying.append(d)
     peb = [chunk((rng.uniform(-0.3, 1.4), rng.uniform(-1.3, 0.8), 0.03), (s_, s_ * 0.8, s_ * 0.6), rng, 8) for s_ in [rng.uniform(0.06, 0.14) for _ in range(7)]]
     body = join([st] + lying + peb)
-    sculpt(body, 0.007, STONE_LAYERS(1.2, wear=1.4, cracks=0.7), seed=5)
-    set_mat(body, paint("pillar_b_src", 'stone', moss=0.85, streaks=0.65, dirt=0.8, edge=0.6))
-    low = low_of(body, 7000)
+    base = carve(body, 0.006, *STONE3(1.2, wear=1.3, cracks=0.7), seed=5, base=True)
+    set_mat(body, paint_block3("pillar_b_src", h=1.9, k=1.2, moss=0.85, edge=0.6, edge_w=0.012))
+    low = low_of(base, 7000)
+    delete(base)
     tgt = copy(low)
     v = Vine(random.Random(6), leaf=(0.045, 0.07), leaf_p=0.4)
     ivy_grow(v, tgt, (sx - 0.44, sy + 0.1, 0.04), seed=6, length=1.8, max_roots=8)
     ivy_grow(v, tgt, (0.7, -0.25, 0.03), seed=3, length=1.0, max_roots=5)
     delete(tgt)
     print("IVY tris", v.tris())
-    return finish("pillar_b", [body], [low], extras=v.objects(), size=1024, extr=0.035)
+    return finish3("pillar_b", [body], [low], extras=v.objects(), size='auto', cage=0.008, cage_reach=0.08, uv_margin=0.002)
 
 
 def fence():

@@ -26,6 +26,7 @@ Assets/_Necro/Art/World/Ch1/
                               Unity 도구는 알파맵을 그 위치에서 읽고, 풀 칸 c([c, c+1) m)는 화소 c, c+1 (가로·세로 넷)의 평균을 쓴다
     trees.json                지형 나무 인스턴스
     objects.json              게임 오브젝트로 놓는 소품, 점광원, 물, 효과
+    cliffs.bin                산 벽 덮개 메쉬 조각 (w6a, gzip. 아래 '산 벽 덮개'). 없으면 도구가 건너뛴다 (예전 데이터)
   Terrain/                    지형 층 텍스처 (Unity가 가져온다)
     ground_<이름>_albedo.jpg, ground_<이름>_normal.png
   map.png                     게임 안 지도 그림 (1024 × 1024, 위 = 북쪽)
@@ -116,6 +117,55 @@ META 항목은 `Tools/BlenderKit/README.md` 참고. 단 `kind` 는 다섯 가지
 | `tree` | trees.json | 지형 나무 프로토타입 (충돌은 캡슐, `collider: none` 이면 없음) |
 | `detail` | world.json `details` + detail_*.png | 지형 풀 (전용 재질 `Foliage_Detail`) |
 
+## cliffs.bin (산 벽 덮개, w6a)
+
+왜: Unity 지형은 텍스처를 위에서 내려 찍어(UV = XZ) 가파른 산 벽(기울기 60~83°)에서 무늬가 세로로 늘어나고, 1 m 높이맵 격자로는 벽의 턱·처마가
+1~2 칸이라 30~75 m 앞에서 매끈한 커튼으로 보였다. 지형 셰이더를 새로 쓰지 않고, 걸어 다니는 범위에서 보이는 가파른 면만 따로 메쉬로 덮는다.
+만드는 쪽: `cliffskin.py` (`worldgen.py` 가 save_all 뒤에 부른다. 단독: `python3 cliffskin.py <월드 폴더> <소품 폴더> [출력 Data~]`).
+읽는 쪽: `NecroWorldBuilder.BuildCliffs` (Unity), `cliffskin.read` (render_world.py, 성능 검사).
+
+격자: 걸어 다니는 범위 안쪽 60 m 의 둘레 기준선(모서리 반지름 160 m, 봉인문 둘레만 문 줄까지 안쪽으로 당김)을 반시계로 1.25 m 마다 나눈 열.
+열마다 기준선 점 C 에서 바깥 법선 N(수평 단위 벡터) 방향으로 광선을 쏘고, 행 높이 y(1 m 마다)에서 처음 땅에 닿는 광선 거리 t 를 잰다.
+덮개 정점 = (C.x + N.x · t′, y, C.z + N.z · t′), t′ = t − 변위 (변위는 광선 반대쪽, 곧 골짜기 쪽으로 미는 거리. 턱·처마가 수평으로 남는다).
+덮는 칸: 닿은 점의 지형 기울기 ≥ 1.1, 위아래 행 사이 면 기울기 ≥ 0.8, 옆 열 깊이 차 ≤ 2 × 열 간격, 면이 골짜기 쪽을 본다. 덮개 가장자리 정점은 지형 속 0.3 m
+(덜 가파른 땅에서는 수직으로 0.3 m 넘게 묻히게 0.3 ÷ 기울기 m). 벽 발치는 열마다의 맨 아래 높이를 고른 '발치 선' 아래 2 m 까지 기울기와 상관없이 덮고 지형 속에 묻는다.
+UV0 = (u, v) m: u = 둘레 좌표(열의 실제 수평 간격 누적, 둘레 끝이 타일의 정수배), v = q = y + 지층 기울기 노이즈 (worldgen 지층과 같은 값).
+
+파일 = gzip 한 덩어리. 안은 리틀엔디언:
+
+```
+"NCLF"  u32 판(1)
+f32 tile                 바위 텍스처 한 장이 덮는 크기 (m). 재질 _BaseMap 타일링 = 1 / tile
+f32 lodSize              LODGroup.size. LOD i 전환 화면 높이 = lodSize / (1.041 × lodEnd[i]) (시야 55°)
+u32 nLod  f32 lodEnd[nLod]   LOD i 가 끝나는 거리 (조각 가운데까지 m). 마지막 끝 너머는 그리지 않는다
+u32 shadowLods           그림자를 드리우는 LOD 수 (앞에서부터)
+f32 stripQ0  f32 stripLen  u32 stripN  u32 stripW  f32 stripPeriod  u8 strip[stripN × stripW × 4]
+                         지층 밝기 띠 (선형 RGBA, 128 = ×1): 줄 r = 지층 높이 q = stripQ0 + (r + 0.5) × stripLen / stripN, 칸 c = 둘레 방향
+                         (u = stripPeriod m 마다 되풀이, stripPeriod 는 둘레 길이를 나누어 떨어진다). 줄 r 의 칸들이 이어서 담긴다 (r × stripW + c).
+                         재질 Detail Albedo (×2) 로 곱한다: 디테일 UV = (UV0 / tile) × (tile / stripPeriod, tile / stripLen) + (0, −stripQ0 / stripLen),
+                         텍스처 가로 되풀이(Repeat)·세로 끝 고정(Clamp)
+u32 nChunk
+조각마다:
+  f32 center[3]          LODGroup 기준점 (Unity 월드 좌표). 메쉬는 이 점 기준으로 만든다
+  u32 first              이 조각의 가장 고운 LOD (걸을 땅에서 그 LOD 거리 안으로 갈 수 없는 조각은 고운 LOD 를 담지 않는다. 그 LOD 칸 수는 0)
+  LOD 마다 (nLod 번):
+    u16 ni  u16 nj  u32 nVerts  u32 nQuads
+    f32 y0  f32 dy                       행 j 높이 = y0 + j × dy
+    f32 cols[ni][4]                      열 i 의 (C.x, C.z, N.x, N.z)
+    f32 tMin tMax uMin uMax vMin vMax    정점 값 양자화 범위
+    u8 quadBits[⌈(ni−1)(nj−1)/8⌉]        칸 (i, j) 덮음 = 비트 j × (ni − 1) + i (바이트 안 낮은 비트부터)
+    u8 diagBits[같은 길이]                칸 대각선
+    정점 nVerts 개 × 8 바이트            u16 t′, u16 u, u16 v (각 범위로 0~65535), i8 × 2 법선 (8면체 부호화, ÷127)
+```
+
+- 정점 순서: 격자점 (i, j) 를 j 우선(j × ni + i) 으로 훑어, 덮인 칸의 모서리인 점만 차례로 담는다 (칸 비트로 다시 셀 수 있다).
+- 칸 (i, j) 의 모서리 a = (i, j), b = (i+1, j), c = (i+1, j+1), d = (i, j+1). 대각선 0 → 삼각형 (a, b, c), (a, c, d), 1 → (a, b, d), (b, c, d).
+  이 감김이 Unity 앞면이다 (앞면 = 골짜기 쪽). 법선은 파일 값을 쓰고(조각 경계에서 이어진다), 접선은 Unity 가 UV 로 다시 계산한다.
+- 조각 = 열 64 × 행 48 칸 (약 80 × 48 m). LOD i 는 열·행을 2^i 마다 건너뛴 격자 (변위·가장자리는 그 격자에서 다시 계산). 이웃 조각은 경계 열·행의 정점을 같은 값으로 갖는다.
+- 충돌체 없음 (걷기·탈출은 지형 충돌체 그대로). 재질: URP Lit, `_BaseMap`/`_BumpMap` = Terrain 의 rock 층 텍스처 (world.json layers 의 rock), `_Smoothness` = rock 층 값.
+- Unity 도구가 만드는 것: `Generated/CliffSkin.asset` (조각·LOD 메쉬 하위 에셋), `Generated/CliffStrata.asset` (띠 텍스처 stripW × stripN, 선형),
+  `Materials/World/CliffSkin.mat`, 장면의 `Cliffs/Cliff_<k>/LOD<i>` (정적: 가림 컬링, LODGroup, LOD 0·1 만 그림자 드리움).
+
 ## Unity 도구가 지키는 것
 
 - 지형 2 × 2 타일, 타일마다 TerrainData 에셋, 이웃 연결, `drawInstanced`
@@ -125,6 +175,7 @@ META 항목은 `Tools/BlenderKit/README.md` 참고. 단 `kind` 는 다섯 가지
 - 광원 끄는 거리 덮어쓰기: objects.json lights 의 `far`, objects 의 `far` (그 소품 안 모든 광원), META.light 의 `far` → 광원 오브젝트에 `LightCullDistance.far`
 - 사라지는 거리 덮어쓰기: objects 의 `cull` → 그 놓인 소품의 LODGroup (`RaiseCull`, 프리팹 값보다 클 때만)
 - 지도: world.json `map` 이 있으면 PoiDiscovery.worldMin = map.min, worldSize = map.max − map.min (map.png 도 그 범위로 그린다)
+- 산 벽 덮개: cliffs.bin 이 있으면 조각마다 LODGroup (위 규격). 파일이 없거나 읽지 못하면 덮개 없이 만들고 경고만 남긴다. 덮개만 다시 만들기: `Tools → Necro → 월드 → 3. 산 벽 덮개만 다시 만들기`
 
 ## 확인용 파일 (생성기 출력 폴더, Unity 는 읽지 않는다)
 

@@ -202,6 +202,115 @@ def water():
         o.data.materials.append(m)
 
 
+# ───────────────────────── 산 벽 덮개 (cliffs.bin, w6a) ─────────────────────────
+# Unity NecroWorldBuilder.BuildCliffs 와 같은 규칙: 조각 가운데까지 거리로 LOD 를 고르고 마지막 LOD 끝 밖은 그리지 않는다.
+# 재질 = 지형 바위 층 텍스처(타일 = 파일의 tile m, UV = 덮개 u·v m) × 지층 밝기 띠(×2, v = 지층 높이 q). 지형 위에 그대로 겹친다
+CLIFFS = None
+_CMAT = []
+
+
+def cliff_mat(cs):
+    m = bpy.data.materials.new("CliffSkinMat")
+    m.use_nodes = True
+    nt = m.node_tree
+    N, L = nt.nodes, nt.links
+    bsdf = N["Principled BSDF"]
+    lay = next(l for l in W["layers"] if l["name"] == "rock")
+    uvn = N.new('ShaderNodeUVMap'); uvn.uv_map = "UVMap"
+    ta = N.new('ShaderNodeTexImage'); ta.image = bpy.data.images.load(os.path.join(WORLD, "Terrain", lay["albedo"]))
+    tn = N.new('ShaderNodeTexImage'); tn.image = bpy.data.images.load(os.path.join(WORLD, "Terrain", lay["normal"]))
+    tn.image.colorspace_settings.name = 'Non-Color'
+    for t in (ta, tn):
+        L.new(uvn.outputs['UV'], t.inputs['Vector'])
+    # 지층 띠: 칸 × 줄 그림 (선형, 128 = ×1). 가로(둘레)는 되풀이, 세로는 범위 안 (REPEAT 로 둔다)
+    st = cs["strip"]
+    img = bpy.data.images.new("CliffStrata", st.shape[1], st.shape[0], alpha=False, float_buffer=True)
+    img.colorspace_settings.name = 'Non-Color'
+    px = np.ones((st.shape[0], st.shape[1], 4), np.float32)
+    px[..., :3] = st[..., :3].astype(np.float32) / 255.0
+    img.pixels.foreach_set(px.ravel())
+    uvs = N.new('ShaderNodeUVMap'); uvs.uv_map = "Strata"
+    ts = N.new('ShaderNodeTexImage'); ts.image = img; ts.extension = 'REPEAT'; ts.interpolation = 'Linear'
+    L.new(uvs.outputs['UV'], ts.inputs['Vector'])
+    mul = N.new('ShaderNodeMix'); mul.data_type = 'RGBA'; mul.blend_type = 'MULTIPLY'; mul.inputs['Factor'].default_value = 1.0
+    L.new(ta.outputs['Color'], mul.inputs[6])
+    x2 = N.new('ShaderNodeVectorMath'); x2.operation = 'SCALE'; x2.inputs['Scale'].default_value = 2.0
+    L.new(ts.outputs['Color'], x2.inputs[0])
+    L.new(x2.outputs['Vector'], mul.inputs[7])
+    L.new(mul.outputs[2], bsdf.inputs['Base Color'])
+    bsdf.inputs['Roughness'].default_value = 1.0 - lay.get("smoothness", 0.12)
+    nm = N.new('ShaderNodeNormalMap'); nm.uv_map = "UVMap"; nm.inputs['Strength'].default_value = 1.0
+    L.new(tn.outputs['Color'], nm.inputs['Color'])
+    L.new(nm.outputs['Normal'], bsdf.inputs['Normal'])
+    return m
+
+
+def cliffs(cam_u):
+    """덮개 조각을 카메라 거리에 맞는 LOD 로 그린다 (cliffs.bin 이 없으면 건너뜀)"""
+    global CLIFFS
+    for o in list(sc.objects):
+        if o.name.startswith("CliffSkin"):
+            me = o.data
+            bpy.data.objects.remove(o, do_unlink=True)
+            bpy.data.meshes.remove(me)
+    path = os.path.join(DATA, "cliffs.bin")
+    if not os.path.exists(path) or os.environ.get("NO_CLIFFS"):
+        return
+    if CLIFFS is None:
+        sys.path.insert(0, HERE)
+        import cliffskin
+        CLIFFS = cliffskin.read(path)
+    cs = CLIFFS
+    if not _CMAT:
+        _CMAT.append(cliff_mat(cs))
+    cam = np.array(cam_u, np.float64)
+    pos_all, uv_all, st_all, nrm_all, tri_all = [], [], [], [], []
+    base = 0
+    nchunk = [0] * len(cs["lod_end"])
+    for ch in cs["chunks"]:
+        d = float(np.linalg.norm(ch["center"] - cam))
+        L = next((i for i, e in enumerate(cs["lod_end"]) if d < e), None)
+        if L is None:
+            continue
+        lv = ch["lv"][L]
+        if not lv["nquads"]:
+            continue
+        nchunk[L] += 1
+        p = lv["pos"]
+        pos_all.append(np.stack([p[:, 0], p[:, 2], p[:, 1]], 1))           # Unity (x, y, z) → Blender (x, z, y)
+        n = lv["nrm"]
+        nrm_all.append(np.stack([n[:, 0], n[:, 2], n[:, 1]], 1))
+        uv_all.append(lv["uv"] / cs["tile"])
+        st_all.append(np.stack([lv["uv"][:, 0] / cs["strip_period"], (lv["uv"][:, 1] - cs["strip_q0"]) / cs["strip_len"]], 1))
+        t = lv["tri"]
+        tri_all.append(t[:, ::-1] + base)                                  # 축을 바꾸면 감김이 뒤집힌다
+        base += len(p)
+    if not pos_all:
+        return
+    P = np.concatenate(pos_all).astype(np.float32)
+    T = np.concatenate(tri_all).astype(np.int32)
+    me = bpy.data.meshes.new("CliffSkin")
+    me.vertices.add(len(P))
+    me.vertices.foreach_set("co", P.ravel())
+    me.loops.add(T.size)
+    me.loops.foreach_set("vertex_index", T.ravel())
+    me.polygons.add(len(T))
+    me.polygons.foreach_set("loop_start", np.arange(0, T.size, 3, dtype=np.int32))
+    me.update(calc_edges=True)
+    me.polygons.foreach_set("use_smooth", np.ones(len(T), bool))
+    vi = T.ravel()
+    UV = np.concatenate(uv_all).astype(np.float32)
+    ST = np.concatenate(st_all).astype(np.float32)
+    a = me.uv_layers.new(name="UVMap"); a.data.foreach_set("uv", UV[vi].ravel())
+    b = me.uv_layers.new(name="Strata"); b.data.foreach_set("uv", ST[vi].ravel())
+    me.use_auto_smooth = True
+    me.normals_split_custom_set_from_vertices([tuple(v) for v in np.concatenate(nrm_all)])
+    o = bpy.data.objects.new("CliffSkin", me)
+    sc.collection.objects.link(o)
+    o.data.materials.append(_CMAT[0])
+    print("산 벽 덮개 조각 LOD0/1/2 %s, 삼각형 %d" % ("/".join(map(str, nchunk)), len(T)))
+
+
 # ───────────────────────── 소품 (지오메트리 노드로 복제) ─────────────────────────
 SRC = {}
 
@@ -508,6 +617,7 @@ def build_view(name):
         fov = 60 if name.startswith("eye_") else 52
     eye_like = name.startswith(("eye_", "scene_")) or name in EYE_VIEWS
     terrain_for(pos if eye_like else None)
+    cliffs(pos)
     camera(pos, look, fov, res)
     props(pos, prop_r)
     if grass_r:

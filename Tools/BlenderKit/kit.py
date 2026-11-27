@@ -1387,7 +1387,7 @@ def _hard_edges(o, angle):
 def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, lod2=None, uv_angle=66,
            cage=None, cage_reach=0.2, hard=None, pack=False, samples=None, margin=16, margin_type='EXTEND', uv_margin=0.003,
            uv='smart', uv_weight=None, lod_rule=False, bake_groups=None, probe=None, split_cage=False, despeck=False,
-           flat_hard=None, despeck_n=None, flat_smooth=0, blob_fix=None):
+           flat_hard=None, despeck_n=None, flat_smooth=0, blob_fix=None, far_extras=None):
     """highs: 굽기 원본 / low_parts: 저폴리 조각 (하나로 합쳐 UV를 펴고 Main 재질)
     extras: 굽지 않고 그대로 붙이는 부품 (Glow_* 재질, Foliage 재질을 미리 입힌 것)
     lod1, lod2: LOD 비율 (Main 부분만 줄인다). None 이면 만들지 않는다.
@@ -1417,7 +1417,9 @@ def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, l
     (k6) flat_smooth: flat_hard 로 다시 메운 띠를 3x3 평균으로 그만큼 고른다 (비스듬한 섬 경계의 계단 빗살 방지, 바위 2)
     (k6) blob_fix: 비율(0.45 안팎). margin=0 일 때 albedo 가 둘레(15x15 중앙값)의 그 비율보다 어두운 작은 덩어리(400 화소 이하)를
       두 그림 모두 둘레 값으로 메운다 (repair_blobs, 로그 BLOBFIX). 깊은 껍질 골 안에서 광선이 골 벽을 뚫고 반대쪽을 맞아
-      생긴 경계 또렷한 검은 렌즈·구멍 점 (k1r: 고목 뿌리의 검은 구멍 점)"""
+      생긴 경계 또렷한 검은 렌즈·구멍 점 (k1r: 고목 뿌리의 검은 구멍 점)
+    (k7b) far_extras: 주면 마지막 LOD(LOD1 이상)에는 extras 대신 이것만 붙인다 (랜드마크: 덩굴 잎은 빼고 발광 부품만 남긴다,
+      assets_landmarks.finish_lm 과 같은 규칙). 이 목록의 부품은 extras 에도 들어 있어야 한다"""
     t0 = __import__('time').time()
     low = join(low_parts)
     origin0(low)
@@ -1622,8 +1624,11 @@ def finish(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, l
             apply_all(c)
         lods.append(c)
         keep_fol.append(kf)
+    far_list = None if far_extras is None else [e for e in far_extras if e is not None]
     for i, L in enumerate(lods):
         ex_i = [e for e in extra_list if keep_fol[i] or not is_fol(e)]
+        if far_list is not None and i > 0 and i == len(lods) - 1:
+            ex_i = [e for e in far_list if e in extra_list]
         if ex_i:
             ex = [copy(e) for e in ex_i]
             joined = join([L] + ex)
@@ -2064,7 +2069,8 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
            strata=0.0, strata_scale=2.2, strata_tilt=(0.35, 0.15), rain=0.0, rain_h=None, rain_color=(0.3, 0.34, 0.3),
            splash=0.0, splash_z=0.0, splash_h=0.12, cavity_s=None, edge_break=0.0, edge_break_scale=2.5, hcav=0.0,
            hcav_attr='hgt', hcav_d=0.01, hcav_color=None, grit=0.0, grit_scale=240.0, veins=0.0, vein_scale=2.5,
-           vein_tilt=(0.35, 0.15), vein_cover=0.5, pocks=0.0, pock_scale=9.0, pock_depth=0.004, facet_hue=None):
+           vein_tilt=(0.35, 0.15), vein_cover=0.5, pocks=0.0, pock_scale=9.0, pock_depth=0.004, facet_hue=None,
+           grime_color=None, streaks_cover=None, streaks_cover_scale=1.1):
     """v3 손칠 재질 (굽기 원본용). 색 → Base Color(DIFFUSE 굽기), 잔 결 → Normal(NORMAL 굽기).
     pal: PAL 이름 또는 (어두운, 밝은, 모서리) / h: 물체 높이(m) — 위→아래 밝기 / k: 무늬 크기 배율 (1 = 사람 키)
     light: 위에서 비친 듯한 밝기 차이 / hue_var: 큰 얼룩으로 차가운 청색 ↔ 보랏빛 / piece_var: 블록(carve 의 'piece')마다 색조·밝기 차이 / cells: 블록 번호가 없을 때
@@ -2093,7 +2099,11 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
     grit: 아주 잔 광물 알갱이 점 (grit_scale, 3~6 m 에서 면이 비닐처럼 비지 않게. 구름 잡음과 달리 고르게 잘다)
     veins: 결(vein_tilt 로 기운 층) 따라 가늘고 어두운 금 (vein_scale 간격 주파수, vein_cover 보이는 비율)
     pocks: 정 자국 — 칸(보로노이)마다 얕은 오목 면을 노멀에 (pock_scale 칸 주파수(k 로 나눈 좌표), pock_depth 깊이 m)
-    facet_hue: 면 방향마다 색조를 바꾸는 세기 (기본 = facet_var × 1.6). 0 이면 밝기만 바꾼다 (채도·파랑 치우침을 늘리지 않게)"""
+    facet_hue: 면 방향마다 색조를 바꾸는 세기 (기본 = facet_var × 1.6). 0 이면 밝기만 바꾼다 (채도·파랑 치우침을 늘리지 않게)
+    (k7b 선택 인자, 기본값이면 예전과 같다)
+    grime_color: 줄눈 아래 때의 곱하기 색 (기본 = shadow 를 어둡게 한 짙은 파랑 보라 → 블록 석조는 회갈색 (0.17, 0.135, 0.105))
+    streaks_cover: 빗물 자국(streaks)이 보이는 비율 0~1 (None = 모든 옆면). 블록마다 고른 난수 + 큰 잡음으로 가려
+      같은 세로 빗금이 모든 블록에 깔리지 않게 한다 (streaks_cover_scale: 가림 잡음 크기)"""
     dark, lightc, edgec = PAL[pal] if isinstance(pal, str) else pal
     edge_w = edge_w if edge_w is not None else 0.006 * k
     ao = ao if ao is not None else 0.3 * k
@@ -2204,6 +2214,13 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
         nt.links.new(P, mp3.inputs['Vector'])
         sm = _mul(nt, _ramp_n(nt, _noise(nt, mp3.outputs['Vector'], 3.0, 3), [(0.5, (0, 0, 0)), (0.68, (1, 1, 1))]),
                   _maprange(nt, sN.outputs['Z'], 0.6, 0.2))
+        if streaks_cover is not None:   # (k7b) 블록 일부·군데군데에만 (블록 번호 난수 × 큰 잡음)
+            atS = nt.nodes.new('ShaderNodeAttribute'); atS.attribute_type = 'GEOMETRY'; atS.attribute_name = 'piece'
+            psel = _mul(nt, _mul(nt, _mul(nt, atS.outputs['Fac'], 5.17), 0.29, 'ADD'), 0.0, 'FRACT')
+            psel = _maprange(nt, psel, 1.0 - streaks_cover - 0.04, 1.0 - streaks_cover + 0.04)
+            sth = 0.5 - (streaks_cover - 0.5) * 0.3
+            nsel = _maprange(nt, _noise(nt, Pk, streaks_cover_scale, 2, 0.5), sth - 0.05, sth + 0.05, 0.25, 1.0)
+            sm = _mul(nt, sm, _mul(nt, psel, nsel))
         col = _mix(nt, 'MIX', _mul(nt, sm, streaks * 0.55), col, W(lerp(dark, shadow, 0.3)))
 
     # 4b. (v3b) 줄눈 바로 아래 흙물·그을음: 블록 꼭대기(ptop=0)에서 grime_h 만큼 세로 줄무늬로 흘러내린 어두운 띠 (옆면만)
@@ -2216,7 +2233,7 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
         band = _maprange(nt, _mul(nt, atT.outputs['Fac'], drip, 'DIVIDE'), gh, 0.0)
         side = _maprange(nt, sN.outputs['Z'], 0.75, 0.35)
         gm = _mul(nt, _mul(nt, band, side), grime)
-        col = _mix(nt, 'MULTIPLY', gm, col, W(lerp(shadow, (0.0, 0.0, 0.0), 0.35)))
+        col = _mix(nt, 'MULTIPLY', gm, col, W(grime_color if grime_color is not None else lerp(shadow, (0.0, 0.0, 0.0), 0.35)))
 
     # 4c. (v3c) 빗물 때: 꼭대기에서 흘러내린 세로 줄 (줄마다 길이가 다르고 아래로 갈수록 옅다), 옆면만
     if rain > 0:
@@ -2355,7 +2372,7 @@ def paint3(name, pal='stone', h=1.0, k=1.0, moss=0.5, moss_color=MOSS, dirt=0.6,
 
 def finish3(name, highs, low_parts, extras=(), size='auto', cage=0.006, cage_reach=0.2, hard=None, lod1=0.35, lod2=None,
             uv_angle=66, samples=8, uv_margin=0.003, uv='smart', uv_weight=None, lod_rule=True, bake_groups=None, probe=None,
-            split_cage=True, despeck=True, flat_hard=None, despeck_n=None, flat_smooth=0, blob_fix=None):
+            split_cage=True, despeck=True, flat_hard=None, despeck_n=None, flat_smooth=0, blob_fix=None, far_extras=None):
     """v3 마무리: 굽기 우리(cage) + UV 다시 배치(pack) + 여백 없이 굽고 빈 곳을 둘레 색으로 메우기(자홍·검정 테두리 없음).
     size: 'auto' = 가장 긴 변 1.5 m 미만 1024, 그 밖 2048 (저장소 용량 규칙, 4096 금지)
     cage: 우리 여유(m), hard: 단단한 모서리 각도(도, 석물 55 안팎·각진 바위 35~40 / 나무 None)
@@ -2365,7 +2382,30 @@ def finish3(name, highs, low_parts, extras=(), size='auto', cage=0.006, cage_rea
     return finish(name, highs, low_parts, extras=extras, size=size, lod1=lod1, lod2=lod2, uv_angle=uv_angle,
                   cage=cage, cage_reach=cage_reach, hard=hard, pack=True, samples=samples, margin=0, uv_margin=uv_margin,
                   uv=uv, uv_weight=uv_weight, lod_rule=lod_rule, bake_groups=bake_groups, probe=probe, split_cage=split_cage,
-                  despeck=despeck, flat_hard=flat_hard, despeck_n=despeck_n, flat_smooth=flat_smooth, blob_fix=blob_fix)
+                  despeck=despeck, flat_hard=flat_hard, despeck_n=despeck_n, flat_smooth=flat_smooth, blob_fix=blob_fix,
+                  far_extras=far_extras)
+
+# ═════════════════════════ k7b: 블록 석조 칠 (wall_ruin_a v3 레시피를 묶음 전체에) ═════════════════════════
+# wall_ruin_a (v3b, 검토 두 번 통과) 의 paint3 값 그대로 + 검토의 남은 손질 둘:
+#   줄눈 아래 때 파랑 보라 → 회갈색 (grime_color), 같은 세로 빗금이 모든 블록에 → 블록 일부·군데군데만 (streaks_cover).
+#   이끼는 최종 알베도(대비·gain 뒤) 명도 0.2 이하·hue 90~115° (k6r 기준 13) 가 되게 짙은 올리브 색을 쓴다 (gain 을 곱해도 밝아지지 않게
+#   처음부터 어둡게 — MOSS_OLIVE × gain 처럼 라임으로 뜨지 않는다).
+BLOCK3_MOSS = (0.018, 0.024, 0.007)
+BLOCK3_GRIME = (0.17, 0.135, 0.105)
+BLOCK3_MOSS_LATE = (0.018, 0.028, 0.0125)     # paint3 뒤에 얹는 덧칠(gain 을 받지 않음)용 이끼 색 — 최종 명도 0.2 안팎
+BLOCK3_PAINT = dict(moss=0.75, moss_patch=3.2, moss_low=0.7, moss_low_h=0.7, dirt=0.75, dirt_h=0.4, streaks=0.7, edge=1.0,
+                    edge_w=0.022, edge_gain=1.2, piece_var=0.65, piece_val=0.15, grime=0.85, grime_h=0.16, cavity=1.0, ao=0.45,
+                    stains=0.5, lichen=0.4, contrast=0.2, gain=1.35, hue_var=0.3, shadow=(0.15, 0.11, 0.25),
+                    moss_color=BLOCK3_MOSS, grime_color=BLOCK3_GRIME, streaks_cover=0.35)
+# wall_ruin_a 와 다른 값과 까닭 (k7b, wall_ruin_b 로 맞춤): 이끼가 짙어져(명도 0.2) 전체가 이전보다 24% 어두워져 gain 1.2 → 1.35,
+#   채도 이전 +10% 안이 되게 piece_var 1.0 → 0.65·hue_var 0.5 → 0.3·틈 그늘 덜 파랗게, 흰 화소 0.2% 안이 되게 edge_gain 1.35 → 1.2
+
+def paint_block3(name, h, k=1.25, pal='stone', **kw):
+    """(k7b) 블록 석조 칠: BLOCK3_PAINT 를 바탕으로 kw 만 바꿔 paint3 를 부른다. h: 물체 높이(m), k: 무늬 크기 배율.
+    큰 건물은 moss_low_h·dirt_h·grime_h 를 키워 준다 (높이 수 m 짜리 벽에서 0.4 m 흙물은 띠 하나로 보인다)"""
+    a = dict(BLOCK3_PAINT)
+    a.update(kw)
+    return paint3(name, pal, h=h, k=k, **a)
 
 # ═════════════════════════ k6: 세월 덧칠·형태 검사 (62종 공통) ═════════════════════════
 #   drip_attr()    정점마다 '위로 물체가 끝나는 곳까지 거리' → 'dtop' (빗물 때가 윗변·깨짐 바로 아래에서 시작하게)

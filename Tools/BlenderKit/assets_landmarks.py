@@ -2116,8 +2116,10 @@ def crypt():
     urns.append(sk2)
 
     body = join(walls + ext + [sk] + urns)
-    sculpt(body, 0.019 * VOX, STONE_LAYERS(1.4, wear=1.3, cracks=0.6), seed=111)
-    m = big_stone_mat("crypt_src", 'stone', moss=0.7, k=1.3, ao=0.6, streak=0.55, dirt_h=1.1, moss_h=1.5, dirt=0.7, streaks=0.6)
+    # v3 (k7b): wall_ruin_a 레시피 — carve+STONE3 (저폴리는 되붙이지 않은 바탕에서), paint_block3 (회갈색 때, 군데군데 빗물, 짙은 올리브 이끼),
+    # finish3 cage 굽기. 쇠문은 이전 칠 그대로
+    base = carve(body, 0.017 * VOX, *STONE3(1.4, wear=1.2, cracks=0.6), seed=111, base=True)
+    m = paint_block3("crypt_src", h=7.8, k=1.4, ao=0.6, dirt_h=1.0, moss_low_h=1.4, grime_h=0.22)
     tint_near(m, (0, YF + 1.3, 2.2), 1.5, (0.012, 0.008, 0.02), 0.95)          # 문 안쪽 어둠
     tint_near(m, (hole_c.x, hole_c.y, ZR - 1.9), 1.5, (0.015, 0.01, 0.025), 0.95)   # 꺼진 지붕 속 어둠
     tint_near(m, (0, YF - 0.3, SKZ), 0.75, (0.3, 0.12, 0.5), 0.35)            # 눈빛에 물든 돌
@@ -2136,13 +2138,15 @@ def crypt():
     ih = iron_high(io, 0.007, 112)
     ih.data.materials[0] = iron_mat("crypt_iron_src", 112)
 
-    low = low_of(body, 17000)
+    low = low_of(base, 17000)
+    delete(base)
     vines = ivy_on(low, [((-XW - 0.6, YF - 0.55, ZP + 0.05), 3, 7.5, 9), ((-XW - 0.05, -1.4, ZP + 0.05), 5, 5.0, 6),
                          ((-PX - 0.1, YF - 0.9, 0.05), 9, 3.0, 4)], 31, leaf=(0.07, 0.12), leaf_p=0.34,
                    hangs=[((-2.4, YF - 0.12, ZE + 0.7), 1.6, (0, -1, 0)), ((-1.5, YF - 0.12, ZE + 1.55), 1.1, (0, -1, 0)),
                           ((-XW - 0.1, -2.0, ZE - 0.3), 1.4, (-1, 0, 0)), ((-XW - 0.1, 1.6, ZE - 0.3), 0.9, (-1, 0, 0))])
     webs = [web_dim((-WI / 2 - 0.02, YF + 0.36, HS + 0.15), (1, 0, 0), (0, 0, -1), 0.42)]
-    return finish_lm("crypt", [body, ih], [low, io], extras=[eyes] + vines + webs, far_extras=[eyes], size=2048, extr=0.08, lod1=0.35, lod2=0.12)
+    return finish3("crypt", [body, ih], [low, io], extras=[eyes] + vines + webs, far_extras=[eyes], size=2048, cage=0.012, cage_reach=0.12,
+                   lod1=0.35, lod2=0.12, uv_margin=0.001)
 
 
 # ═════════════════════════ 큰 구조물 부품 ═════════════════════════
@@ -2655,8 +2659,9 @@ def cathedral_ruin():
     print("CATH parts", len(hi_parts), "area %.0f m2" % tot_area)
     body = join(hi_parts)
     pre = copy(body)
-    sculpt(body, 0.055 * VOX, STONE_LAYERS(2.6, wear=1.4, cracks=0.65), seed=221)
-    m = big_stone_mat("cathedral_src", 'stone', moss=0.8, k=2.2, ao=1.0, streak=0.6, dirt_h=1.8, moss_h=2.6, dirt=0.7, streaks=0.65)
+    # v3 (k7b): wall_ruin_a 레시피 (블록부): carve+STONE3, paint_block3, finish3 cage 굽기. 저폴리는 이전처럼 조각 전 조립품을 거칠게 리메시
+    carve(body, 0.055 * VOX, *STONE3(2.6, wear=1.2, cracks=0.65), seed=221)
+    m = paint_block3("cathedral_src", h=26.0, k=2.2, ao=1.0, dirt_h=1.8, moss_low_h=2.6, grime_h=0.3, edge_w=0.04, moss_patch=2.4)
     tint_near(m, (0, YF + 0.5, RC), 3.2, (0.32, 0.14, 0.5), 0.3)          # 장미창 둘레 영혼 빛에 물든 돌
     set_mat(body, m)
     low = low_coarse(pre, 0.16, 24000, floor=20)
@@ -2666,7 +2671,8 @@ def cathedral_ruin():
                          ((-XI + 0.3, 10.0, 0.1), 12, 4.0, 4)], 41, leaf=(0.1, 0.16), leaf_p=0.24,
                    hangs=[((-2.0, YF - 0.3, 18.0), 3.5, (0, -1, 0)), ((3.0, YF - 0.3, 16.5), 2.4, (0, -1, 0)),
                           ((XO + 0.2, -5.0, 14.0), 3.0, (1, 0, 0)), ((XO + 0.2, 6.0, 14.0), 2.2, (1, 0, 0))], step=0.06)
-    return finish_lm("cathedral_ruin", [body], [low], extras=glows + vines, far_extras=glows, size=2048, extr=0.26, lod1=0.35, lod2=0.12)
+    return finish3("cathedral_ruin", [body], [low], extras=glows + vines, far_extras=glows, size=2048, cage=0.02, cage_reach=0.35,
+                   lod1=0.35, lod2=0.12, uv_margin=0.001)
 
 
 # ═════════════════════════ 석상 부품 ═════════════════════════
@@ -3123,9 +3129,9 @@ def well():
     inner.add(bm_cyl(RI + 0.05, 0.08, 24), TR((0, 0, -1.75)))
     io_ = inner.obj("well_inner")
     hs = join([so, io_])
-    sculpt(hs, 0.006, STONE_LAYERS(0.9, wear=1.4, cracks=0.6), seed=55)
-    m = paint("well_src", 'stone', moss=0.85, ao=0.2, dirt=0.75, streaks=0.6)
-    moss_low(m, -0.1, 0.45, 0.85, scale=4.0)
+    # v3 (k7b): 돌 부분만 wall_ruin_a 레시피 (carve+STONE3, paint_block3, finish3 cage 굽기). 나무·밧줄·두레박·쇠는 이전 칠 그대로
+    hbase = carve(hs, 0.006, *STONE3(0.9, wear=1.2, cracks=0.6), seed=55, base=True)
+    m = paint_block3("well_src", h=0.85, k=0.9, moss=0.85, ao=0.2, moss_low_h=0.45, dirt_h=0.25, grime_h=0.1, edge_w=0.014)
     tint_near(m, (0, 0, -1.2), 1.0, (0.01, 0.012, 0.02), 0.95)                 # 우물 속 어둠
     set_mat(hs, m)
     # 나무: 기둥 둘, 도르래 축(감긴 밧줄), 손잡이, 지붕 틀 (서까래 하나 부러짐), 남은 널빤지 몇 장
@@ -3182,7 +3188,8 @@ def well():
     bko.data.transform(Mb); bio.data.transform(Mb)
     bkh = wood_high(bko, 0.0035, 58, "bucket_src")
     bih = iron_high(bio, 0.003, 59)
-    lo = low_of(hs, 3000)
+    lo = low_of(hbase, 3000)
+    delete(hbase)
     webs = [web_dim((-0.95 + 0.07, -0.05, H - 0.1), (1, 0, 0), (0, 0, -1), 0.28)]
     tgt = copy(lo)
     v = Vine(random.Random(61), leaf=(0.03, 0.05), leaf_p=0.45)
@@ -3190,7 +3197,8 @@ def well():
     delete(tgt)
     hang_strand(v, (-0.6, -0.73, 0.78), 0.45, rng)
     hang_strand(v, (0.7, 0.42, 0.8), 0.35, rng, face=(0.8, 0.6, 0))
-    return finish_lm("well", [hs, wh, rh, bkh, bih], [lo, wo, ro, bko, bio], extras=v.objects() + webs, far_extras=[], size=1024, extr=0.02, lod1=0.35, lod2=0.12)
+    return finish3("well", [hs, wh, rh, bkh, bih], [lo, wo, ro, bko, bio], extras=v.objects() + webs, far_extras=[], size='auto', cage=0.006,
+                   cage_reach=0.04, lod1=0.35, lod2=0.12, uv_margin=0.002)
 
 
 # ═════════════════════════ 무너진 아치 다리 ═════════════════════════
@@ -3328,16 +3336,20 @@ def bridge_ruin():
     rubble_pile(fl, rng, (0.6, -3.2, -2.05), 1.1, 9, (0.22, 0.45), 0.5, extra=ext, k=k)
     walls.append(fl.obj("bridge_fallen"))
     body = join(walls + ext)
-    sculpt(body, 0.022 * VOX, STONE_LAYERS(1.5, wear=1.4, cracks=0.6), seed=66)
-    m = big_stone_mat("bridge_src", 'stone', moss=0.85, k=1.4, ao=0.6, streak=0.55, dirt_h=-1.2, moss_h=0.0, dirt=0.0, streaks=0.6)
-    moss_low(m, ZB, -0.9, 0.95, scale=1.6)                     # 물에 잠겼던 아래쪽: 진한 이끼 띠
-    dirt_low(m, ZB, -1.6, 0.8, (0.03, 0.035, 0.03))
+    # v3 (k7b): wall_ruin_a 레시피 — carve+STONE3 (저폴리는 바탕에서: 걷는 면 높이는 조립품 그대로), paint_block3, finish3 cage 굽기.
+    # 땅이 z=0 이 아니라 개울 바닥이라 paint3 의 흙물·아래 이끼는 끄고, 물에 잠겼던 띠는 이전처럼 따로 (짙은 올리브)
+    base = carve(body, 0.02 * VOX, *STONE3(1.5, wear=1.2, cracks=0.6), seed=66, base=True)
+    m = paint_block3("bridge_src", h=2.9, k=1.4, ao=0.6, dirt=0.0, moss_low=0.0, grime_h=0.2)
+    moss_low(m, ZB, -0.9, 0.95, color=BLOCK3_MOSS_LATE, scale=1.6)   # 물에 잠겼던 아래쪽: 진한 이끼 띠
+    dirt_low(m, ZB, -1.6, 0.8, (0.03, 0.028, 0.024))
     set_mat(body, m)
-    low = low_of(body, 12500, z=-9.0)
+    low = low_of(base, 12500, z=-9.0)
+    delete(base)
     vines = ivy_on(low, [((-XL + 0.3, -YW - 0.2, 0.05), 3, 4.0, 5), ((XL - 0.5, YW + 0.2, 0.05), 5, 3.0, 4)], 67, leaf=(0.06, 0.1), leaf_p=0.4,
                    hangs=[((x, -YW - 0.05, deck(x) + 0.3), ln, (0, -1, 0)) for x, ln in ((-3.2, 1.6), (-2.4, 2.4), (3.4, 1.3))] +
                          [((x, YW + 0.05, deck(x) + 0.9), ln, (0, 1, 0)) for x, ln in ((-1.0, 2.2), (0.6, 1.5), (2.0, 2.6))])
-    return finish_lm("bridge_ruin", [body], [low], extras=vines, far_extras=[], size=2048, extr=0.07, lod1=0.35, lod2=0.12)
+    return finish3("bridge_ruin", [body], [low], extras=vines, far_extras=[], size=2048, cage=0.012, cage_reach=0.1, lod1=0.35, lod2=0.12,
+                   uv_margin=0.001)
 
 
 # ═════════════════════════ 둥근 돌 망루 ═════════════════════════
@@ -3500,8 +3512,9 @@ def watchtower_ruin():
         c.data.transform(Matrix.Translation(p)); rub.append(c)
     body = join([so, core, fo] + ext + rub)
     pre = copy(body)
-    sculpt(body, 0.02 * VOX, STONE_LAYERS(1.4, wear=1.4, cracks=0.6), seed=77)
-    m = big_stone_mat("watchtower_src", 'stone', moss=0.8, k=1.3, ao=0.6, streak=0.6, dirt_h=1.0, moss_h=1.6, dirt=0.7, streaks=0.65)
+    # v3 (k7b): wall_ruin_a 레시피 (돌 부분). 나무 들보는 이전 칠 그대로. 저폴리는 이전처럼 조각 전 조립품에서
+    carve(body, 0.018 * VOX, *STONE3(1.4, wear=1.2, cracks=0.6), seed=77)
+    m = paint_block3("watchtower_src", h=12.0, k=1.4, ao=0.6, dirt_h=1.0, moss_low_h=1.5, grime_h=0.22)
     set_mat(body, m)
     # 썩은 나무 들보: 1층 마루 (가운데 하나 부러져 처짐), 바깥으로 삐져나온 토막, 쓰러져 기댄 들보
     wd = Acc()
@@ -3531,7 +3544,8 @@ def watchtower_ruin():
                          ((math.cos(R(60)) * (RO + 0.3), math.sin(R(60)) * (RO + 0.3), 0.05), 5, 3.5, 4)], 71, leaf=(0.06, 0.1), leaf_p=0.36,
                    hangs=[((math.cos(R(120)) * (RO + 0.06), math.sin(R(120)) * (RO + 0.06), top(R(120)) - 0.3), 2.4, (math.cos(R(120)), math.sin(R(120)), 0)),
                           ((math.cos(R(175)) * (RO + 0.06), math.sin(R(175)) * (RO + 0.06), top(R(175)) - 0.3), 1.6, (math.cos(R(175)), math.sin(R(175)), 0))])
-    return finish_lm("watchtower_ruin", [body, wh], [low, wo], extras=vines, far_extras=[], size=2048, extr=0.1, lod1=0.35, lod2=0.12)
+    return finish3("watchtower_ruin", [body, wh], [low, wo], extras=vines, far_extras=[], size=2048, cage=0.012, cage_reach=0.15,
+                   lod1=0.35, lod2=0.12, uv_margin=0.001)
 
 
 # ═════════════════════════ 2장으로 가는 거대한 관문 ═════════════════════════
@@ -3698,14 +3712,18 @@ def gate_great():
     parts.append(fl.obj("gate_fallen"))
     body = join(parts + ext)
     pre = copy(body)
-    sculpt(body, 0.036 * VOX, STONE_LAYERS(1.9, wear=1.3, cracks=0.6), seed=88)
+    # v3 (k7b): wall_ruin_a 레시피 (돌 부분): carve+STONE3, paint_block3, finish3 cage 굽기. 쇠창살·룬돌 조각은 이전 그대로
+    carve(body, 0.033 * VOX, *STONE3(1.9, wear=1.2, cracks=0.6), seed=88)
     rh = join(runes)
     surface(rh, [{'t': 'lumps', 'scale': 2.5, 'amp': 0.006}, {'t': 'terrace', 'scale': 4, 'steps': 3, 'amp': 0.005, 'cover': 0.5},
                  {'t': 'pits', 'scale': 30, 'depth': 0.003, 'cover': 0.5}, {'t': 'grain', 'scale': 80, 'amp': 0.0008}], seed=87)
-    m = big_stone_mat("gate_src", 'stone', moss=0.7, k=1.7, ao=0.8, streak=0.55, dirt_h=1.4, moss_h=1.8, dirt=0.7, streaks=0.6)
+    m = paint_block3("gate_src", h=14.0, k=1.7, moss=0.7, ao=0.8, dirt_h=1.3, moss_low_h=1.7, grime_h=0.26, edge_w=0.03)
     tint_near(m, (0, -GY - 0.3, AH + AR * 0.5), 4.5, (0.22, 0.45, 0.55), 0.22)        # 룬 빛에 물든 돌
     set_mat(body, m)
-    set_mat(rh, m)
+    # 룬돌은 carve 를 거치지 않아 블록 번호(piece·ptop)가 없다 → 줄눈 때(grime)가 온 옆면에 깔리지 않게 끈 같은 칠
+    mr = paint_block3("gate_rune_src", h=14.0, k=1.7, moss=0.7, ao=0.8, dirt_h=1.3, moss_low_h=1.7, grime=0.0, edge_w=0.03)
+    tint_near(mr, (0, -GY - 0.3, AH + AR * 0.5), 4.5, (0.22, 0.45, 0.55), 0.22)
+    set_mat(rh, mr)
     rl = low_of(rh, 2600)
     # ── 내리닫이 쇠창살 (닫힘) + 봉인 고리 ──
     ir = Acc()
@@ -3762,7 +3780,8 @@ def gate_great():
     vines = ivy_on(low, [((-TX1 - 0.4, -1.5, 0.05), 3, 9.0, 8), ((-TX1 - 0.4, 1.0, 0.05), 5, 5.0, 5), ((TX0 + 0.3, -TY - 0.4, 0.05), 7, 3.0, 4)], 81,
                    leaf=(0.08, 0.13), leaf_p=0.3, hangs=[((-2.4, -GY - 0.7, ZG + 1.1), 2.6, (0, -1, 0)), ((1.9, -GY - 0.7, ZG + 1.1), 1.8, (0, -1, 0)),
                                                            ((-6.6, -TY - 0.45, ZT + 0.1), 2.2, (0, -1, 0))], step=0.05)
-    return finish_lm("gate_great", [body, ih, rh], [low, io, rl], extras=glows + vines, far_extras=glows, size=2048, extr=0.16, lod1=0.35, lod2=0.12)
+    return finish3("gate_great", [body, ih, rh], [low, io, rl], extras=glows + vines, far_extras=glows, size=2048, cage=0.015, cage_reach=0.22,
+                   lod1=0.35, lod2=0.12, uv_margin=0.001)
 
 
 # ═════════════════════════ 목록 ═════════════════════════
