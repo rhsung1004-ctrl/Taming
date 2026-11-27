@@ -6,5 +6,7 @@ Unity·게임에는 쓰이지 않는 작업용 보관 폴더입니다. Claude �
   - `stage2/` 방향 메모(direction.md)·작업자 보고·검토 보고
   - `qa_checks/`, `wf_world/`, `world_v3_qa/`, `w4s2/`, `w5/`, `w6a/`, `s2c/`: 월드 검사(탈출·도달·길·다리·성능·배치·묻힘)와 생성·렌더 스크립트
   - `review_*`: 소품·월드 검토용 렌더 스크립트
+  - `s2c/`: 2단계 C 통합 스크립트 (`mk_kit_final.sh` 소품 합치기, `final_gen.sh` 월드 생성+검사, `render.sh` 눈높이 렌더). `stage2/s2c_main.md` 가 지금 상태 요약
+  - `workflows_copy/`: 여러 작업자를 돌리는 작업 흐름 스크립트 사본
   - `realstub/`: Unity API 흉내 컴파일 검사 (`check.sh`). 참조 어셈블리는 NuGet 의 `UnityEngine.Modules` 2021.3.33 과 `Unity3D.SDK` 2021.1.14.1 을 받아 `nuget/mods`, `nuget/sdk` 에 풀어 쓴다
 - 스크립트 안의 경로는 그때의 임시 폴더(`/tmp/claude-0/…/scratchpad`) 기준입니다. 풀어서 쓸 때 경로를 바꿉니다.
