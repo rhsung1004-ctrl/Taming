@@ -17,8 +17,9 @@ Unity 에서는 **메뉴 세 번**이면 장면이 만들어집니다. 데이터
 | ![늪](images/world_swamp.jpg) 안개 늪 | ![용의 무덤](images/world_dragon.jpg) 용의 무덤 |
 | ![봉인문](images/world_gate.jpg) 북쪽 봉인문 | ![고목](images/world_tree.jpg) 영혼의 고목 |
 | ![대성당](images/world_cathedral.jpg) 무너진 대성당 (고원 위) | ![전경](images/world_overview.jpg) 남쪽 하늘에서 본 전경 |
+| ![들판](images/world_field.jpg) 장소 사이 들판 눈높이 (586, 916 에서 북쪽: 잔가지·빛나는 버섯·마른 덤불, 마루 위 실루엣) | ![산 벽](images/world_cliffs.jpg) 동쪽 산 벽 (1630, 1050: 산 벽 덮개의 지층 턱. 왼쪽 위 덮개 가장자리 톱니는 알려진 한계) |
 
-소품: [폐허](images/props_ruins.jpg) · [자연(바위·절벽·고목)](images/props_nature.jpg) · [풀·꽃·버섯](images/props_foliage.jpg) · [용의 뼈](images/props_dragon_bones.jpg)
+소품: [장면용 새 소품 16종](images/props_scenes.jpg) · [땅 잡동사니](images/props_clutter.jpg) · [폐허](images/props_ruins.jpg) · [자연(바위·절벽·고목)](images/props_nature.jpg) · [풀·꽃·버섯](images/props_foliage.jpg) · [용의 뼈](images/props_dragon_bones.jpg)
 
 ## 1. 만들기 (처음 10~20분, 대부분 기다리는 시간)
 
