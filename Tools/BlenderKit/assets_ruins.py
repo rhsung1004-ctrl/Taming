@@ -662,12 +662,13 @@ def courses(rng, z0, z1, hr=(0.27, 0.36)):
     return zs
 
 def ashlar(acc, rng, x0, x1, zs, top, y0, y1, gap=0.028, blen=(0.42, 0.82), skin=(0.3, 0.38), ragged=(0.0, 0.0),
-           missing=0.025, chips=(1, 3), M=None, plinth=0.0, keep=None, broken_top=True, damage=None):
+           missing=0.025, chips=(1, 3), M=None, plinth=0.0, keep=None, broken_top=True, damage=None, damage_top=True):
     """x0~x1 구간에 줄눈이 보이는 돌 블록을 앞·뒤 두 겹으로 쌓는다 (가운데는 심이 채운다).
     zs: 켜 경계 높이, top(x): 무너진 윗선, y0·y1: 벽 앞면·뒷면, ragged: 양 끝이 들쭉날쭉 무너진 정도 (왼, 오른)
     plinth: 맨 아래 켜가 앞뒤로 튀어나온 정도, keep(xa, xb, za, zb): False 면 그 블록은 놓지 않는다
     damage: (v3b) (확률, random.Random) — 그 확률로 블록 하나가 크게 깨지고(모서리가 비스듬히 떨어져 나감) 이가 빠진다.
-      따로 받은 난수를 써서 블록 배치(rng 순서)는 그대로다"""
+      따로 받은 난수를 써서 블록 배치(rng 순서)는 그대로다
+    damage_top: (k7b) False 면 무너진 윗선 0.3 m 안의 블록은 깨뜨리지 않는다 (윗선 실루엣·높이가 이전 판과 같게)"""
     n = 0
     for k in range(len(zs) - 1):
         za, zb = zs[k], zs[k + 1] - gap
@@ -711,7 +712,7 @@ def ashlar(acc, rng, x0, x1, zs, top, y0, y1, gap=0.028, blen=(0.42, 0.82), skin
                             xa = xb
                             continue
                         bm_break(bm, rng, (rng.uniform(-0.15, 0.15), 0, h_loc), (-sl + rng.uniform(-0.5, 0.5), rng.uniform(-0.5, 0.5), 1), facets=rng.randint(2, 4), spread=0.6, jitter=0.05)
-                    if damage is not None and damage[1].random() < damage[0]:
+                    if damage is not None and damage[1].random() < damage[0] and (damage_top or zb < t_here - 0.3):
                         drng = damage[1]
                         hx, hy, hz = (xb - xa - gap) / 2, (yb - ya) / 2, (zb - za) / 2
                         out_y = -1 if face == 0 else 1
@@ -986,8 +987,10 @@ def pillar_a():
     for r_ in rings:
         chip(r_, rng, 4, (0.04, 0.08), sharp_deg=25, bite=0.35)
     body = join([shaft, blk] + rings)
-    base = carve(body, 0.006, *STONE3(1.2, wear=1.3, cracks=0.7), seed=3, base=True)
-    set_mat(body, paint_block3("pillar_a_src", h=3.95, k=1.2, moss=0.7, edge=0.6, edge_w=0.012, moss_low_h=0.8))
+    # 2회차: 1회차가 매끈하고 창백해 새것 같았다 → 풍화 2.0·금 1.1, 빗물 때, 얼룩, gain 1.45
+    base = carve(body, 0.006, *STONE3(1.2, wear=2.0, cracks=1.1), seed=3, base=True)
+    set_mat(body, paint_block3("pillar_a_src", h=3.95, k=1.2, moss=0.75, edge=0.6, edge_w=0.012, moss_low_h=0.8, gain=1.45, stains=0.7,
+                               rain=0.5, rain_h=1.6, rain_color=(0.2, 0.18, 0.16)))
     low = low_of(base, 6000)
     delete(base)
     tgt = copy(low)
@@ -1041,6 +1044,7 @@ def altar():
         blocks.add(bm)
     tier_obj = blocks.obj("altar_tiers")
     chip(tier_obj, rng, 46, (0.04, 0.1), sharp_deg=35, bite=0.36, zmin=0.0)
+    tier_e = copy(tier_obj)          # k7a: 닳은 모서리는 룬·금·고리 홈을 파기 전 형태에서 (홈 입술이 흰 선으로 빛나지 않게)
 
     # 룬 고리 (맨 위 단: 두 겹 고리 사이에 글자 16개, 가운데 단: 고리 하나 + 눈금)
     cutters, glows = [], []
@@ -1118,9 +1122,14 @@ def altar():
         rr = rng.uniform(3.1, 3.7)
         s = rng.uniform(0.08, 0.18)
         pebbles.append(chunk((rr * math.cos(th), rr * math.sin(th), s * 0.3), (s, s * rng.uniform(0.7, 1.0), s * 0.7), rng, 9))
+    esrc_t = join([tier_e, copy(deb)] + [copy(c_) for c_ in cores] + [copy(p_) for p_ in pebbles])
     tiers_hp = join([tier_obj, deb] + cores + pebbles)
-    sculpt(tiers_hp, 0.011, STONE_LAYERS(1.3, wear=1.1, cracks=0.55), seed=7)
-    set_mat(tiers_hp, paint("altar_tiers_src", 'stone', moss=0.8, streaks=0.5, ao=0.5, dirt=0.7))
+    # k7a v3 (묘비·석물 레시피): 블록마다 번호(색조) → 되붙인 리메시 → GRAVE3(사방에 약한 굴곡·드문 금) / 저폴리는 바탕에서 /
+    # paint_grave3 (빗물 때는 단마다 윗변에서, 흙물·짙은 올리브 이끼는 아래 단에) / cage 굽기
+    co_, fi_ = GRAVE3(1.6, face=None)
+    base_t = carve(tiers_hp, 0.011, co_, fi_, seed=7, base=True, edge_from=esrc_t, store='hgt')
+    drip_attr(tiers_hp)
+    set_mat(tiers_hp, paint_grave3("altar_tiers_src", 0.95, k=1.6, edge_w=0.014, weather=dict(rain_h=0.35, mud_h=0.3, moss_h=0.35)))
 
     # ── 가운데 받침 (팔각) + 선돌 넷 ──
     ped = Acc()
@@ -1140,6 +1149,8 @@ def altar():
     bm = octa(0.42, 1.94, 2.16, 0.58); stone_blk(bm, rng, (2, 3), (0.03, 0.07), 0.014, zmin=2.1); ped.add(bm)
     ped_obj = ped.obj("pedestal")
     pcut = [cyl(0.4, 0.3, (0, 0, 2.2), 32)]
+    ped_e = copy(ped_obj)
+    cut(ped_e, [copy(pcut[0])])
     pstrokes = []
     for k in (6, 2, 0, 4):           # 앞(-Y), 뒤, 오른쪽, 왼쪽 면에 세로 룬
         th = R(45 * k)
@@ -1189,10 +1200,13 @@ def altar():
         stones_cut = [stroke_cutter(pa, pb, nrm, 0.028, 0.024) for pa, pb in st]
         loose.append(("cut", stones_cut))
     st_obj = stones.obj("stones")
+    st_e = copy(st_obj)
     cut(st_obj, [c for t in loose if t[0] == "cut" for c in t[1]])
     deco = join([ped_obj, st_obj])
-    sculpt(deco, 0.007, STONE_LAYERS(1.0, wear=1.0, cracks=0.5), seed=11)
-    set_mat(deco, paint("altar_deco_src", 'stone_pale', moss=0.45, streaks=0.5))
+    co_, fi_ = GRAVE3(1.0, face=None)
+    base_d = carve(deco, 0.007, co_, fi_, seed=11, base=True, edge_from=join([ped_e, st_e]), store='hgt')
+    drip_attr(deco)
+    set_mat(deco, paint_grave3("altar_deco_src", 2.2, k=1.0, gain_k=1.08, edge_w=0.01, moss=0.45, weather=dict(rain_h=0.4, mud_h=0.35, moss_h=0.4)))
 
     # 영혼 수정 다발 (받침 위) + 틈에서 돋은 작은 수정
     cv, cf = [], []
@@ -1220,9 +1234,12 @@ def altar():
         if g is not None and not g.data.materials:
             glow(g, 'Glow_Soul')
 
-    low_t = low_of(tiers_hp, 15500, z=-0.04)
-    low_d = low_of(deco, 5500, z=-0.04)
-    return finish("altar", [tiers_hp, deco], [low_t, low_d], extras=glows, size=2048, extr=0.05, lod1=0.35, lod2=0.12)
+    low_t = low_of(base_t, 15500, z=-0.04)
+    low_d = low_of(base_d, 5500, z=-0.04)
+    delete(base_t); delete(base_d)
+    print("LOW altar", tri_count(low_t), tri_count(low_d))
+    return finish3("altar", [tiers_hp, deco], [low_t, low_d], extras=glows, size='auto', cage=0.012, cage_reach=0.1, lod1=0.35, lod2=0.12,
+                   uv_margin=0.001)
 
 
 # ───────────────────────── 무너진 벽 ─────────────────────────
@@ -1315,9 +1332,9 @@ def wall_ruin_b():
     zsA = [-0.14, 0.26] + courses(rng, 0.26, 2.2)[1:]
     zsB = [-0.14, 0.26] + courses(rng, 0.26, 2.0)[1:]
     ashlar(blocks, rng, -1.5, 1.5, zsA, topA, -0.35, 0.35, gap=gap, ragged=(0.0, 0.25), plinth=0.04, M=MA,
-           damage=(0.14, random.Random(708)))
+           damage=(0.14, random.Random(708)), damage_top=False)       # 윗선 블록은 깨뜨리지 않는다 (높이 이전과 같게)
     ashlar(blocks, rng, -1.15, 1.13, zsB, topB, -0.35, 0.35, gap=gap, ragged=(0.25, 0.0), plinth=0.04, M=MB,
-           damage=(0.14, random.Random(709)))
+           damage=(0.14, random.Random(709)), damage_top=False)
     bo = blocks.obj("wallb_blocks")
     core = Acc()
     core.add(core_prism(-1.5, 1.5, topA, -0.35, 0.35, -0.14), MA)
@@ -1333,7 +1350,7 @@ def wall_ruin_b():
     body = join([bo, co, po] + rub + ext)
     base = carve(body, 0.009, *STONE3(1.2, wear=1.2, cracks=0.6), seed=23, base=True)
     set_mat(body, paint_block3("wall_ruin_b_src", h=2.1, k=1.2))
-    low = low_of(base, 6600)
+    low = low_of(base, 6600, z=-0.12)          # 맨 아래 켜(−0.14)까지 남긴다 (이전 판과 같은 높이·묻힘)
     delete(base)
     tgt = copy(low)
     v = Vine(random.Random(4), leaf=(0.05, 0.08), leaf_p=0.4)
@@ -1392,8 +1409,8 @@ def arch_ruin():
     for tag, bm, c in arch_stones(random.Random(1), W, h_s, rise, T - 0.06, 7, -0.16, 0.16, 0.0, skip=(5,), chips=(0, 0)):
         blocks.add(bm, TR((0, 0, 0)) @ Matrix.Identity(4))
     span = Acc()
-    ashlar(span, rng, -2.0, 2.0, zs2, top, y0 + 0.03, y1 - 0.03, gap=gap, ragged=(0.0, 0.0), missing=0.02, skin=(0.32, 0.4),
-           damage=(0.14, random.Random(710)))
+    # damage 는 쓰지 않는다: 깨진 블록이 있으면 아래 아치 자리 파내기(EXACT 불리언)가 조용히 실패해 아치 구멍이 막힌다 (k7b 1회차)
+    ashlar(span, rng, -2.0, 2.0, zs2, top, y0 + 0.03, y1 - 0.03, gap=gap, ragged=(0.0, 0.0), missing=0.02, skin=(0.32, 0.4))
     so = span.obj("arch_span")
     cut(so, zone_prism(arch_outline(W, h_s, rise, grow=T + gap, z_bottom=-0.5), y0, y1), voxel=0.012)
     core = Acc()
@@ -1419,7 +1436,7 @@ def arch_ruin():
     rub = top_rubble(rng, top, -1.95, 1.95, y0, y1, 26, keep=outside_arch)
     body = join([bo, so, co, fa] + rub + ext)
     base = carve(body, 0.01, *STONE3(1.3, wear=1.2, cracks=0.6), seed=31, base=True)
-    set_mat(body, paint_block3("arch_ruin_src", h=5.0, k=1.3, ao=0.5))
+    set_mat(body, paint_block3("arch_ruin_src", h=4.2, k=1.3, ao=0.5))
     low = low_of(base, 15000)
     delete(base)
     tgt = copy(low)
@@ -1512,7 +1529,7 @@ def stair_ruin():
             topf = profile([(-1.4, 0.5), (-0.7, 0.9), (-0.2, 1.15), (0.2, 0.75), (0.8, 0.55), (1.6, 0.4)])
         zs = [-0.12, 0.28] + courses(rng, 0.28, 2.3, (0.26, 0.34))[1:]
         ashlar(side, rng, -1.4, 1.6, zs, topf, -0.14, 0.14, gap=0.026, blen=(0.4, 0.7), skin=(0.12, 0.13), ragged=(0.0, 0.1), missing=0.0, M=M,
-               damage=(0.1, random.Random(711 + sx)))
+               damage=(0.1, random.Random(711 + sx)), damage_top=False)
         side.add(core_prism(-1.4, 1.6, topf, -0.14, 0.14, -0.12, inset=0.035), M)
     so2 = side.obj("stair_sides")
     # 계단 밑 심: 왼쪽은 계단 모양, 오른쪽 위는 무너진 경사
@@ -1555,7 +1572,7 @@ def stair_ruin():
     body = join([so, so2, co, fa] + ext)
     base = carve(body, 0.009, *STONE3(1.2, wear=1.2, cracks=0.65), seed=41, base=True)
     set_mat(body, paint_block3("stair_ruin_src", h=2.1, k=1.2))
-    low = low_of(base, 10000)
+    low = low_of(base, 10000, z=-0.1)
     delete(base)
     tgt = copy(low)
     v = Vine(random.Random(2), leaf=(0.045, 0.07), leaf_p=0.5)
@@ -1749,8 +1766,9 @@ def pillar_b():
         lying.append(d)
     peb = [chunk((rng.uniform(-0.3, 1.4), rng.uniform(-1.3, 0.8), 0.03), (s_, s_ * 0.8, s_ * 0.6), rng, 8) for s_ in [rng.uniform(0.06, 0.14) for _ in range(7)]]
     body = join([st] + lying + peb)
-    base = carve(body, 0.006, *STONE3(1.2, wear=1.3, cracks=0.7), seed=5, base=True)
-    set_mat(body, paint_block3("pillar_b_src", h=1.9, k=1.2, moss=0.85, edge=0.6, edge_w=0.012))
+    base = carve(body, 0.006, *STONE3(1.2, wear=2.0, cracks=1.1), seed=5, base=True)
+    set_mat(body, paint_block3("pillar_b_src", h=1.9, k=1.2, moss=0.85, edge=0.6, edge_w=0.012, gain=1.45, stains=0.7,
+                               rain=0.5, rain_h=1.0, rain_color=(0.2, 0.18, 0.16)))
     low = low_of(base, 7000)
     delete(base)
     tgt = copy(low)

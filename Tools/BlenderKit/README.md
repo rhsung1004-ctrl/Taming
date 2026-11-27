@@ -87,7 +87,7 @@ finish3("이름", [body], [low], extras=[...], cage=0.006, hard=55)     # size='
 | 종류 | 형태·저폴리 | carve | 칠 (paint3) | finish3 |
 | --- | --- | --- | --- | --- |
 | 작은 석물 ~1m (묘비·십자가) | `lowpoly(새김 전 형태)`, **큰 깨짐 한 군데 + 옆선 깨짐 하나**(저폴리 전에), 금 4~5줄 | 0.0025, **`edge_from=판·홈을 파기 전 사본`**, 그 뒤 `drip_attr` | `edge_mode='attr'`, **edge 0.5 / edge_gain 0.42 / edge_break 0.45**, cavity 0.9, stains 0.6, moss 0.7(올리브), contrast 0.22, gain 1.55, shadow (0.13,0.115,0.17) + `blotch` 1.0 + **`weather3`(rain 1.0·mud 1.0·moss 1.0·moss_top 1.0·groove 1.0·mottle 0.6) + 밝은 mottle 한 번 더** (k6) | cage 0.006, hard 55, `uv_weight`(앞면 1.0, 뒷면 0.65, 받침 0.7) |
-| 블록 많은 석조 (벽·아치·계단) | `ashlar(..., damage=(0.14, rng))` → `carve(base=True)` → `low_of` | 0.009, `STONE3(1.25, 1.2, 0.6)` | piece_var 1.0, **piece_val 0.15**, **grime 0.85** (grime_h 0.16), edge_w 0.022 / edge_gain 1.35, ao 0.45, lichen 0.4 | cage 0.01 / reach 0.1, **uv_margin 0.001**, lod2 0.12 |
+| 블록 많은 석조 (벽·아치·계단) | `ashlar(..., damage=(0.14, rng))` → `carve(base=True)` → `low_of` | 0.009, `STONE3(1.25, 1.2, 0.6)` | piece_var 1.0, **piece_val 0.15**, **grime 0.85** (grime_h 0.16), edge_w 0.022 / edge_gain 1.35, ao 0.45, lichen 0.4 (wall_ruin_a). 묶음 전체는 **`paint_block3`** (아래 k7b) | cage 0.01 / reach 0.1, **uv_margin 0.001**, lod2 0.12 |
 | 바위 2~4m | `facet_mass` + (쐐기 틈) + `chip_convex` + **`grain_steps`(결 셋, 큰 5) → `clean_solid(0.05)` → `lowpoly` → 잔 `grain_steps`(18, 틈 안 제외) → `clean_solid(0.02)`** (k6) | 0.005, `mode='octree'`, 얕은 lumps + 굵은 금 2층, **`store='hgt'`**, 그 뒤 `drip_attr` | **ROCK_GREY(회청), facet_var 0.42 / facet_hue 0.1, light 0.5, grain 1.0, grit 0.6, veins 1.0, hcav 0.9, pocks 1.0 (scale 12, 0.009 m)**, edge 0, lichen 0, moss 1.0 올리브 + `weather3`(rain·mud·moss·groove·mottle) (k6) | cage 0.012 / reach 0.1, hard 38, flat_hard 6, **flat_smooth 2, despeck_n 0.3**, uv_angle 40, uv_margin 0.002 |
 | 죽은 나무 | `tree_build(..., low_mode='tube', rho=tree_rho, **hstore='hgt', low_bury=True**)` (k6) | 0.006, `BARK3(1.0, depth=0.66)` | BARK_GREY, edge 0, lichen 0, cavity 0.55 / cavity_s 0.2, **hcav 0.7 (0.028 m), contrast 0.32, gain 0.83, hue_var 0.08, shadow·grad_dark 회갈** (맨나무 blotch 없음) | `fin=dict(cage=0.006, cage_reach=0.06, samples=8, margin=0, uv_margin=0.002, despeck_n=0.26, **blob_fix=0.5**)` |
 
@@ -180,6 +180,22 @@ finish3("이름", [body], [low], extras=[...], cage=0.006, hard=55)     # size='
 - **(k6) 잔 계단을 깊은 틈 안에까지**: 유리 조각처럼 깨진 틈 → `grain_steps(where=…)`.
 - **(k6) 채도만 낮춘 회색 돌**: 밝기 평균이 같아도 보라 월드 조명 아래 이웃 이전 소품(파랑 보라)보다 희게 떠 '깨끗해' 보인다 → 회청색(파랑 치우침 0.05~0.08).
 - **(k6) 깊은 골만 아주 검게(hcav 0.85, 거의 검정)**: 짧은 가로 골이 구멍 점(얼굴 무늬)으로 읽힌다 → 0.7, 덜 검게.
+
+### 블록 석조 묶음 v3 (k7b): wall_ruin_a 레시피를 넓힌 것
+
+- 대상: ruins 의 wall_ruin_b·arch_ruin·stair_ruin·pillar_a·pillar_b, landmarks 의 crypt·cathedral_ruin·bridge_ruin·watchtower_ruin·gate_great·well
+  (돌 부분만. 쇠문·쇠창살·나무 들보·밧줄·두레박은 이전 칠 그대로 같은 텍스처에 굽는다).
+- 형태는 이전 판 그대로 (크기 ±5%, 걷는 면 높이 같음). `sculpt` → `carve(voxel, *STONE3(k, wear=1.2, cracks=0.6), base=True)`,
+  저폴리는 되붙이지 않은 바탕에서 `low_of(base, …)` (큰 랜드마크 중 이전에 `low_coarse(조각 전 사본)` 을 쓰던 것은 그대로).
+  ruins 의 `ashlar` 벽에는 `damage=(0.14 안팎, 따로 받은 rng)` (블록 배치는 같다).
+- 칠: `paint_block3(name, h=높이, k=무늬 배율, …)` = `kit.BLOCK3_PAINT` (wall_ruin_a 값 + 남은 손질). 큰 건물은 `dirt_h`·`moss_low_h`·`grime_h`·`edge_w` 를 키운다.
+  - 줄눈 아래 때: 파랑 보라 → 회갈색 `grime_color=BLOCK3_GRIME`. 빗물 자국은 `streaks_cover=0.35` (블록 일부·군데군데만 — 같은 세로 빗금이 모든 블록에 깔리지 않게).
+  - 이끼: 짙은 올리브 `BLOCK3_MOSS` (gain·대비를 곱한 최종 알베도 명도 0.2 안팎, hue 90~115°). paint3 뒤에 얹는 덧칠(`moss_low` 도우미)은 `BLOCK3_MOSS_LATE`.
+  - wall_ruin_a 와 다른 값: gain 1.5 (이끼가 짙어져 어두워진 만큼), piece_var 0.65·hue_var 0.3·틈 그늘 (0.15, 0.11, 0.25) (채도 이전 +10% 안),
+    edge_gain 1.05 (lum>0.7 흰 화소 0.2% 안), moss_low 0.55.
+- 굽기: `finish3(…, cage=0.01~0.02, cage_reach=이전 extr × 1.5, uv_margin=0.001, far_extras=…)`. `far_extras` (k7b 선택 인자): 마지막 LOD 에는
+  발광 부품만 남기고 덩굴은 뺀다 (예전 `finish_lm` 과 같은 규칙). 텍스처는 `size='auto'` 규칙 (가장 긴 변 1.5 m 이상 2048).
+- 큰 랜드마크는 2048 한 장이라 텍셀이 낮다 (수십 px/m). 근접은 Unity 디테일 재질 stone 이 받친다 (META 에 detail 이 없어도 이름·tags → stone).
 
 ### 예전 방식 (v2, 아직 v3 로 바꾸지 않은 묶음)
 

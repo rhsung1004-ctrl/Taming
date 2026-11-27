@@ -2390,15 +2390,19 @@ def finish3(name, highs, low_parts, extras=(), size='auto', cage=0.006, cage_rea
 #   줄눈 아래 때 파랑 보라 → 회갈색 (grime_color), 같은 세로 빗금이 모든 블록에 → 블록 일부·군데군데만 (streaks_cover).
 #   이끼는 최종 알베도(대비·gain 뒤) 명도 0.2 이하·hue 90~115° (k6r 기준 13) 가 되게 짙은 올리브 색을 쓴다 (gain 을 곱해도 밝아지지 않게
 #   처음부터 어둡게 — MOSS_OLIVE × gain 처럼 라임으로 뜨지 않는다).
-BLOCK3_MOSS = (0.018, 0.024, 0.007)
+BLOCK3_MOSS = (0.0113, 0.0246, 0.0065)
 BLOCK3_GRIME = (0.17, 0.135, 0.105)
 BLOCK3_MOSS_LATE = (0.018, 0.028, 0.0125)     # paint3 뒤에 얹는 덧칠(gain 을 받지 않음)용 이끼 색 — 최종 명도 0.2 안팎
-BLOCK3_PAINT = dict(moss=0.75, moss_patch=3.2, moss_low=0.7, moss_low_h=0.7, dirt=0.75, dirt_h=0.4, streaks=0.7, edge=1.0,
-                    edge_w=0.022, edge_gain=1.2, piece_var=0.65, piece_val=0.15, grime=0.85, grime_h=0.16, cavity=1.0, ao=0.45,
-                    stains=0.5, lichen=0.4, contrast=0.2, gain=1.35, hue_var=0.3, shadow=(0.15, 0.11, 0.25),
+BLOCK3_PAINT = dict(moss=0.85, moss_patch=2.6, moss_low=0.55, moss_low_h=0.7, dirt=0.55, dirt_h=0.4, streaks=0.7, edge=1.0,
+                    edge_w=0.022, edge_gain=0.9, piece_var=0.55, piece_val=0.15, grime=0.85, grime_h=0.16, cavity=0.85, ao=0.45,
+                    stains=0.5, lichen=0.3, lichen_color=(0.22, 0.225, 0.2), contrast=0.2, gain=1.6, hue_var=0.3, shadow=(0.15, 0.11, 0.25),
                     moss_color=BLOCK3_MOSS, grime_color=BLOCK3_GRIME, streaks_cover=0.35)
-# wall_ruin_a 와 다른 값과 까닭 (k7b, wall_ruin_b 로 맞춤): 이끼가 짙어져(명도 0.2) 전체가 이전보다 24% 어두워져 gain 1.2 → 1.35,
-#   채도 이전 +10% 안이 되게 piece_var 1.0 → 0.65·hue_var 0.5 → 0.3·틈 그늘 덜 파랗게, 흰 화소 0.2% 안이 되게 edge_gain 1.35 → 1.2
+# wall_ruin_a 와 다른 값과 까닭 (k7b, wall_ruin_b KIT_FAST 시험 2번 + 정식 1회차 검토 렌더로 맞춤):
+#   이끼가 짙어져(최종 명도 0.2) 게임 시점 밝기가 이전보다 11~14% 어두워져 gain 1.2 → 1.6, 흙물 dirt 0.75 → 0.55, 틈 그늘 cavity 1.0 → 0.85
+#   (어두운 쪽만 올리고 p90 은 이전 +10% 안: 닳은 모서리 edge_gain 1.35 → 0.9 — gain 을 곱하면 흰 선이 되어 역광에서 뜬다)
+#   이끼는 짙지만 초록으로 읽히게 (최종 sRGB 약 (0.11, 0.19, 0.07), hue 100° 안팎) 덩어리 크게(moss 0.85, moss_patch 2.6), moss_low 0.55
+#   채도 이전 +10% 안이 되게 piece_var 1.0 → 0.55·hue_var 0.5 → 0.3·틈 그늘 덜 파랗게
+#   지의류는 gain 을 곱하면 노란 흰 점(위장무늬)이 되어 0.4 → 0.3·색 (0.42, 0.45, 0.36) → (0.22, 0.225, 0.2)
 
 def paint_block3(name, h, k=1.25, pal='stone', **kw):
     """(k7b) 블록 석조 칠: BLOCK3_PAINT 를 바탕으로 kw 만 바꿔 paint3 를 부른다. h: 물체 높이(m), k: 무늬 크기 배율.
@@ -2731,3 +2735,89 @@ def _grain_cutter(p, n, size, depth, rng, wall, tilt, margin, sides=7):
         faces.append((i, j, m + j, m + i))
     M = Matrix.Translation(Vector(p)) @ q
     return mesh_from("gstep", [M @ v for v in vs], faces)
+
+# ═════════════════════════ k7a: 묘비·석물 칠 (grave_slab_a k7a 레시피를 B 묶음 전체에) ═════════════════════════
+# k6 묘비의 남은 결함 (k6r): 채도 0.12 로 회색이라 보라 월드 조명 아래 이웃 이전 묘비보다 희고 깨끗해 보였다, 이끼가 라임(명도 0.4),
+#   뒷면 노멀의 점 구멍 격자·거북등 판 선(carve 의 pits·chisel 층), 뒷면에 빗물 때 없음.
+# 고친 것: 색조 얼룩(hue_var)·그늘색을 paint3 기본(청색 ↔ 보랏빛)으로 되돌려 채도 0.17~0.21·파랑 치우침 0.04~0.07,
+#   금·홈은 조각 깊이(hcav)로 짙게, 이끼는 최종 알베도(대비·gain 뒤)가 GRAVE3_MOSS 가 되게 paint3 이끼 색을 거꾸로 셈한다
+#   (sRGB 명도 0.17, hue 95~105°), 물때 얼룩은 회갈색 MIX 대신 덜 탁한 회청색으로 (채도를 깎지 않게).
+# 주의: weather3 의 얼룩·흙물·이끼는 MIX (고정 색)라 gain 을 올려도 거의 밝아지지 않는다 (k7a A1: gain +19% → 평균 +4%).
+#   밝기는 덧칠의 넓이·세기로 맞춘다.
+GRAVE3_MOSS = (0.015, 0.028, 0.009)      # 최종 albedo(선형) 이끼 색: sRGB ≈ (0.13, 0.18, 0.09) — 명도 0.17, hue 95° (돌색과 섞인 가장자리가 0.2·110° 안)
+GRAVE3_PAL = PAL['stone']
+GRAVE3_PAINT = dict(moss=0.6, moss_patch=1.3, moss_low=0.0, dirt=0.5, dirt_h=0.15, tooling=0.4, streaks=0.0, stains=0.9,
+                    lichen=0.0, edge=0.5, edge_w=0.008, edge_gain=0.42, edge_mode='attr', edge_break=0.45, edge_break_scale=3.0,
+                    piece_val=0.06, cavity=0.9, contrast=0.22, pivot=0.2, gain=1.9, light=0.85, hue_var=0.5,
+                    hcav=0.85, hcav_d=0.003)
+GRAVE3_WEATHER = dict(rain=1.0, rain_h=0.65, rain_color=(0.45, 0.43, 0.43), rain_cover=0.75, rain_w=6.0,
+                      mud=0.85, mud_h=0.4, mud_color=(0.1, 0.088, 0.075), moss=1.0, moss_h=0.45, moss_top=0.5, moss_color=GRAVE3_MOSS,
+                      groove=1.0, groove_d=0.03, groove_color=(0.22, 0.2, 0.2),
+                      mottle=0.4, mottle_color=(0.1, 0.1, 0.16), mottle_scale=3.0)
+# 덧칠 얼룩 (paint_grave3 가 weather3 앞에 얹는다): 짙은 얼룩 / 밝은 물때 얼룩, 무늬 크기, 무늬를 옮긴 둘째 빗물 세기
+GRAVE3_MOTTLE = dict(dark=0.3, dark_color=(0.085, 0.085, 0.13), dark_scale=6.0, light=0.4, light_color=(0.3, 0.3, 0.42),
+                     light_scale=2.6, back_rain=0.6)
+
+def moss_inverse(final, contrast, gain, pivot):
+    """(k7a) paint3 의 대비·gain 을 거친 뒤 final(선형)이 되는 paint3 이끼 색 (final = c^(1+contrast) × gain × pivot^-contrast)"""
+    f = gain * pivot ** (-contrast)
+    return tuple((max(c, 1e-5) / f) ** (1.0 / (1.0 + contrast)) for c in final)
+
+def paint_grave3(name, h, k=1.0, pal=None, weather=None, mottle=None, moss_final=None, gain_k=1.0, **kw):
+    """(k7a) 묘비·석물 칠: GRAVE3_PAINT 로 paint3 → GRAVE3_MOTTLE 얼룩 둘 → GRAVE3_WEATHER 로 weather3 → 무늬를 옮긴 빗물 한 번 더.
+    h: 물체 높이(m), k: 무늬 크기 배율, pal: 색 묶음 (기본 GRAVE3_PAL), weather: weather3 값 바꾸기 (rain_h 는 h 에 곱하는 비율),
+    mottle: GRAVE3_MOTTLE 값 바꾸기 (넓은 면이 고른 한 톤이면 새로 다듬은 돌로 읽힌다. back_rain: 첫 빗물의 '흐르는 윗변' 잡음이
+    판 앞뒤에서 거의 같아 한쪽 면이 비는 것을 막는다), moss_final: paint3 이끼의 최종 색 (선형, 기본 GRAVE3_MOSS),
+    gain_k: GRAVE3_PAINT gain 배율 (이전 판이 옅은 돌·어두운 돌이던 소품을 이전 밝기에 맞춘다)
+    원본은 carve(…, store='hgt') + drip_attr 를 거친 것이어야 한다 (hcav·dtop)"""
+    a = dict(GRAVE3_PAINT)
+    a['gain'] = a['gain'] * gain_k
+    a.update(kw)
+    if 'moss_color' not in kw:
+        a['moss_color'] = moss_inverse(moss_final or GRAVE3_MOSS, a['contrast'], a['gain'], a['pivot'])
+    m = paint3(name, pal or GRAVE3_PAL, h=h, k=k, **a)
+    mt = dict(GRAVE3_MOTTLE)
+    if mottle:
+        mt.update(mottle)
+    # 얼룩을 먼저 (뒤에 얹으면 이끼·흙물을 덮어 이끼가 회청색으로 섞인다)
+    if mt['dark'] > 0:
+        weather3(m, h, k=k, mottle=mt['dark'], mottle_color=mt['dark_color'], mottle_scale=mt['dark_scale'])
+    if mt['light'] > 0:
+        weather3(m, h, k=k, mottle=mt['light'], mottle_color=mt['light_color'], mottle_scale=mt['light_scale'])
+    w = dict(GRAVE3_WEATHER)
+    if weather:
+        w.update(weather)
+    w['rain_h'] = w.get('rain_h', 0.65) * h
+    weather3(m, h, k=k, **w)
+    if mt['back_rain'] > 0:
+        weather3(m, h, k=k * 0.77, rain=mt['back_rain'], rain_h=w['rain_h'] * 0.8, rain_color=w['rain_color'], rain_cover=0.55,
+                 rain_w=w.get('rain_w', 8.0) * 1.2)
+    return m
+
+def GRAVE3(k=1.0, face=(0, 1, 0), cracks=0.12, back=1.0):
+    """(k7a) 묘비·석물 조각 층 (coarse, fine) — grave_slab_a k7a 와 같은 층. 새긴 앞면은 다듬어 매끈하게 두고(결은 칠의 tooling),
+    face 쪽(뒷면)에만 칸 없는 잡음 굴곡(쪼아 다듬은 면)·잔 알갱이·드문 긴 금. 모든 면에 드문 금(cracks 비율, 조각 깊이 → hcav 로 짙게).
+    chisel·pits(보로노이 칸) 층은 쓰지 않는다 — 뒷면 달빛에서 거북등 판·리벳 박은 철판으로 읽혔다 (k6r).
+    face=None: 사방이 다 보이는 것(오벨리스크·석관)은 모든 면에 반 세기로. k: 크기 배율, back: 뒷면 굴곡 세기"""
+    coarse = [{'t': 'lumps', 'scale': 0.7 / k, 'amp': 0.0009 * k}]
+    bk = {'face': tuple(face), 'face_lo': 0.3, 'face_hi': 0.7} if face else {}
+    s = back if face else 0.5 * back
+    fine = [dict(bk, t='lumps', scale=9.0 / k, amp=0.0022 * k * s, detail=2.0),
+            dict(bk, t='lumps', scale=24.0 / k, amp=0.0009 * k * s, detail=2.0),
+            dict(bk, t='grain', scale=70.0 / k, amp=0.0005 * k * s),
+            dict(bk, t='cracks', scale=2.4 / k, width=0.02, depth=0.004 * k, warp=0.08, cover=0.22 if face else 0.1, cover_scale=0.9 / k),
+            {'t': 'cracks', 'scale': 2.2 / k, 'width': 0.02, 'depth': 0.004 * k, 'warp': 0.08, 'cover': cracks, 'cover_scale': 0.8 / k}]
+    return coarse, fine
+
+def grave_uv_weight(z_plinth=0.15, front=(0, -1, 0)):
+    """(k7a) 묘비 UV 섬 크기 가중: 새긴 앞면 1.0, 받침(z_plinth 아래) 0.7, 뒷면 0.65, 옆·윗면 0.8"""
+    fv = Vector(front).normalized()
+
+    def weight(c, n):
+        d = n.dot(fv)
+        if d > 0.7 and c.z > z_plinth:
+            return 1.0
+        if c.z < z_plinth:
+            return 0.7
+        return 0.65 if d < -0.7 else 0.8
+    return weight

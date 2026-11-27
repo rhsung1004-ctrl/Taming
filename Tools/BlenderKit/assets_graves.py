@@ -924,13 +924,14 @@ def grave_slab_a():
     body = join([slab, plinth])
     # v3b: 앞면은 다듬어 매끈하게(끌 자국 칸 = 거북등 선 없이, 결은 칠의 tooling), 뒷면만 거칠게 쪼아 다듬은 자국 + 잔 구멍
     back = {'face': (0, 1, 0), 'face_lo': 0.3, 'face_hi': 0.7}
-    # i10: 뒷면 쪼아 다듬은 자국을 2배 깊게 (i9 에서도 비누처럼 밋밋했다) + 뒷면 금 한 갈래
-    fine = [dict(back, t='chisel', scale=5.5, amp=0.009, tilt=0.8, jitter=0.6, wall=0.14),
-            dict(back, t='chisel', scale=16.0, amp=0.0038, tilt=0.8, jitter=0.6, wall=0.18, cover=0.75),
-            dict(back, t='pits', scale=40.0, depth=0.003, cover=0.75),
-            dict(back, t='cracks', scale=3.0, width=0.025, depth=0.004, warp=0.08, cover=0.45, cover_scale=1.0),
-            {'t': 'cracks', 'scale': 2.2, 'width': 0.02, 'depth': 0.004, 'warp': 0.08, 'cover': 0.08, 'cover_scale': 0.8}]
-    carve(body, 0.0025, [{'t': 'lumps', 'scale': 0.7, 'amp': 0.0009}], fine, seed=11, edge_from=esrc)
+    # k7a: 뒷면의 칸 무늬 층을 뺐다 — chisel(보로노이 칸 = 거북등 판 선)·pits(점 구멍 격자)는 뒷면에 달빛이 들면 3 m 에서
+    # '리벳 박은 철판'으로 읽혔다 (k6r K3). 대신 칸 없는 잡음 굴곡(쪼아 다듬은 면) + 잔 알갱이 + 드문 긴 금 몇 줄
+    fine = [dict(back, t='lumps', scale=9.0, amp=0.0022, detail=2.0),
+            dict(back, t='lumps', scale=24.0, amp=0.0009, detail=2.0),
+            dict(back, t='grain', scale=70.0, amp=0.0005),
+            dict(back, t='cracks', scale=2.4, width=0.02, depth=0.004, warp=0.08, cover=0.22, cover_scale=0.9),
+            {'t': 'cracks', 'scale': 2.2, 'width': 0.02, 'depth': 0.004, 'warp': 0.08, 'cover': 0.12, 'cover_scale': 0.8}]
+    carve(body, 0.0025, [{'t': 'lumps', 'scale': 0.7, 'amp': 0.0009}], fine, seed=11, edge_from=esrc, store='hgt')
     drip_attr(body)                        # k6: 빗물 때가 그 자리 윗변·깨진 어깨 바로 아래에서 시작하게 ('dtop')
     # v3b 칠: 모서리 빛은 좁고 덜 밝게(흰 외곽선 → 장난감), 틈·글자 그늘 진하게, 삭은 얼룩·흙물 더 (오래 버려진 돌)
     # contrast·pivot: 밝은 곳은 그대로, 어두운 곳은 더 어둡게 (게임 시점 p90/평균 대비를 이전보다 크게). gain: 평균은 이전 ±10%
@@ -940,16 +941,10 @@ def grave_slab_a():
     # 낡음은 원인과 방향이 있는 넷으로 (weather3): 윗변·깨짐 아래에서 흘러내린 빗물 때(줄 폭·간격 들쭉날쭉), 땅에서 받침·앞면 아래
     # 1/4 까지 올라온 흙물·올리브 이끼, 글자·십자가·판 홈에 고인 회갈색 때, 넓은 물때 얼룩. 깨짐은 오른쪽 어깨(형태).
     # paint3 의 빗물·튄 흙물·아래 이끼(파랑 보라·청록)는 끄고 회갈색·올리브로 바꿨다. 그늘색도 덜 보랗게 (채도·파랑 치우침)
-    m = paint3("slab_a", 'stone', h=1.1, k=1.0, moss=0.7, moss_patch=1.3, moss_color=(0.075, 0.09, 0.035), moss_low=0.0,
-               dirt=0.5, dirt_h=0.15, tooling=0.45, streaks=0.0, stains=0.6, lichen=0.0, edge=0.5, edge_w=0.008, edge_gain=0.42,
-               edge_mode='attr', edge_break=0.45, edge_break_scale=3.0, piece_val=0.06, cavity=0.9, contrast=0.22, pivot=0.2,
-               gain=1.55, light=0.85, hue_var=0.3, shadow=(0.13, 0.115, 0.17))
-    blotch(m, (0.3, 0.31, 0.27), 3.5, 1.0, 0.45, 0.62)     # v3c: 물때·풍화 얼룩 (넓고 부드럽게 — 새로 다듬은 돌처럼 고르지 않게)
-    weather3(m, 1.1, z0=0.0, rain=1.0, rain_h=0.75, rain_color=(0.24, 0.23, 0.21), rain_cover=0.7, rain_w=8.0,
-             mud=1.0, mud_h=0.45, mud_color=(0.1, 0.088, 0.066), moss=1.0, moss_h=0.5, moss_top=1.0, moss_color=(0.1, 0.135, 0.045),
-             groove=1.0, groove_d=0.03, groove_color=(0.28, 0.25, 0.21), mottle=0.6, mottle_color=(0.12, 0.115, 0.1),
-             mottle_scale=1.6)
-    weather3(m, 1.1, mottle=0.35, mottle_color=(0.3, 0.29, 0.26), mottle_scale=2.6)   # 밝은 물때 얼룩 (뒷면이 고른 단색 판이 되지 않게)
+    # k7a: k6 칠은 채도 0.12(회색)라 보라 월드 조명 아래 이웃 이전 묘비보다 희고 깨끗했고 이끼가 라임(명도 0.4)이었다 (k6r).
+    # kit.paint_grave3: 색조 얼룩·그늘색 기본(청색 ↔ 보랏빛), 대비 0.3, 금·홈은 조각 깊이로 짙게, 이끼는 최종 명도 0.2 이하 올리브,
+    # 빗물 때 한 번 더(무늬를 옮겨 뒷면에도), 물때 얼룩은 회청색. 형태·모서리 빛(0.5/0.42/0.45)·글자는 k6 그대로
+    m = paint_grave3("slab_a", 1.1, k=1.0, weather=dict(rain_h=0.68, mud_h=0.45, moss_h=0.5))
     set_mat(body, m)
     print("LOW grave_slab_a", tri_count(low))
     # 왼쪽 뒤 받침에서 기어오르는 덩굴 (조금)
@@ -1008,18 +1003,22 @@ def place_on_ground(o, sink=0.02):
     return o
 
 def grave_slab_b():
-    """윗부분이 사선으로 부러진 묘비 + 옆에 누운 조각. 여섯 꽃잎 원 문양과 테두리 선"""
+    """윗부분이 사선으로 부러진 묘비 + 옆에 누운 조각. 여섯 꽃잎 원 문양과 테두리 선
+    k7a v3: 저폴리는 새기기 전 깨끗한 형태(부러진 단면·떨어진 조각까지), 원본은 V 홈 새김 + carve(되붙인 리메시, GRAVE3) +
+    paint_grave3, finish3(cage, 단단한 모서리). 모양·크기·글자 자리는 이전 판 그대로 (같은 난수 순서)"""
     rng = random.Random(202)
     T_ = 0.15
     y0 = -T_ / 2
     outline = [(-0.3, 0.1), (0.3, 0.1), (0.3, 0.98), (0.23, 1.05), (0.08, 1.05), (0.0, 1.11), (-0.08, 1.05), (-0.23, 1.05), (-0.3, 0.98)]
     slab = obj_bm(bm_poly(outline, y0, T_ / 2), "slab")
     chip(slab, rng, 10, (0.03, 0.07), sharp_deg=35, bite=0.38, zmin=0.3)
+    slab_low = copy(slab)                  # 저폴리 바탕: 새김 없이
+    esrc = copy(slab)                      # 닳은 모서리: 테두리 선·문양·글자 입술에는 빛이 없게
     yf = y0
     # 테두리 선 (안쪽으로 4cm)
     border = [(-0.25, 0.2), (0.25, 0.2), (0.25, 0.96), (0.2, 1.0), (0.07, 1.0), (0.0, 1.05), (-0.07, 1.0), (-0.2, 1.0), (-0.25, 0.96)]
     st = list(zip([Vector((x, yf, z)) for x, z in border], [Vector((x, yf, z)) for x, z in border[1:] + border[:1]]))
-    engrave(slab, st, (0, -1, 0), 0.01, 0.008)
+    engrave_v(slab, st, (0, -1, 0), 0.012, 0.008, floor=0.3)
     # 원 문양: 바깥 고리 홈 + 파낸 원판 위에 도드라진 여섯 꽃잎
     cx, cz, r = 0.0, 0.73, 0.13
     cut(slab, [obj_bm(annulus_y(cx, cz, r + 0.018, r + 0.032, yf - 0.05, yf + 0.009, 72), "ring"),
@@ -1027,22 +1026,37 @@ def grave_slab_b():
     st = text_strokes(rng, 0.0, 0.5, 0.38, 0.04, yf, jitter=0.002)
     st += text_strokes(rng, 0.0, 0.42, 0.32, 0.032, yf, jitter=0.002)
     st += text_strokes(rng, 0.0, 0.35, 0.26, 0.03, yf, jitter=0.002)
-    engrave(slab, st, (0, -1, 0), 0.0085, 0.007)
-    cut(slab, [spall((-0.18, y0, 0.27), (0, -1, 0), (0.08, 0.05), 0.009, rng), spall((0.3, 0.0, 0.4), (1, 0, 0), (0.05, 0.08), 0.01, rng)])
-    # 사선으로 부러짐: 같은 단면 커터로 위(조각)와 아래(서 있는 몸)를 나눈다
+    engrave_v(slab, st, (0, -1, 0), 0.0105, 0.007, floor=0.3)
+    # k7a: 금 두 줄 (부러진 단면 아래에서 판으로, 왼쪽 아래 모서리에서) — 따로 받은 난수라 뒤의 형태는 그대로
+    ck = crack_strokes(random.Random(2021), (0.22, yf, 0.86), (-0.35, 0, -1), 0.3, 6, 0.4, yf)
+    ck += crack_strokes(random.Random(2022), (-0.28, yf, 0.24), (1, 0, 0.3), 0.22, 5, 0.4, yf)
+    engrave_v(slab, ck, (0, -1, 0), 0.0075, 0.005, floor=0.25)
+    sps = [spall((-0.18, y0, 0.27), (0, -1, 0), (0.08, 0.05), 0.009, rng), spall((0.3, 0.0, 0.4), (1, 0, 0), (0.05, 0.08), 0.01, rng)]
+    cut(esrc, [copy(c) for c in sps])
+    cut(slab, sps)
+    # 사선으로 부러짐: 같은 단면 커터로 위(조각)와 아래(서 있는 몸)를 나눈다 (원본·저폴리·모서리 사본 모두)
     n = Vector((0.27, 0.12, 0.6)).normalized()
     co = Vector((0.0, 0.0, 0.815))
-    piece = copy(slab)
-    cut(slab, [rough_cutter(co, n, 1.6, 1.6, 0.035, 7.0, 30, 2.0, seed=5)])
-    intersect(piece, [rough_cutter(co, n, 1.6, 1.6, 0.035, 7.0, 30, 2.0, seed=5)])
+    rc = lambda: rough_cutter(co, n, 1.6, 1.6, 0.035, 7.0, 30, 2.0, seed=5)
+    piece, piece_low, piece_e = copy(slab), copy(slab_low), copy(esrc)
+    for o_ in (slab, slab_low, esrc):
+        cut(o_, [rc()])
+    for o_ in (piece, piece_low, piece_e):
+        intersect(o_, [rc()])
     chip(slab, rng, 5, (0.02, 0.05), sharp_deg=40, bite=0.4, zmin=0.6)
     # 서 있는 몸: 앞으로 조금 기운다
-    slab.data.transform(Matrix.Translation((0, 0, 0.12)) @ Matrix.Rotation(R(4.5), 4, 'X') @ Matrix.Rotation(R(-2.5), 4, 'Y') @ Matrix.Translation((0, 0, -0.12)))
+    Mb = Matrix.Translation((0, 0, 0.12)) @ Matrix.Rotation(R(4.5), 4, 'X') @ Matrix.Rotation(R(-2.5), 4, 'Y') @ Matrix.Translation((0, 0, -0.12))
+    for o_ in (slab, slab_low, esrc):
+        o_.data.transform(Mb)
     # 떨어진 조각: 앞면이 하늘을 보게 눕혀 오른쪽 땅에 둔다
     c = sum((v.co for v in piece.data.vertices), Vector()) / len(piece.data.vertices)
-    piece.data.transform(Matrix.Translation((0.69, -0.2, 0.0)) @ Matrix.Rotation(R(28), 4, 'Z') @ Matrix.Rotation(R(7), 4, 'Y') @
-                         Matrix.Rotation(R(-86), 4, 'X') @ Matrix.Translation(-c))
-    place_on_ground(piece, 0.025)
+    Mp = Matrix.Translation((0.69, -0.2, 0.0)) @ Matrix.Rotation(R(28), 4, 'Z') @ Matrix.Rotation(R(7), 4, 'Y') @ \
+        Matrix.Rotation(R(-86), 4, 'X') @ Matrix.Translation(-c)
+    for o_ in (piece, piece_low, piece_e):
+        o_.data.transform(Mp)
+    zmin = min(v.co.z for v in piece.data.vertices)
+    for o_ in (piece, piece_low, piece_e):
+        o_.data.transform(Matrix.Translation((0, 0, -zmin - 0.025)))
     # 받침돌
     pl = bm_box(0.8, 0.3, 0.15, TR((0, 0.0, 0.055)))
     stone_blk(pl, rng, (2, 4), (0.03, 0.06), (2, 3), 0.01, zmin=0.0)
@@ -1051,15 +1065,25 @@ def grave_slab_b():
     # 부서진 부스러기
     bits = [chunk((0.45 + rng.uniform(-0.08, 0.1), -0.32 + rng.uniform(-0.1, 0.1), 0.0), (s, s * 0.8, s * 0.6), rng, 8, (0.1, 0.35))
             for s in (0.035, 0.028, 0.045, 0.022)]
-    body = join([slab, plinth, piece] + bits)
-    sculpt(body, 0.0035, STONE_LAYERS(1.0, wear=1.2, cracks=0.6), seed=21)
-    m = stone_mat("slab_b", 'stone_pale', moss=0.8, low_moss=0.8, mz=0.35)
+    bits = join(bits)
+    union(slab_low, [copy(plinth)])
+    lows = [lowpoly(slab_low, z=-0.015), lowpoly(piece_low, z=-0.015), lowpoly(bits, z=-0.015)]
+    delete(slab_low); delete(piece_low)
+    esrc = join([esrc, piece_e, copy(plinth), copy(bits)])
+    body = join([slab, plinth, piece, bits])
+    co_, fi_ = GRAVE3(1.0)
+    carve(body, 0.0025, co_, fi_, seed=21, edge_from=esrc, store='hgt')
+    drip_attr(body)
+    # 이전 판은 옅은 돌('stone_pale'): 같은 밝기가 되게 gain 을 조금 올린다
+    m = paint_grave3("slab_b", 1.1, k=1.0, gain_k=1.08, weather=dict(rain_h=0.6, mud_h=0.42, moss_h=0.45))
     set_mat(body, m)
-    low = low_of(body, 3600)
-    return finish("grave_slab_b", [body], [low], size=1024, extr=0.03)
+    print("LOW grave_slab_b", [tri_count(l) for l in lows])
+    return finish3("grave_slab_b", [body], lows, cage=0.006, hard=55, uv_weight=grave_uv_weight(0.16))
 
 def grave_slab_c():
-    """키 큰 고딕 뾰족 아치 묘비: 뚫린 사엽(四葉) 창과 고리, 판 면 비문, 가장자리 꽃봉오리 장식, 2단 받침"""
+    """키 큰 고딕 뾰족 아치 묘비: 뚫린 사엽(四葉) 창과 고리, 판 면 비문, 가장자리 꽃봉오리 장식, 2단 받침
+    k7a v3: 저폴리는 새기기 전 깨끗한 형태(뚫린 창·큰 깨짐 포함, 꽃봉오리는 따로 줄인 덩어리), 원본은 V 홈 새김 + carve(GRAVE3) +
+    paint_grave3 (이전 판처럼 어두운 돌), finish3. 모양·크기·글자 자리는 이전 판 그대로"""
     rng = random.Random(303)
     T_ = 0.17
     y0 = -T_ / 2
@@ -1068,12 +1092,16 @@ def grave_slab_c():
     slab = obj_bm(bm_poly(out, y0, T_ / 2), "slab")
     chip(slab, rng, 12, (0.03, 0.07), sharp_deg=35, bite=0.38, zmin=0.35)
     yf = y0 + 0.012
-    inner = [(x, z + z0 + 0.06) for x, z in pointed_arch(w - 0.11, hsp - 0.06, rise - 0.07, 16)]
-    cut(slab, [obj_bm(bm_poly(inner, y0 - 0.05, yf), "panel")])
-    # 뚫린 사엽 창 (+ 둘레 고리 홈)
+    # 뚫린 사엽 창은 실루엣이라 저폴리·모서리 사본에도
     qx, qz, lr, off = 0.0, z0 + hsp + 0.07, 0.042, 0.038
     qc = [cyl(lr, 0.5, (qx + dx, 0, qz + dz), 28, rot=(R(90), 0, 0)) for dx, dz in ((off, 0), (-off, 0), (0, off), (0, -off))]
     qc.append(box(0.07, 0.5, 0.07, (qx, 0, qz), rot=(0, R(45), 0)))
+    slab_low = copy(slab)
+    esrc = copy(slab)
+    cut(slab_low, [copy(c) for c in qc])
+    cut(esrc, [copy(c) for c in qc])
+    inner = [(x, z + z0 + 0.06) for x, z in pointed_arch(w - 0.11, hsp - 0.06, rise - 0.07, 16)]
+    cut(slab, [obj_bm(bm_poly(inner, y0 - 0.05, yf), "panel")])
     cut(slab, qc)
     cut(slab, [obj_bm(annulus_y(qx, qz, 0.1, 0.112, yf - 0.05, yf + 0.008, 64), "ring")])
     # 비문 + 금
@@ -1081,12 +1109,19 @@ def grave_slab_c():
     st += text_strokes(rng, 0.0, 0.72, 0.32, 0.032, yf, jitter=0.002)
     st += text_strokes(rng, 0.0, 0.65, 0.3, 0.03, yf, jitter=0.002)
     st += text_strokes(rng, 0.0, 0.58, 0.22, 0.03, yf, jitter=0.002)
-    engrave(slab, st, (0, -1, 0), 0.0085, 0.007)
+    engrave_v(slab, st, (0, -1, 0), 0.0105, 0.007, floor=0.3)
     cr = crack_strokes(rng, (0.3, y0, 1.02), (-1, 0, -0.5), 0.34, 7, 0.45, y0)
-    engrave(slab, cr, (0, -1, 0), 0.011, 0.04)
-    cut(slab, [chunk((-0.31, -0.05, 0.42), (0.06, 0.07, 0.1), rng, 8), chunk((0.04, -0.09, z0 + hsp + rise - 0.02), (0.05, 0.05, 0.05), rng, 8),
-               spall((0.12, y0, 0.35), (0, -1, 0), (0.08, 0.06), 0.01, rng)])
-    slab.data.transform(Matrix.Translation((0, 0, 0.2)) @ Matrix.Rotation(R(-3), 4, 'Y') @ Matrix.Rotation(R(-1.5), 4, 'X') @ Matrix.Translation((0, 0, -0.2)))
+    engrave_v(slab, cr, (0, -1, 0), 0.012, 0.016, floor=0.2)      # 깊은 금 (이전 판 상자 홈 4 cm → V 홈 1.6 cm)
+    ck = crack_strokes(random.Random(3031), (-0.26, y0, 0.5), (0.6, 0, -1), 0.3, 6, 0.4, y0)   # k7a: 왼쪽 깨짐에서 내려온 가는 금
+    engrave_v(slab, ck, (0, -1, 0), 0.0075, 0.005, floor=0.25)
+    cs = [chunk((-0.31, -0.05, 0.42), (0.06, 0.07, 0.1), rng, 8), chunk((0.04, -0.09, z0 + hsp + rise - 0.02), (0.05, 0.05, 0.05), rng, 8),
+          spall((0.12, y0, 0.35), (0, -1, 0), (0.08, 0.06), 0.01, rng)]
+    cut(slab_low, [copy(cs[0]), copy(cs[1])])
+    cut(esrc, [copy(c) for c in cs])
+    cut(slab, cs)
+    Mt = Matrix.Translation((0, 0, 0.2)) @ Matrix.Rotation(R(-3), 4, 'Y') @ Matrix.Rotation(R(-1.5), 4, 'X') @ Matrix.Translation((0, 0, -0.2))
+    for o_ in (slab, slab_low, esrc):
+        o_.data.transform(Mt)
     # 가장자리 꽃봉오리 장식(crocket) — 아치 두 변을 따라 위로 말린 혹 + 꼭대기 장식의 부러진 밑동
     knobs = []
     for side in (-1, 1):
@@ -1100,7 +1135,10 @@ def grave_slab_c():
             knobs.append(((px + side * 0.03, 0.0, pz + 0.035), (0.016, 0.04, 0.02), (0, side * R(-10), 0)))
     knobs.append(((0, 0, z0 + hsp + rise + 0.02), (0.035, 0.045, 0.04)))
     kb = blobs(knobs, 2, "knobs")
-    kb.data.transform(Matrix.Translation((0, 0, 0.2)) @ Matrix.Rotation(R(-3), 4, 'Y') @ Matrix.Rotation(R(-1.5), 4, 'X') @ Matrix.Translation((0, 0, -0.2)))
+    kb.data.transform(Mt)
+    kb_low = copy(kb)
+    remesh(kb_low, 0.006)
+    kb_low = low_of(kb_low, 700, z=-1.0)
     # 2단 받침
     p1 = bm_box(0.9, 0.46, 0.14, TR((0, 0, 0.05)))
     stone_blk(p1, rng, (2, 4), (0.03, 0.07), (2, 3), 0.012, zmin=0.0)
@@ -1108,15 +1146,23 @@ def grave_slab_c():
     stone_blk(p2, rng, (1, 3), (0.02, 0.05), (1, 2), 0.01)
     b1, b2 = obj_bm(p1, "p1"), obj_bm(p2, "p2")
     chip(b1, rng, 6, (0.04, 0.08), bite=0.35, zmin=0.06)
+    union(slab_low, [copy(b1), copy(b2)])
+    lows = [lowpoly(slab_low, z=-0.015), kb_low]
+    delete(slab_low)
+    esrc = join([esrc, copy(kb), copy(b1), copy(b2)])
     body = join([slab, kb, b1, b2])
-    sculpt(body, 0.0035, STONE_LAYERS(1.0, wear=1.2, cracks=0.6), seed=31)
-    m = stone_mat("slab_c", 'stone_dark', moss=0.75, low_moss=0.9, mz=0.5, edge=0.95)
+    co_, fi_ = GRAVE3(1.0)
+    carve(body, 0.0028, co_, fi_, seed=31, edge_from=esrc, store='hgt')
+    drip_attr(body)
+    m = paint_grave3("slab_c", 1.55, k=1.0, gain_k=0.78, weather=dict(rain_h=0.55, mud_h=0.45, moss_h=0.5))
     set_mat(body, m)
-    low = low_of(body, 3800)
-    return finish("grave_slab_c", [body], [low], size=1024, extr=0.03)
+    print("LOW grave_slab_c", [tri_count(l) for l in lows])
+    return finish3("grave_slab_c", [body], lows, cage=0.006, hard=55, uv_weight=grave_uv_weight(0.23))
 
 def grave_cross():
-    """켈트식 고리 십자가: 겨드랑이가 둥글게 파인 십자 + 고리 + 가운데 둥근 돋을새김, 줄기에 마름모 새김, 계단형 받침"""
+    """켈트식 고리 십자가: 겨드랑이가 둥글게 파인 십자 + 고리 + 가운데 둥근 돋을새김, 줄기에 마름모 새김, 계단형 받침
+    k7a v3: 저폴리는 새기기 전 깨끗한 형태(겨드랑이 구멍·부러진 팔·고리 포함), 원본은 V 홈 새김 + 불리언으로 붙인 고리 +
+    carve(GRAVE3) + paint_grave3, finish3. 모양·크기·새김 자리는 이전 판 그대로"""
     rng = random.Random(404)
     T_ = 0.15
     y0 = -T_ / 2
@@ -1127,6 +1173,8 @@ def grave_cross():
     chip(cr, rng, 12, (0.025, 0.06), sharp_deg=35, bite=0.38, zmin=0.6)
     pits = [cyl(0.046, 0.5, (sx * 0.1, 0, zc + sz * 0.095), 28, rot=(R(90), 0, 0)) for sx in (-1, 1) for sz in (-1, 1)]
     cut(cr, pits)
+    cr_low = copy(cr)
+    cr_e = copy(cr)
     yf = y0
     # 줄기 테두리 선 + 마름모 새김, 팔 끝 테두리
     st = []
@@ -1149,21 +1197,29 @@ def grave_cross():
             st.append((Vector((a[0], yf, a[1])), Vector((b[0], yf, b[1]))))
     for a, b in (((-0.065, zc + 0.2), (-0.08, 1.68)), ((-0.08, 1.68), (0.08, 1.68)), ((0.08, 1.68), (0.065, zc + 0.2))):
         st.append((Vector((a[0], yf, a[1])), Vector((b[0], yf, b[1]))))
-    engrave(cr, st, (0, -1, 0), 0.0095, 0.008)
+    engrave_v(cr, st, (0, -1, 0), 0.011, 0.008, floor=0.3)
+    # k7a: 줄기에 가는 금 한 줄 (따로 받은 난수)
+    engrave_v(cr, crack_strokes(random.Random(4041), (0.11, yf, 0.98), (-0.5, 0, -1), 0.26, 6, 0.4, yf), (0, -1, 0), 0.0075, 0.005, floor=0.25)
     # 오른팔 끝이 부러짐
-    cut(cr, [rough_cutter((0.27, 0, zc), (1, -0.15, 0.25), 0.8, 0.8, 0.03, 9.0, 24, 1.0, seed=3)])
+    rc = lambda: rough_cutter((0.27, 0, zc), (1, -0.15, 0.25), 0.8, 0.8, 0.03, 9.0, 24, 1.0, seed=3)
+    for o_ in (cr, cr_low, cr_e):
+        cut(o_, [rc()])
     # 고리 (십자보다 얇게) + 가운데 돋을새김
     ring = obj_bm(annulus_y(0, zc, 0.2, 0.268, -0.052, 0.052, 72), "ring")
     chip(ring, rng, 8, (0.02, 0.05), sharp_deg=40, bite=0.38)
     boss = cyl(0.056, 0.1, (0, -0.05, zc), 32, rot=(R(90), 0, 0))
+    ring_low, boss_low = copy(ring), copy(boss)
+    union(cr_low, [ring_low, boss_low])
+    union(cr_e, [copy(ring), copy(boss)])
     cut(boss, [obj_bm(annulus_y(0, zc, 0.03, 0.039, -0.2, -0.094, 48), "bg")])
-    top = join([cr, ring, boss])
-    remesh(top, 0.004)
+    top = union(cr, [ring, boss])
     # 고리의 금: 바깥에서 안쪽으로 파고든 갈라짐
     cs = [stroke_box(a, b, (0, -1, 0), 0.008, 0.2) for a, b in crack_strokes(rng, (math.cos(R(132)) * 0.285, 0.0, zc + math.sin(R(132)) * 0.285),
                                                                              (math.cos(R(132 + 180)), 0, math.sin(R(132 + 180))), 0.085, 4, 0.45, 0.0)]
     cut(top, cs)
-    top.data.transform(Matrix.Translation((0, 0, 0.5)) @ Matrix.Rotation(R(2.5), 4, 'Y') @ Matrix.Rotation(R(-1.5), 4, 'X') @ Matrix.Translation((0, 0, -0.5)))
+    Mt = Matrix.Translation((0, 0, 0.5)) @ Matrix.Rotation(R(2.5), 4, 'Y') @ Matrix.Rotation(R(-1.5), 4, 'X') @ Matrix.Translation((0, 0, -0.5))
+    for o_ in (top, cr_low, cr_e):
+        o_.data.transform(Mt)
     # 계단형 받침 + 사각뿔대 받침돌
     s1 = bm_box(0.76, 0.6, 0.17, TR((0, 0, 0.065)))
     stone_blk(s1, rng, (2, 4), (0.03, 0.07), (2, 3), 0.012, zmin=0.0)
@@ -1174,20 +1230,28 @@ def grave_cross():
     b1, b2, b3 = obj_bm(s1, "s1"), obj_bm(s2, "s2"), obj_bm(s3, "s3")
     chip(b1, rng, 6, (0.04, 0.08), bite=0.35, zmin=0.08)
     chip(b2, rng, 4, (0.03, 0.06), bite=0.35)
+    union(cr_low, [copy(b1), copy(b2), copy(b3)])
+    low = lowpoly(cr_low, z=-0.015)
+    delete(cr_low)
+    esrc = join([cr_e, copy(b1), copy(b2), copy(b3)])
     body = join([top, b1, b2, b3])
-    sculpt(body, 0.004, STONE_LAYERS(1.1, wear=1.2, cracks=0.6), seed=41)
-    m = stone_mat("cross", 'stone', moss=0.7, low_moss=0.9, mz=0.6)
+    co_, fi_ = GRAVE3(1.1)
+    carve(body, 0.003, co_, fi_, seed=41, edge_from=esrc, store='hgt')
+    drip_attr(body)
+    m = paint_grave3("cross", 1.75, k=1.1, weather=dict(rain_h=0.5, mud_h=0.5, moss_h=0.55))
     set_mat(body, m)
-    low = low_of(body, 4200)
+    print("LOW grave_cross", tri_count(low))
     v = Vine(rng, leaf=(0.035, 0.058), leaf_p=0.55)
     tgt = copy(low)
     ivy_grow(v, tgt, (-0.3, -0.29, 0.02), seed=12, length=1.6, step=0.03, max_roots=8, gravity=0.35, adhesion=0.85, zmax=1.25)
     ivy_grow(v, tgt, (0.36, 0.2, 0.02), seed=17, length=0.7, step=0.03, max_roots=5, gravity=0.4, adhesion=0.85, zmax=0.6)
     delete(tgt)
-    return finish("grave_cross", [body], [low], extras=v.objects(), size=1024, extr=0.03)
+    return finish3("grave_cross", [body], [low], extras=v.objects(), cage=0.006, hard=55, uv_weight=grave_uv_weight(0.53))
 
 def grave_obelisk():
-    """오벨리스크: 3단 받침, 비문 명판, 처마돌, 가늘어지는 기둥, 부러진 꼭대기(조각이 받침에 떨어져 있음)"""
+    """오벨리스크: 3단 받침, 비문 명판, 처마돌, 가늘어지는 기둥, 부러진 꼭대기(조각이 받침에 떨어져 있음)
+    k7a v3: 저폴리는 새기기 전 깨끗한 형태(쳐낸 모서리·큰 깨짐·부러진 꼭대기까지, 단마다 불리언으로 한 덩어리), 원본은 V 홈 새김 +
+    carve(GRAVE3, 사방이 보여 모든 면에 약한 굴곡) + paint_grave3, finish3. 모양·크기·글자 자리는 이전 판 그대로"""
     rng = random.Random(505)
     s1 = bm_box(0.94, 0.94, 0.17, TR((0, 0, 0.055)))
     stone_blk(s1, rng, (3, 5), (0.03, 0.08), (2, 4), 0.012, zmin=0.0)
@@ -1209,6 +1273,8 @@ def grave_obelisk():
     chip(ob["die"], rng, 8, (0.03, 0.06), bite=0.38)
     chip(ob["cor"], rng, 6, (0.03, 0.06), bite=0.38)
     chip(ob["shaft"], rng, 12, (0.025, 0.06), bite=0.38)
+    lo = {k: copy(o_) for k, o_ in ob.items()}          # 저폴리 바탕 (새김 없이)
+    ed = {k: copy(o_) for k, o_ in ob.items()}          # 닳은 모서리 (명판 테두리·글자 입술에 빛 없이)
     # 명판: 판 면 + 비문 + 위쪽 작은 고리
     yf = -0.28
     cut(ob["die"], [box(0.4, 0.1, 0.34, (0, yf - 0.05 + 0.012, 0.52))])
@@ -1217,9 +1283,14 @@ def grave_obelisk():
     st += text_strokes(rng, 0.0, 0.5, 0.3, 0.034, yp, jitter=0.002)
     st += text_strokes(rng, 0.0, 0.44, 0.28, 0.032, yp, jitter=0.002)
     st += text_strokes(rng, 0.0, 0.385, 0.18, 0.032, yp, jitter=0.002)
-    engrave(ob["die"], st, (0, -1, 0), 0.0095, 0.008)
+    engrave_v(ob["die"], st, (0, -1, 0), 0.011, 0.008, floor=0.3)
     cut(ob["die"], [obj_bm(annulus_y(0, 0.64, 0.02, 0.03, yp - 0.05, yp + 0.007, 40), "r")])
-    cut(ob["die"], [chunk((0.28, -0.28, 0.32), (0.07, 0.07, 0.1), rng, 9), spall((-0.28, 0.1, 0.6), (-1, 0, 0), (0.08, 0.1), 0.012, rng)])
+    cs = [chunk((0.28, -0.28, 0.32), (0.07, 0.07, 0.1), rng, 9), spall((-0.28, 0.1, 0.6), (-1, 0, 0), (0.08, 0.1), 0.012, rng)]
+    cut(lo["die"], [copy(cs[0])])
+    cut(ed["die"], [copy(c) for c in cs])
+    cut(ob["die"], cs)
+    # k7a: 명판 아래에서 비스듬히 올라온 금 (따로 받은 난수)
+    engrave_v(ob["die"], crack_strokes(random.Random(5051), (-0.22, yp, 0.31), (0.5, 0, 1), 0.2, 5, 0.4, yp), (0, -1, 0), 0.0075, 0.005, floor=0.25)
     # 기둥 앞면: 고리 안의 모래시계 새김
     def yface(z):
         return -(0.18 - 0.0575 * (z - 0.93) / 1.1)
@@ -1229,31 +1300,51 @@ def grave_obelisk():
     st = arc_strokes(0, zc, 0.07, 0, 2 * math.pi, yfc, 16)
     hg = [((-0.035, 0.045), (0.035, 0.045)), ((0.035, 0.045), (-0.035, -0.045)), ((-0.035, -0.045), (0.035, -0.045)), ((0.035, -0.045), (-0.035, 0.045))]
     st += [(Vector((a[0], yface(zc + a[1]), zc + a[1])), Vector((b[0], yface(zc + b[1]), zc + b[1]))) for a, b in hg]
-    engrave(ob["shaft"], st, nf, 0.009, 0.008)
-    cut(ob["shaft"], [spall((0.16, -0.05, 1.3), (1, 0, 0.05), (0.06, 0.1), 0.01, rng), spall((-0.1, 0.14, 1.55), (0, 1, 0.05), (0.07, 0.12), 0.01, rng)])
-    # 꼭대기가 부러짐: 조각은 받침 모서리에 떨어져 있다
-    upper = join([ob["shaft"], ob["pyr"]])
-    remesh(upper, 0.006)
-    tip = copy(upper)
+    engrave_v(ob["shaft"], st, nf, 0.011, 0.008, floor=0.3)
+    sps = [spall((0.16, -0.05, 1.3), (1, 0, 0.05), (0.06, 0.1), 0.01, rng), spall((-0.1, 0.14, 1.55), (0, 1, 0.05), (0.07, 0.12), 0.01, rng)]
+    cut(ed["shaft"], [copy(c) for c in sps])
+    cut(ob["shaft"], sps)
+    # 꼭대기가 부러짐: 조각은 받침 모서리에 떨어져 있다 (원본·저폴리·모서리 사본 모두 같은 단면)
+    ups = [union(ob["shaft"], [ob["pyr"]]), union(lo["shaft"], [lo["pyr"]]), union(ed["shaft"], [ed["pyr"]])]
+    tips = [copy(u) for u in ups]
     n = Vector((0.45, -0.25, 1.0)).normalized()
     co = Vector((0, 0, 2.1))
-    cut(upper, [rough_cutter(co, n, 0.8, 0.8, 0.03, 9.0, 24, 1.0, seed=6)])
-    intersect(tip, [rough_cutter(co, n, 0.8, 0.8, 0.03, 9.0, 24, 1.0, seed=6)])
-    c = sum((v.co for v in tip.data.vertices), Vector()) / max(1, len(tip.data.vertices))
-    tip.data.transform(Matrix.Translation((0.66, -0.52, 0.0)) @ Matrix.Rotation(R(35), 4, 'Z') @ Matrix.Rotation(R(100), 4, 'Y') @ Matrix.Translation(-c))
-    place_on_ground(tip, 0.02)
-    body = join([ob["s1"], ob["s2"], ob["die"], ob["cor"], ob["cap"], upper, tip])
-    sculpt(body, 0.0045, STONE_LAYERS(1.3, wear=1.2, cracks=0.6), seed=51)
-    m = stone_mat("obelisk", 'stone', moss=0.8, low_moss=0.9, mz=0.5)
+    rc = lambda: rough_cutter(co, n, 0.8, 0.8, 0.03, 9.0, 24, 1.0, seed=6)
+    for u in ups:
+        cut(u, [rc()])
+    for t in tips:
+        intersect(t, [rc()])
+    c = sum((v.co for v in tips[0].data.vertices), Vector()) / max(1, len(tips[0].data.vertices))
+    Mt = Matrix.Translation((0.66, -0.52, 0.0)) @ Matrix.Rotation(R(35), 4, 'Z') @ Matrix.Rotation(R(100), 4, 'Y') @ Matrix.Translation(-c)
+    for t in tips:
+        t.data.transform(Mt)
+    zmin = min(v.co.z for v in tips[0].data.vertices)
+    for t in tips:
+        t.data.transform(Matrix.Translation((0, 0, -zmin - 0.02)))
+    low_body = lo["s1"]
+    union(low_body, [lo["s2"], lo["die"], lo["cor"], lo["cap"], ups[1]])
+    lows = [lowpoly(low_body, z=-0.015), lowpoly(tips[1], z=-0.015)]
+    delete(low_body); delete(tips[1])
+    esrc = join([ed["s1"], ed["s2"], ed["die"], ed["cor"], ed["cap"], ups[2], tips[2]])
+    body = join([ob["s1"], ob["s2"], ob["die"], ob["cor"], ob["cap"], ups[0], tips[0]])
+    co_, fi_ = GRAVE3(1.3, face=None)
+    carve(body, 0.0038, co_, fi_, seed=51, edge_from=esrc, store='hgt')
+    drip_attr(body)
+    m = paint_grave3("obelisk", 2.25, k=1.3, weather=dict(rain_h=0.45, mud_h=0.5, moss_h=0.6))
     set_mat(body, m)
-    low = low_of(body, 5600)
+    print("LOW grave_obelisk", [tri_count(l) for l in lows])
     v = Vine(rng, leaf=(0.04, 0.065), leaf_p=0.55)
-    tgt = copy(low)
+    tgt = copy(lows[0])
     ivy_grow(v, tgt, (-0.42, 0.3, 0.02), seed=21, length=2.0, step=0.03, max_roots=9, gravity=0.35, adhesion=0.85, zmax=1.5)
     for x, y in ((-0.3, 0.33), (-0.33, 0.15)):
         hang_strand(v, (x, y + 0.02, 0.85), rng.uniform(0.18, 0.3), rng, face=(0, 1, 0) if y > 0.3 else (-1, 0, 0))
     delete(tgt)
-    return finish("grave_obelisk", [body], [low], extras=v.objects(), size=2048, extr=0.04, lod2=0.12)
+
+    def weight(c, n):           # 명판·기둥 앞면(새김)에 텍셀을 조금 더
+        if n.y < -0.7 and 0.25 < c.z < 0.8:
+            return 1.0
+        return 0.7 if c.z < 0.25 else 0.8
+    return finish3("grave_obelisk", [body], lows, extras=v.objects(), cage=0.008, hard=55, lod2=0.12, uv_weight=weight)
 
 def offset_poly(pts, d):
     """볼록 다각형(XY, 반시계)을 d 만큼 안쪽(+)/바깥(-)으로 옮긴 다각형"""
@@ -1323,14 +1414,15 @@ def soul_pool(cx, cy, z, rx, ry, rng, n=20):
     return glow_obj(verts, faces)
 
 def grave_tomb():
-    """상자형 석관 무덤: 판넬 장식, 모서리 기둥 위 해골 장식, 십자 돋을새김 뚜껑이 비스듬히 밀려 틈에서 보랏빛이 샌다"""
+    """상자형 석관 무덤: 판넬 장식, 모서리 기둥 위 해골 장식, 십자 돋을새김 뚜껑이 비스듬히 밀려 틈에서 보랏빛이 샌다
+    k7a v3: 몸통·뚜껑은 불리언으로 붙인 깨끗한 형태(쳐낸 모서리·판넬 홈·속 빈 곳·큰 깨짐까지)가 저폴리, 원본은 V 홈 새김 +
+    carve(GRAVE3, 사방이 보여 모든 면에 약한 굴곡) + paint_grave3 (틈 둘레 보랏빛은 그대로), finish3. 모양·크기는 이전 판 그대로"""
     rng = random.Random(606)
     L, D = 1.96, 0.86
-    parts = []
     pl = bm_box(2.26, 1.16, 0.15, TR((0, 0, 0.045)))
     stone_blk(pl, rng, (3, 5), (0.04, 0.09), (2, 4), 0.012, zmin=0.0)
-    parts.append(obj_bm(pl, "plinth"))
-    chip(parts[-1], rng, 10, (0.05, 0.1), bite=0.35, zmin=0.06)
+    plinth = obj_bm(pl, "plinth")
+    chip(plinth, rng, 10, (0.05, 0.1), bite=0.35, zmin=0.06)
     core = obj_bm(bm_box(L, D, 0.62, TR((0, 0, 0.42))), "core")
     pil = []
     for sx in (-1, 1):
@@ -1344,10 +1436,9 @@ def grave_tomb():
     bm_bevel(band, 0.01)
     foot = bm_box(L + 0.08, D + 0.08, 0.05, TR((0, 0, 0.145)))
     bm_bevel(foot, 0.008)
-    body = join([core, obj_bm(band, "band"), obj_bm(foot, "foot")] + pil)
-    remesh(body, 0.008)
+    body = union(core, [obj_bm(band, "band"), obj_bm(foot, "foot")] + pil)
     chip(body, rng, 14, (0.03, 0.07), sharp_deg=40, bite=0.38, zmin=0.3)
-    # 판넬 (앞뒤 두 칸씩, 양 끝 한 칸) + 속 빈 곳
+    # 판넬 (앞뒤 두 칸씩, 양 끝 한 칸) + 속 빈 곳 — 2 cm 홈과 속은 저폴리에도
     yf, yb, xe = -D / 2, D / 2, L / 2
     cs = []
     for x in (-0.44, 0.44):
@@ -1357,6 +1448,8 @@ def grave_tomb():
         cs.append(box(0.1, 0.54, 0.38, (sx * (xe + 0.05 - 0.02), 0, 0.43)))
     cs.append(box(1.62, 0.56, 0.6, (0, 0, 0.58)))
     cut(body, cs)
+    body_low = copy(body)
+    body_e = copy(body)
     # 앞 왼쪽 판넬: 여섯 꽃잎 원, 오른쪽: 비문, 뒤: 고리 + 금
     yp = yf + 0.02
     st = daisy_strokes(-0.44, 0.43, 0.11, yp, 8)
@@ -1365,69 +1458,100 @@ def grave_tomb():
     st += text_strokes(rng, 0.44, 0.45, 0.5, 0.035, yp, jitter=0.002)
     st += text_strokes(rng, 0.44, 0.38, 0.52, 0.035, yp, jitter=0.002)
     st += text_strokes(rng, 0.44, 0.31, 0.3, 0.035, yp, jitter=0.002)
-    engrave(body, st, (0, -1, 0), 0.01, 0.008)
+    engrave_v(body, st, (0, -1, 0), 0.0115, 0.008, floor=0.3)
     cr = crack_strokes(rng, (-0.08, yf, 0.73), (-0.3, 0, -1), 0.32, 6, 0.5, yf)
-    engrave(body, cr, (0, -1, 0), 0.012, 0.05)
-    cut(body, [chunk((0.99, -0.44, 0.7), (0.08, 0.08, 0.06), rng, 8), spall((0.8, yf - 0.02, 0.22), (0, -1, 0), (0.1, 0.06), 0.012, rng),
-               spall((-xe - 0.03, 0.25, 0.55), (-1, 0, 0), (0.08, 0.1), 0.012, rng)])
+    engrave_v(body, cr, (0, -1, 0), 0.013, 0.018, floor=0.2)
+    ccs = [chunk((0.99, -0.44, 0.7), (0.08, 0.08, 0.06), rng, 8), spall((0.8, yf - 0.02, 0.22), (0, -1, 0), (0.1, 0.06), 0.012, rng),
+           spall((-xe - 0.03, 0.25, 0.55), (-1, 0, 0), (0.08, 0.1), 0.012, rng)]
+    cut(body_low, [copy(ccs[0])])
+    cut(body_e, [copy(c) for c in ccs])
+    cut(body, ccs)
     # 뚜껑: 위 모서리를 깎은 판 + 긴 십자 돋을새김. 밀려나 비스듬히 놓였고 한쪽 모서리가 깨졌다
     lb = bm_box(2.14, 1.04, 0.13, TR((0, 0, 0.065)))
     bm_bevel(lb, 0.03)
     bm_flake(lb, rng, 3, axes=((0, 0, 1), (0, -1, 0), (1, 0, 0)))
     lid = obj_bm(lb, "lid")
     crs = [obj_bm(bm_box(1.5, 0.11, 0.05, TR((0.05, 0, 0.14))), "cs"), obj_bm(bm_box(0.11, 0.62, 0.05, TR((-0.38, 0, 0.14))), "ca")]
-    lid = join([lid] + crs)
-    remesh(lid, 0.008)
+    lid = union(lid, crs)
     chip(lid, rng, 12, (0.03, 0.07), sharp_deg=40, bite=0.38)
-    cut(lid, [chunk((-1.07, -0.52, 0.1), (0.13, 0.12, 0.1), rng, 9), chunk((1.05, 0.5, 0.08), (0.07, 0.08, 0.08), rng, 8)])
-    engrave(lid, [(Vector((a.x, a.z, 0.13)), Vector((b.x, b.z, 0.13))) for a, b in crack_strokes(rng, (-1.0, 0, 0.1), (1, 0, 0.6), 0.4, 6, 0.5)],
-            (0, 0, 1), 0.012, 0.03)
+    lcs = [chunk((-1.07, -0.52, 0.1), (0.13, 0.12, 0.1), rng, 9), chunk((1.05, 0.5, 0.08), (0.07, 0.08, 0.08), rng, 8)]
+    lid_low = copy(lid)
+    lid_e = copy(lid)
+    cut(lid_low, [copy(c) for c in lcs])
+    cut(lid_e, [copy(c) for c in lcs])
+    cut(lid, lcs)
+    engrave_v(lid, [(Vector((a.x, a.z, 0.13)), Vector((b.x, b.z, 0.13))) for a, b in crack_strokes(rng, (-1.0, 0, 0.1), (1, 0, 0.6), 0.4, 6, 0.5)],
+              (0, 0, 1), 0.013, 0.018, floor=0.2)
     Ml = Matrix.Translation((0.33, 0.03, 0.735)) @ Matrix.Rotation(R(7), 4, 'Z') @ Matrix.Rotation(R(1.2), 4, 'Y')
-    lid.data.transform(Ml)
-    body = join([body, lid] + parts)
-    sculpt(body, 0.005, STONE_LAYERS(1.3, wear=1.2, cracks=0.6), seed=61)
-    m = stone_mat("tomb", 'stone', moss=0.85, low_moss=0.85, mz=0.45)
+    for o_ in (lid, lid_low, lid_e):
+        o_.data.transform(Ml)
+    union(body_low, [copy(plinth)])
+    lows = [lowpoly(body_low, z=-0.015), lowpoly(lid_low)]
+    delete(body_low); delete(lid_low)
+    esrc = join([body_e, lid_e, copy(plinth)])
+    body = join([body, lid, plinth])
+    co_, fi_ = GRAVE3(1.3, face=None)
+    carve(body, 0.0042, co_, fi_, seed=61, edge_from=esrc, store='hgt')
+    drip_attr(body)
+    m = paint_grave3("tomb", 1.0, k=1.3, weather=dict(rain_h=0.5, mud_h=0.4, moss_h=0.42))
     tint_near(m, (-0.85, 0.0, 0.62), 0.45, (0.16, 0.08, 0.3), 0.6)    # 틈 둘레에 스민 보랏빛
     set_mat(body, m)
+    print("LOW grave_tomb", [tri_count(l) for l in lows])
     # 앞 모서리 기둥 위의 해골 장식
     sk = skull_high(rng, jaw_open=4, seed=6, moss=0.3, dirt=0.0, pal='stone')
     sk_low = low_of(sk, 650, -1)
-    highs, lows = [body], []
+    highs = [body]
     for sx in (-1, 1):
         M = Matrix.Translation((sx * (L / 2 - 0.035), -D / 2 - 0.065, 0.5)) @ Matrix.Rotation(R(sx * 20), 4, 'Z') @ Matrix.Rotation(R(-8), 4, 'X') @ Matrix.Diagonal((0.62, 0.62, 0.62, 1))
         h = copy(sk); h.data.transform(M); highs.append(h)
         l_ = copy(sk_low); l_.data.transform(M); lows.append(l_)
     delete(sk); delete(sk_low)
-    low = low_of(body, 6800)
     # 틈 안쪽에 고인 영혼 빛 + 거미줄 + 덩굴
     extras = [soul_pool(-0.6, 0.0, 0.33, 0.22, 0.27, rng)]
     extras.append(web_card((-0.81, -0.28, 0.58), (0, 1, 0.15), (1, 0, 0.1), 0.2))
     extras.append(web_card((1.03, 0.25, 0.74), (0, 0, -1), (1, 0, 0), 0.18, flip=True))
     v = Vine(rng, leaf=(0.04, 0.065), leaf_p=0.55)
-    tgt = copy(low)
+    tgt = join([copy(l_) for l_ in lows[:2]])
     ivy_grow(v, tgt, (1.08, 0.55, 0.02), seed=31, length=2.2, step=0.03, max_roots=10, gravity=0.3, adhesion=0.85, zmax=1.0)
     ivy_grow(v, tgt, (-0.4, 0.58, 0.02), seed=33, length=0.9, step=0.03, max_roots=5, gravity=0.35, adhesion=0.85, zmax=0.9)
     for x, y in ((1.3, -0.2), (1.32, 0.1), (1.25, 0.35)):
         hang_strand(v, (x, y, 0.73), rng.uniform(0.2, 0.42), rng, face=(1, 0, 0))
     delete(tgt)
     extras += v.objects()
-    return finish("grave_tomb", highs, [low] + lows, extras=extras, size=2048, extr=0.04, lod2=0.12)
+
+    def weight(c, n):           # 앞 판넬(문양·비문)에 텍셀을 조금 더, 바닥 받침은 덜
+        if n.y < -0.7 and 0.2 < c.z < 0.7:
+            return 1.0
+        return 0.7 if c.z < 0.16 else 0.85
+    return finish3("grave_tomb", highs, lows, extras=extras, cage=0.008, hard=55, lod2=0.12, uv_weight=weight)
 
 def grave_sunken():
-    """땅에 깊이 박히고 기운 오래된 묘비 + 봉분 흙더미 (거의 묻혀 반쯤만 보인다)"""
+    """땅에 깊이 박히고 기운 오래된 묘비 + 봉분 흙더미 (거의 묻혀 반쯤만 보인다)
+    k7a v3: 묘비는 저폴리 = 새기기 전 깨끗한 형태, 원본 = V 홈 새김 + carve(GRAVE3) + paint_grave3 (이전 판처럼 어두운 돌, 이끼 많이),
+    봉분·자갈은 이전 판 그대로 두되 이끼 색만 짙은 올리브로 (청록 이끼는 보라 조명 아래 뜬다). finish3"""
     rng = random.Random(707)
     out = round_top(0.56, 0.0, 0.58, 20, lop=0.15)
     slab = obj_bm(bm_poly(out, -0.075, 0.075), "slab")
     chip(slab, rng, 14, (0.04, 0.09), sharp_deg=35, bite=0.42)
-    cut(slab, [chunk((-0.24, -0.02, 0.8), (0.11, 0.14, 0.1), rng, 9), spall((0.1, -0.075, 0.6), (0, -1, 0), (0.12, 0.08), 0.014, rng)])
+    cs = [chunk((-0.24, -0.02, 0.8), (0.11, 0.14, 0.1), rng, 9), spall((0.1, -0.075, 0.6), (0, -1, 0), (0.12, 0.08), 0.014, rng)]
+    slab_low = copy(slab)
+    esrc = copy(slab)
+    cut(slab_low, [copy(cs[0])])
+    cut(esrc, [copy(c) for c in cs])
+    cut(slab, cs)
     yf = -0.075
     st = [(Vector((0, yf, 0.6)), Vector((0, yf, 0.82))), (Vector((-0.07, yf, 0.75)), Vector((0.07, yf, 0.75)))]
     st += text_strokes(rng, 0.0, 0.52, 0.34, 0.04, yf, jitter=0.003)
-    engrave(slab, st, (0, -1, 0), 0.012, 0.006)
-    slab.data.transform(Matrix.Translation((0.02, 0.14, -0.4)) @ Matrix.Rotation(R(4), 4, 'Z') @ Matrix.Rotation(R(10), 4, 'Y') @ Matrix.Rotation(R(-17), 4, 'X'))
-    sculpt(slab, 0.0035, STONE_LAYERS(1.0, wear=1.7, cracks=0.7), seed=71)
+    engrave_v(slab, st, (0, -1, 0), 0.0135, 0.007, floor=0.3)
+    engrave_v(slab, crack_strokes(random.Random(7071), (0.2, yf, 0.72), (-0.4, 0, -1), 0.3, 6, 0.45, yf), (0, -1, 0), 0.0075, 0.005, floor=0.25)
+    Ms = Matrix.Translation((0.02, 0.14, -0.4)) @ Matrix.Rotation(R(4), 4, 'Z') @ Matrix.Rotation(R(10), 4, 'Y') @ Matrix.Rotation(R(-17), 4, 'X')
+    for o_ in (slab, slab_low, esrc):
+        o_.data.transform(Ms)
+    co_, fi_ = GRAVE3(1.0, back=1.2)
+    carve(slab, 0.0025, co_, fi_, seed=71, edge_from=esrc, store='hgt')
     keep_side(slab, (0, 0, -0.08), (0, 0, -1))
-    m = stone_mat("sunken", 'stone_dark', moss=1.0, low_moss=1.0, mz=0.3, edge=0.95)
+    drip_attr(slab)
+    m = paint_grave3("sunken", 0.45, k=1.0, gain_k=0.81, weather=dict(rain_h=0.7, mud_h=0.22, moss_h=0.3), moss=0.9)
     set_mat(slab, m)
     # 봉분: 앞(-Y)으로 길게, 묘비 밑동을 감싸는 흙 + 박힌 돌멩이
     md = [((0, -0.5, -0.2), (0.48, 0.92, 0.38)), ((0, 0.12, -0.14), (0.42, 0.3, 0.27)), ((0.18, -0.2, -0.12), (0.25, 0.4, 0.22))]
@@ -1438,7 +1562,7 @@ def grave_sunken():
                     {'t': 'grain', 'scale': 90, 'amp': 0.0015}], seed=72)
     keep_side(mound, (0, 0, -0.08), (0, 0, -1))
     me = paint("earth_s", 'earth', moss=0.6, moss_color=MOSS_DEAD, dirt=0.0, streaks=0.0, ao=0.12, edge=0.35, cavity=0.95, cracks=0.0, hue_var=0.3)
-    moss_low(me, 0.0, 0.12, 0.7, MOSS)
+    moss_low(me, 0.0, 0.12, 0.7, (0.016, 0.03, 0.01))      # k7a: 청록(MOSS) → 짙은 올리브 (최종 명도 0.2 안)
     set_mat(mound, me)
     bvh_src = copy(mound)
     pebbles = []
@@ -1453,8 +1577,12 @@ def grave_sunken():
     pb = join(pebbles)
     remesh(pb, 0.003)
     surface(pb, STONE_LAYERS(0.3), seed=73)
-    set_mat(pb, paint("pebble_s", 'stone', moss=0.5, dirt=0.4, ao=0.05))
-    lows = [low_of(slab, 2000, -0.06), low_of(mound, 1300, -0.06), low_of(pb, 500, -0.06)]
+    set_mat(pb, paint("pebble_s", 'stone', moss=0.5, moss_color=(0.03, 0.05, 0.02), dirt=0.4, ao=0.05))   # k7a: 이끼 짙은 올리브
+    sl = lowpoly(slab_low)
+    keep_side(sl, (0, 0, -0.08), (0, 0, -1))
+    delete(slab_low)
+    lows = [sl, low_of(mound, 1300, -0.06), low_of(pb, 500, -0.06)]
+    print("LOW grave_sunken", [tri_count(l) for l in lows])
     gr = Grass(rng)
     for i in range(16):
         a = rng.uniform(0, 6.28); r_ = rng.uniform(0.55, 1.05)
@@ -1463,7 +1591,7 @@ def grave_sunken():
         z = loc.z if hit else 0.0
         gr.tuft((x, y, z - 0.01), rng.randint(5, 9), (0.1, 0.28), 0.05, 0.65)
     delete(bvh_src)
-    return finish("grave_sunken", [slab, mound, pb], lows, extras=gr.objects(), size=1024, extr=0.03)
+    return finish3("grave_sunken", [slab, mound, pb], lows, extras=gr.objects(), cage=0.006, hard=55)
 
 def coffin():
     """육각 나무 관: 판자 이음 홈, 쇠 띠와 징, 고리 손잡이. 뚜껑이 발치 쪽으로 밀려 비스듬히 걸쳐 있고 안에 해골이 보인다"""

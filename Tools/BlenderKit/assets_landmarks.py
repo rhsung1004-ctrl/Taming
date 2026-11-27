@@ -1531,6 +1531,13 @@ def _bake_lm(low, highs, kind, extr, margin=24):
     else:
         bpy.ops.object.bake(type=kind, use_selected_to_active=True, cage_extrusion=extr, max_ray_distance=0.0, margin=margin, use_clear=True)
 
+def smooth_uv_parts(low_parts, uv_angle=66, iters=24, margin=0.002):
+    """(k7b) finish3(uv='keep') 용: 저폴리 조각을 하나로 합치고 unwrap_smoothed 로 편다. 큰 랜드마크의 거친 저폴리를 smart_project 로
+    곧바로 펴면 섬이 수천 개가 되어 uv_fill 이 0.3 대로 떨어진다 (bridge_ruin k7b 1회차: 섬 3334, 0.312)"""
+    low = join([p for p in low_parts if p is not None])
+    unwrap_smoothed(low, uv_angle, iters, margin=margin)
+    return [low]
+
 def finish_lm(name, highs, low_parts, extras=(), size=1024, extr=0.03, lod1=0.35, lod2=None, uv_angle=66, far_extras=None, smooth_uv=24):
     """kit.finish 와 같다. 다른 점: 마지막 LOD 에는 far_extras(없으면 extras 전부)만 붙인다 —
     덩굴 잎 카드가 멀리서도 그대로 남아 LOD2 삼각형 대부분을 차지하던 것을 막는다 (발광 부품은 far_extras 로 넘겨 남긴다).
@@ -2145,8 +2152,8 @@ def crypt():
                    hangs=[((-2.4, YF - 0.12, ZE + 0.7), 1.6, (0, -1, 0)), ((-1.5, YF - 0.12, ZE + 1.55), 1.1, (0, -1, 0)),
                           ((-XW - 0.1, -2.0, ZE - 0.3), 1.4, (-1, 0, 0)), ((-XW - 0.1, 1.6, ZE - 0.3), 0.9, (-1, 0, 0))])
     webs = [web_dim((-WI / 2 - 0.02, YF + 0.36, HS + 0.15), (1, 0, 0), (0, 0, -1), 0.42)]
-    return finish3("crypt", [body, ih], [low, io], extras=[eyes] + vines + webs, far_extras=[eyes], size=2048, cage=0.012, cage_reach=0.12,
-                   lod1=0.35, lod2=0.12, uv_margin=0.001)
+    return finish3("crypt", [body, ih], smooth_uv_parts([low, io]), extras=[eyes] + vines + webs, far_extras=[eyes], size=2048, cage=0.012,
+                   cage_reach=0.12, lod1=0.35, lod2=0.12, uv_margin=0.001, uv='keep')
 
 
 # ═════════════════════════ 큰 구조물 부품 ═════════════════════════
@@ -2671,8 +2678,8 @@ def cathedral_ruin():
                          ((-XI + 0.3, 10.0, 0.1), 12, 4.0, 4)], 41, leaf=(0.1, 0.16), leaf_p=0.24,
                    hangs=[((-2.0, YF - 0.3, 18.0), 3.5, (0, -1, 0)), ((3.0, YF - 0.3, 16.5), 2.4, (0, -1, 0)),
                           ((XO + 0.2, -5.0, 14.0), 3.0, (1, 0, 0)), ((XO + 0.2, 6.0, 14.0), 2.2, (1, 0, 0))], step=0.06)
-    return finish3("cathedral_ruin", [body], [low], extras=glows + vines, far_extras=glows, size=2048, cage=0.02, cage_reach=0.35,
-                   lod1=0.35, lod2=0.12, uv_margin=0.001)
+    return finish3("cathedral_ruin", [body], smooth_uv_parts([low]), extras=glows + vines, far_extras=glows, size=2048, cage=0.02,
+                   cage_reach=0.35, lod1=0.35, lod2=0.12, uv_margin=0.001, uv='keep')
 
 
 # ═════════════════════════ 석상 부품 ═════════════════════════
@@ -3348,8 +3355,8 @@ def bridge_ruin():
     vines = ivy_on(low, [((-XL + 0.3, -YW - 0.2, 0.05), 3, 4.0, 5), ((XL - 0.5, YW + 0.2, 0.05), 5, 3.0, 4)], 67, leaf=(0.06, 0.1), leaf_p=0.4,
                    hangs=[((x, -YW - 0.05, deck(x) + 0.3), ln, (0, -1, 0)) for x, ln in ((-3.2, 1.6), (-2.4, 2.4), (3.4, 1.3))] +
                          [((x, YW + 0.05, deck(x) + 0.9), ln, (0, 1, 0)) for x, ln in ((-1.0, 2.2), (0.6, 1.5), (2.0, 2.6))])
-    return finish3("bridge_ruin", [body], [low], extras=vines, far_extras=[], size=2048, cage=0.012, cage_reach=0.1, lod1=0.35, lod2=0.12,
-                   uv_margin=0.001)
+    return finish3("bridge_ruin", [body], smooth_uv_parts([low]), extras=vines, far_extras=[], size=2048, cage=0.012, cage_reach=0.1,
+                   lod1=0.35, lod2=0.12, uv_margin=0.001, uv='keep')
 
 
 # ═════════════════════════ 둥근 돌 망루 ═════════════════════════
@@ -3780,8 +3787,8 @@ def gate_great():
     vines = ivy_on(low, [((-TX1 - 0.4, -1.5, 0.05), 3, 9.0, 8), ((-TX1 - 0.4, 1.0, 0.05), 5, 5.0, 5), ((TX0 + 0.3, -TY - 0.4, 0.05), 7, 3.0, 4)], 81,
                    leaf=(0.08, 0.13), leaf_p=0.3, hangs=[((-2.4, -GY - 0.7, ZG + 1.1), 2.6, (0, -1, 0)), ((1.9, -GY - 0.7, ZG + 1.1), 1.8, (0, -1, 0)),
                                                            ((-6.6, -TY - 0.45, ZT + 0.1), 2.2, (0, -1, 0))], step=0.05)
-    return finish3("gate_great", [body, ih, rh], [low, io, rl], extras=glows + vines, far_extras=glows, size=2048, cage=0.015, cage_reach=0.22,
-                   lod1=0.35, lod2=0.12, uv_margin=0.001)
+    return finish3("gate_great", [body, ih, rh], smooth_uv_parts([low, io, rl]), extras=glows + vines, far_extras=glows, size=2048, cage=0.015,
+                   cage_reach=0.22, lod1=0.35, lod2=0.12, uv_margin=0.001, uv='keep')
 
 
 # ═════════════════════════ 목록 ═════════════════════════
