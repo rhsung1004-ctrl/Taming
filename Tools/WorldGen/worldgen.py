@@ -93,8 +93,8 @@ DETAILS = [  # 풀 종류, 칸(1 m²)당 최대 포기 수, 크기
 # 눈높이 0~30 m 가 '풀만 깔린 둔덕'으로 보이는 것을 푼다. 풀처럼 지형 detail 인스턴싱이라 그리는 물체 예산을 쓰지 않는다.
 # 크기는 BlenderKit 권장보다 크게 잡았다 (돌 8 cm·잔가지 3 cm 그대로는 눈높이 8 m 넘으면 안 읽혔다)
 CLUTTER = [  # 이름, 칸(1 m²)당 최대 개수, 크기, 최대 기울기(도)
-    ("pebbles_a", 0.6, 1.0, 1.9, 35), ("twigs_a", 0.55, 0.9, 1.5, 25), ("bones_bits", 0.45, 1.0, 1.6, 25),
-    ("leaf_litter", 0.6, 0.9, 1.6, 14), ("shrub_dry", 0.32, 0.95, 1.75, 30), ("mushrooms_glow", 0.4, 0.9, 1.6, 20)]
+    ("pebbles_a", 0.9, 1.0, 1.9, 35), ("twigs_a", 0.8, 0.9, 1.5, 25), ("bones_bits", 0.6, 1.0, 1.6, 25),
+    ("leaf_litter", 0.9, 0.9, 1.6, 14), ("shrub_dry", 0.5, 0.95, 1.75, 30), ("mushrooms_glow", 0.5, 0.9, 1.6, 20)]
 CLUTTER_ROCK = ("rock_", "cliff_", "rubble", "standing_stone", "boulder")
 CLUTTER_RUIN = ("wall_ruin", "stone_wall_low", "pillar", "arch_ruin", "stair_ruin", "crypt", "cathedral", "watchtower",
                 "gate_great", "well", "mausoleum", "shrine", "obelisk", "statue", "altar")
@@ -5336,7 +5336,7 @@ def clutter_density(W, P, d, dry, clear):
     out["twigs_a"] = np.maximum.reduce([tree_n * 0.95, W.forest * 0.65, fedge * 0.55]) * (0.4 + 0.6 * clump) * (0.5 + 0.5 * macro)
     out["bones_bits"] = np.maximum.reduce([grave_n * 0.9, gy * 0.55]) * (0.45 + 0.55 * clump2) * (0.6 + 0.4 * macro)
     out["leaf_litter"] = np.maximum.reduce([W.forest * 0.85, tree_n * 0.75, lw["leaves"] * 0.6, hollow * 0.45 * field]) * (0.35 + 0.65 * clump) * (0.5 + 0.5 * macro)
-    out["shrub_dry"] = np.maximum.reduce([field * (0.18 + 0.45 * crest + 0.25 * W.dry), fedge * 0.6, rock_n * 0.45, ruin_n * 0.4]) \
+    out["shrub_dry"] = np.maximum.reduce([field * (0.26 + 0.45 * crest + 0.25 * W.dry), fedge * 0.6, rock_n * 0.5, ruin_n * 0.45]) \
         * (0.15 + 0.85 * clump) * (0.3 + 0.7 * macro) * (1 - gy * 0.75)
     out["mushrooms_glow"] = np.maximum.reduce([W.forest * 0.7 * clump2, tree_n * W.forest * 0.6, damp * 0.6, hollow * 0.35 * (W.forest + 0.3)]) \
         * ss(clump, 0.25, 0.7)
